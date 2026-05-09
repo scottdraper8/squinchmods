@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "com.squinchmods.treeify.common.mixin",
+  "refmap": "${modId}.refmap.json",
+  "compatibilityLevel": "JAVA_${javaVersion}",
+  "minVersion": "0.8",
+  "plugin": "com.squinchmods.treeify.common.mixin.plugin.TreeifyMixinPlugin",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "ResourcePackManagerAccessor",
+    "yacl.ControllerWidgetMixin"
+  ],
+  "client": [
+    "AbstractWidgetInvoker",
+    "WorldOpenFlowsMixin",
+    "yacl.CategoryTabAccessor",
+    "yacl.GroupSeparatorEntryAccessor",
+    "yacl.LabelControllerElementMixin",
+    "yacl.OptionImplMixin",
+    "yacl.OptionListWidgetMixin",
+    "yacl.YACLScreenMixin"
+	]
+}

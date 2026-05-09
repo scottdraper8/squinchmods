@@ -1,0 +1,35 @@
+package com.squinchmods.treeify.common.mixin.yacl;
+
+import com.squinchmods.treeify.common.util.YACLUtil;
+import dev.isxander.yacl3.gui.OptionListWidget;
+import dev.isxander.yacl3.gui.YACLScreen;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(value = OptionListWidget.class, remap = false)
+public class OptionListWidgetMixin
+{
+	@Shadow
+	@Final
+	private YACLScreen yaclScreen;
+
+	/**
+	 * This sets scroll position back to 0 so search result is actually visible on screen rather than being off screen
+	 */
+	@Inject(
+		method = "updateSearchQuery",
+		at = @At("TAIL")
+	)
+	public void treeify$updateSearchQuery(CallbackInfo ci) {
+		var currentTab = yaclScreen.tabNavigationBar.getTabManager().getCurrentTab();
+
+		if (currentTab instanceof YACLScreen.CategoryTab yaclScreenCategoryTab) {
+			var optionListWidget = YACLUtil.getOptionListWidget(yaclScreenCategoryTab);
+			optionListWidget.setScrollAmount(0);
+		}
+	}
+}

@@ -1,0 +1,180 @@
+name: "Build"
+
+on:
+    push:
+        branches:
+            - "**"
+    pull_request:
+        branches:
+            - "**"
+            - "!master"
+
+jobs:
+    generate-build-matrix:
+        runs-on: ubuntu-latest
+        name: Generate build matrix
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
+        steps:
+            -   name: "Checkout repository"
+                uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+            -   name: "Generate matrix for the run job"
+                id: set-matrix
+                run: ./.github/scripts/generate-run-matrix.sh
+
+    build:
+        runs-on: ubuntu-latest
+        needs: generate-build-matrix
+        continue-on-error: true
+        timeout-minutes: 30
+        name: Build ${{ matrix.mod_loader }} ${{ matrix.version }}
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+
+        steps:
+            -   name: "Checkout repository"
+                uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+            -   name: "Set up JDK"
+                uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # 5.2.0
+                with:
+                    java-version: 25
+                    distribution: temurin
+
+            -   name: "Setup gradle"
+                uses: gradle/actions/setup-gradle@v6
+                with:
+                    cache-read-only: false
+                    gradle-version: wrapper
+                    add-job-summary: 'on-failure'
+
+            -   name: "Parse gradle properties"
+                id: gradle-properties
+                run: ./.github/scripts/parse-gradle-properties.sh ${{ matrix.version }}
+
+            -   name: "Run build"
+                run: ./gradlew :${{ matrix.mod_loader }}:${{ matrix.version }}:build
+
+            -   name: "Upload artifacts"
+                uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # 7.0.0
+                with:
+                    name: ${{ steps.gradle-properties.outputs.MOD_ID }}-${{ matrix.mod_loader }}-${{ steps.gradle-properties.outputs.MOD_VERSION }}+mc${{ matrix.version }}
+                    if-no-files-found: error
+                    path: ./${{ matrix.mod_loader }}/versions/${{ matrix.version }}/build/libs/*.jar
+
+    run-client:
+        runs-on: ubuntu-latest
+        needs: [ build, generate-build-matrix ]
+        if: ${{ success() && !cancelled() }}
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+
+        name: Run ${{ matrix.mod_loader }} ${{ matrix.version }} client
+        timeout-minutes: 10
+
+        steps:
+            -   name: "Checkout repository"
+                uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+            -   name: "Set up JDK"
+                uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # 5.2.0
+                with:
+                    java-version: 25
+                    distribution: temurin
+
+            -   name: "Parse gradle properties"
+                id: gradle-properties
+                run: ./.github/scripts/parse-gradle-properties.sh ${{ matrix.version }}
+
+            -   name: "Download artifacts"
+                uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 8.0.1
+                with:
+                    name: ${{ steps.gradle-properties.outputs.MOD_ID }}-${{ matrix.mod_loader }}-${{ steps.gradle-properties.outputs.MOD_VERSION }}+mc${{ matrix.version }}
+                    path: ./${{ matrix.mod_loader }}/versions/${{ matrix.version }}/build/libs
+
+            -   name: "Copy mod jar to run/mods"
+                run: mkdir -p run/mods && cp ./${{ matrix.mod_loader }}/versions/${{ matrix.version }}/build/libs/*.jar run/mods
+
+            -   name: "Download YACL"
+                run: |
+                    MOD_URL=$(./.github/scripts/get-modrinth-dependency-url.sh "yacl" "${{ steps.gradle-properties.outputs.DEPS_YACL }}-${{ matrix.mod_loader }}" "${{ matrix.mod_loader }}")
+                    wget -P run/mods "$MOD_URL"
+
+            -   name: "Download ModMenu"
+                if: ${{ matrix.mod_loader == 'fabric' }}
+                run: |
+                    MOD_URL=$(./.github/scripts/get-modrinth-dependency-url.sh "modmenu" "${{ steps.gradle-properties.outputs.DEPS_MOD_MENU }}" "${{ matrix.mod_loader }}")
+                    wget -P run/mods "$MOD_URL"
+
+            -   name: Run ${{ matrix.version }} ${{ matrix.mod_loader }} client
+                uses: 3arthqu4ke/mc-runtime-test@a099315cbed61f71bfd6c899a76ae5ab10f52adb # 4.3.1
+                with:
+                    mc: ${{ matrix.version }}
+                    modloader: ${{ matrix.mod_loader }}
+                    regex: .*${{ matrix.mod_loader }}.*
+                    mc-runtime-test: ${{ matrix.mod_loader_alias }}
+                    java: ${{ steps.gradle-properties.outputs.JAVA_VERSION }}
+                    fabric-api: ${{ steps.gradle-properties.outputs.DEPS_FABRIC_API }}
+                    xvfb: false
+                    headlessmc-command: -lwjgl --retries 3 --jvm -Djava.awt.headless=true
+                    cache-mc: true
+
+    run-server:
+        runs-on: ubuntu-latest
+        needs: [ build, generate-build-matrix ]
+        if: ${{ success() && !cancelled() }}
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+
+        name: Run ${{ matrix.mod_loader }} ${{ matrix.version }} server
+        timeout-minutes: 10
+
+        steps:
+            -   name: "Checkout repository"
+                uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+                with:
+                    fetch-depth: 1
+
+            -   name: "Set up JDK"
+                uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # 5.2.0
+                with:
+                    java-version: 25
+                    distribution: temurin
+
+            -   name: "Parse gradle properties"
+                id: gradle-properties
+                run: ./.github/scripts/parse-gradle-properties.sh ${{ matrix.version }}
+
+            -   name: "Download artifacts"
+                uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 8.0.1
+                with:
+                    name: ${{ steps.gradle-properties.outputs.MOD_ID }}-${{ matrix.mod_loader }}-${{ steps.gradle-properties.outputs.MOD_VERSION }}+mc${{ matrix.version }}
+                    path: ./${{ matrix.mod_loader }}/versions/${{ matrix.version }}/build/libs
+
+            -   name: "Copy mod jar to run/mods"
+                run: mkdir -p run/mods && cp ./${{ matrix.mod_loader }}/versions/${{ matrix.version }}/build/libs/*.jar run/mods
+
+            -   name: "Download YACL"
+                run: |
+                    MOD_URL=$(./.github/scripts/get-modrinth-dependency-url.sh "yacl" "${{ steps.gradle-properties.outputs.DEPS_YACL }}-${{ matrix.mod_loader }}" "${{ matrix.mod_loader }}")
+                    wget -P run/mods "$MOD_URL"
+
+            -   name: "Download ModMenu"
+                if: ${{ matrix.mod_loader == 'fabric' }}
+                run: |
+                    MOD_URL=$(./.github/scripts/get-modrinth-dependency-url.sh "modmenu" "${{ steps.gradle-properties.outputs.DEPS_MOD_MENU }}" "${{ matrix.mod_loader }}")
+                    wget -P run/mods "$MOD_URL"
+
+            -   name: Run ${{ matrix.version }} ${{ matrix.mod_loader }} server
+                uses: headlesshq/mc-server-test@42de00da95e997b046a43eb9beb516494e542ba9 # 1.1.1
+                with:
+                    mc: ${{ matrix.version }}
+                    modloader: ${{ matrix.mod_loader }}
+                    java: ${{ steps.gradle-properties.outputs.JAVA_VERSION }}
+                    fabric-api: ${{ steps.gradle-properties.outputs.DEPS_FABRIC_API }}
+                    headlessmc-command: -lwjgl --retries 3 --jvm -Djava.awt.headless=true
+                    cache-mc: true

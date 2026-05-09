@@ -1,0 +1,87 @@
+plugins {
+	`multiloader-loader`
+	id("net.neoforged.moddev")
+	id("dev.kikugie.fletching-table.neoforge") version "0.1.0-alpha.22"
+}
+
+neoForge {
+	enable {
+		version = commonMod.dep("neoforge")
+	}
+}
+
+dependencies {
+	// Required dependencies
+	implementation("dev.isxander:yet-another-config-lib:${commonMod.dep("yacl")}-neoforge")
+
+	// Global Packs
+	commonMod.depOrNull("global_packs")?.let { globalPacksVersion ->
+		implementation(commonMod.modrinth("globalpacks", globalPacksVersion)) { isTransitive = false }
+	}
+
+	// Open Loader
+	commonMod.depOrNull("open_loader")?.let { openLoaderVersion ->
+		if (commonMod.mc == "1.21.1") {
+			implementation("net.darkhax.openloader:openloader-neoforge-${commonMod.mc}:${openLoaderVersion}")
+		} else {
+			implementation("net.darkhax.openloader:OpenLoader-NeoForge-${commonMod.mc}:${openLoaderVersion}")
+		}
+	}
+
+	// Litostitched
+	commonMod.depOrNull("lithostitched_minecraft")?.let { lithostitchedMcVersion ->
+		commonMod.depOrNull("lithostitched")?.let { lithostitchedVersion ->
+			implementation(commonMod.modrinth("lithostitched", "${lithostitchedVersion}-neoforge-${lithostitchedMcVersion}"))
+		}
+	}
+
+	// Yungs api
+	commonMod.depOrNull("yungs_api_minecraft")?.let { yungsApiMcVersion ->
+		commonMod.depOrNull("yungs_api")?.let { yungsApiVersion ->
+			implementation("com.yungnickyoung.minecraft.yungsapi:YungsApi:$yungsApiMcVersion-NeoForge-$yungsApiVersion") {
+				isTransitive = false
+			}
+		}
+	}
+
+	// Repurposed Structures
+	commonMod.depOrNull("repurposed_structures")?.let { repurposedStructuresVersion ->
+		implementation("com.telepathicgrunt:RepurposedStructures:${repurposedStructuresVersion}-neoforge")
+	}
+}
+
+neoForge {
+	runs {
+		register("client") {
+			client()
+			ideFolderName = "NeoForge"
+			ideName = "NeoForge Client (${path})"
+		}
+		register("server") {
+			server()
+			ideFolderName = "NeoForge"
+			ideName = "NeoForge Server (${path})"
+		}
+	}
+
+	parchment {
+		commonMod.depOrNull("parchment")?.let {
+			mappingsVersion = it
+			minecraftVersion = commonMod.mc
+		}
+	}
+
+	mods {
+		register(commonMod.id) {
+			sourceSet(sourceSets.main.get())
+		}
+	}
+}
+
+sourceSets.main {
+	resources.srcDir("src/generated/resources")
+}
+
+if (stonecutter.current.isActive) tasks.register("buildActive") {
+	dependsOn("build")
+}
