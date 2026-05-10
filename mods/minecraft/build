@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Build a Minecraft mod in this monorepo.
+#
+# Usage:
+#   build <mod>
+#
+# Examples:
+#   build vegetate
+#
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+    cat <<EOF
+Usage: build <mod>
+
+Arguments:
+  mod    Mod folder under ${script_dir}
+
+Examples:
+  build vegetate
+EOF
+}
+
+if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 1
+fi
+
+mod_name="$1"
+mod_dir="${script_dir}/${mod_name}"
+
+if [[ ! -d "${mod_dir}" ]]; then
+    echo "error: mod '${mod_name}' not found at ${mod_dir}" >&2
+    exit 1
+fi
+
+if [[ ! -x "${mod_dir}/gradlew" ]]; then
+    echo "error: ${mod_dir}/gradlew is missing or not executable" >&2
+    exit 1
+fi
+
+exec "${mod_dir}/gradlew" -p "${mod_dir}" build

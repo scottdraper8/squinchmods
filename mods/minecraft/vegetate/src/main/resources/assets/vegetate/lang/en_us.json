@@ -1,0 +1,17 @@
+{
+	"vegetate": "Vegetate",
+	"vegetate.gui.title": "Vegetate Configuration",
+	"vegetate.gui.category.mushrooms": "Mushrooms",
+	"vegetate.gui.group.global": "Global Settings",
+	"vegetate.gui.option.mushroom_worldgen_global": "Mushroom worldgen (global)",
+	"vegetate.gui.option.mushroom_worldgen_global.description": "When Disabled, no mushroom features generate, no matter how the rows above are set. When Enabled (green), each feature follows its own toggle.",
+	"vegetate.gui.group.huge_mushrooms": "Huge Mushrooms",
+	"vegetate.gui.group.mushroom_patches": "Mushroom Patches",
+	"vegetate.gui.label.enabled": "Enabled",
+	"vegetate.gui.label.disabled": "Disabled",
+	"gui.vegetate.config.catalog.title": "Vegetate",
+	"gui.vegetate.config.catalog.description": "Mushroom vegetation configuration.",
+	"gui.vegetate.config.catalog.empty.title": "No Features Found",
+	"gui.vegetate.config.catalog.empty.description": "No mushroom features were discovered.",
+	"gui.vegetate.config.catalog.empty.message": "Launch a world first so Vegetate can discover mushroom features."
+}
