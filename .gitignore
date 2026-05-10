@@ -1,1 +1,8 @@
 /.direnv/
+
+# OS files
+.directory
+.DS_Store
+Desktop.ini
+ehthumbs.db
+Thumbs.db
