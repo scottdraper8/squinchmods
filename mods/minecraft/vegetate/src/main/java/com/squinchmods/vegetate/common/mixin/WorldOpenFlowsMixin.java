@@ -10,24 +10,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(WorldOpenFlows.class)
-public abstract class WorldOpenFlowsMixin
-{
-	@Inject(
-		method = "confirmWorldCreation",
-		at = @At("HEAD"),
-		cancellable = true
-	)
-	private static void alwaysTreatAsStable(
-		Minecraft client,
-		CreateWorldScreen parent,
-		Lifecycle lifecycle,
-		Runnable loader,
-		boolean bypassWarnings,
-		CallbackInfo ci
-	) {
-		if (lifecycle != Lifecycle.stable()) {
-			loader.run();
-			ci.cancel();
-		}
-	}
+public abstract class WorldOpenFlowsMixin {
+  @SuppressWarnings({"UnusedMethod", "UnusedVariable"})
+  @Inject(method = "confirmWorldCreation", at = @At("HEAD"), cancellable = true)
+  private static void alwaysTreatAsStable(
+      Minecraft client,
+      CreateWorldScreen parent,
+      Lifecycle lifecycle,
+      Runnable loader,
+      boolean bypassWarnings,
+      CallbackInfo ci) {
+    if (lifecycle != Lifecycle.stable()) {
+      loader.run();
+      ci.cancel();
+    }
+  }
 }

@@ -6,14 +6,13 @@ import java.util.Optional;
 import net.minecraft.network.chat.Component;
 
 public record ConfigUiCatalogSnapshot(
-	Component title,
-	List<ConfigUiCategoryView> categories,
-	Optional<Component> supportSummary
-)
-{
-	public ConfigUiCatalogSnapshot {
-		Objects.requireNonNull(title, "title cannot be null");
-		categories = List.copyOf(categories);
-		supportSummary = Objects.requireNonNull(supportSummary, "supportSummary cannot be null");
-	}
+    Component title, List<ConfigUiCategoryView> categories, Optional<Component> supportSummary) {
+  public ConfigUiCatalogSnapshot(
+      Component title, List<ConfigUiCategoryView> categories, Optional<Component> supportSummary) {
+    Objects.requireNonNull(title, "title cannot be null");
+    Objects.requireNonNull(supportSummary, "supportSummary cannot be null");
+    this.title = title;
+    this.categories = List.copyOf(categories);
+    this.supportSummary = supportSummary;
+  }
 }

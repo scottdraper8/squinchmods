@@ -1,51 +1,48 @@
 package com.squinchmods.vegetate.common.mixin.plugin;
 
+import java.util.List;
+import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-import java.util.List;
-import java.util.Set;
+public class VegetateMixinPlugin implements IMixinConfigPlugin {
+  @Override
+  public void onLoad(String mixinPackage) {}
 
-public class VegetateMixinPlugin implements IMixinConfigPlugin
-{
-	@Override
-	public void onLoad(String mixinPackage) {
-	}
+  @Override
+  public @Nullable String getRefMapperConfig() {
+    return null;
+  }
 
-	@Override
-	public String getRefMapperConfig() {
-		return null;
-	}
+  @Override
+  public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+    if (mixinClassName.equals("com.squinchmods.vegetate.common.mixin.WorldOpenFlowsMixin")) {
+      return this.isClassAvailable("me.earth.mc_runtime_test.McRuntimeTest");
+    }
 
-	@Override
-	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		if (mixinClassName.equals("com.squinchmods.vegetate.common.mixin.WorldOpenFlowsMixin")) {
-			return this.isClassAvailable("me.earth.mc_runtime_test.McRuntimeTest");
-		}
+    return true;
+  }
 
-		return true;
-	}
+  @Override
+  public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}
 
-	@Override
-	public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {
-	}
+  @Override
+  public @Nullable List<String> getMixins() {
+    return null;
+  }
 
-	@Override
-	public List<String> getMixins() {
-		return null;
-	}
+  @Override
+  public void preApply(
+      String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
 
-	@Override
-	public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-	}
+  @Override
+  public void postApply(
+      String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
 
-	@Override
-	public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-	}
-
-	private boolean isClassAvailable(String className) {
-		String classPath = className.replace('.', '/') + ".class";
-		return getClass().getClassLoader().getResource(classPath) != null;
-	}
+  private boolean isClassAvailable(String className) {
+    String classPath = className.replace('.', '/') + ".class";
+    return getClass().getClassLoader().getResource(classPath) != null;
+  }
 }

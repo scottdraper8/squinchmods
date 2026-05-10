@@ -1,10 +1,9 @@
 package com.squinchmods.vegetate.common.vegetate.ui.service;
 
-public interface ConfigUiSaveService
-{
-	ConfigUiApplyResult savePendingChanges();
+public interface ConfigUiSaveService {
+  ConfigUiApplyResult savePendingChanges();
 
-	ConfigUiApplyResult discardPendingChanges();
+  ConfigUiApplyResult discardPendingChanges();
 
-	ConfigUiApplyResult reloadFromSource();
+  ConfigUiApplyResult reloadFromSource();
 }

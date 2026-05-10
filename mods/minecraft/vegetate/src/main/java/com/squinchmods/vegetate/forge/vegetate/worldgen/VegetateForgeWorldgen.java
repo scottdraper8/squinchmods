@@ -10,16 +10,15 @@ import net.minecraftforge.registries.RegistryObject;
 
 public final class VegetateForgeWorldgen {
 
-    private static final DeferredRegister<Codec<? extends BiomeModifier>> BIOME_MODIFIER_SERIALIZERS =
-            DeferredRegister.create(ForgeRegistries.Keys.BIOME_MODIFIER_SERIALIZERS, Vegetate.MOD_ID);
+  private static final DeferredRegister<Codec<? extends BiomeModifier>> BIOME_MODIFIER_SERIALIZERS =
+      DeferredRegister.create(ForgeRegistries.Keys.BIOME_MODIFIER_SERIALIZERS, Vegetate.MOD_ID);
 
-    public static final RegistryObject<Codec<VegetateBiomeModifier>> VEGETATE_BIOME_MODIFIER =
-            BIOME_MODIFIER_SERIALIZERS.register("runtime", () -> Codec.unit(VegetateBiomeModifier::new));
+  public static final RegistryObject<Codec<VegetateBiomeModifier>> VEGETATE_BIOME_MODIFIER =
+      BIOME_MODIFIER_SERIALIZERS.register("runtime", () -> Codec.unit(VegetateBiomeModifier::new));
 
-    public static void register(IEventBus modEventBus) {
-        BIOME_MODIFIER_SERIALIZERS.register(modEventBus);
-    }
+  public static void register(IEventBus modEventBus) {
+    BIOME_MODIFIER_SERIALIZERS.register(modEventBus);
+  }
 
-    private VegetateForgeWorldgen() {
-    }
+  private VegetateForgeWorldgen() {}
 }

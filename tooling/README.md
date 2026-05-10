@@ -1,12 +1,15 @@
 # Monorepo Tooling
 
-This repo keeps developer environment selection at the monorepo root so nested projects do not each need their own shell setup.
+This repo keeps developer environment selection at the monorepo root so nested
+projects do not each need their own shell setup.
 
 ## Java
 
-The checked-in [.sdkmanrc](/var/home/scott/Repos/squinchmods/.sdkmanrc) pins the default repo JVM to `21.0.11-tem`.
+The checked-in [`.sdkmanrc`](../.sdkmanrc) pins the default repo JVM to
+`21.0.11-tem`.
 
-With SDKMAN auto-env enabled, entering the repo will switch to that JDK automatically.
+With SDKMAN auto-env enabled, entering the repo will switch to that JDK
+automatically.
 
 ```sh
 sdk config
@@ -21,7 +24,7 @@ source tooling/activate.sh
 
 ## Shared Caches
 
-[tooling/activate.sh](/var/home/scott/Repos/squinchmods/tooling/activate.sh) exports:
+[`activate.sh`](activate.sh) exports:
 
 ```sh
 SQINCHMODS_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}/squinchmods"
@@ -43,23 +46,30 @@ That gives all nested projects in this monorepo one shared cache root for:
 - pip wheel/download cache
 - uv package cache
 
-This avoids repeated downloads across multiple mods in the repo while keeping the cache outside the working tree.
+This avoids repeated downloads across multiple mods in the repo while keeping
+the cache outside the working tree.
 
 ### Why Gradle Is Enough For Minecraft
 
-Minecraft jars, mappings, Loom artifacts, wrapper downloads, and Gradle-managed toolchains all live under `GRADLE_USER_HOME`.
+Minecraft jars, mappings, Loom artifacts, wrapper downloads, and Gradle-managed
+toolchains all live under `GRADLE_USER_HOME`.
 
-That means separate Minecraft mods inside this monorepo can reuse the same downloaded inputs as long as they inherit the same repo environment.
+That means separate Minecraft mods inside this monorepo can reuse the same
+downloaded inputs as long as they inherit the same repo environment.
 
 ### Deliberate Non-Goals
 
-This setup does not override full toolchain homes such as `CARGO_HOME`, `RUSTUP_HOME`, or `PNPM_HOME`.
+This setup does not override full toolchain homes such as `CARGO_HOME`,
+`RUSTUP_HOME`, or `PNPM_HOME`.
 
-Those locations often contain installed binaries and user-level state, not just caches. If you want to centralize those too, do it intentionally per ecosystem rather than by surprise from a generic repo activation script.
+Those locations often contain installed binaries and user-level state, not just
+caches. If you want to centralize those too, do it intentionally per ecosystem
+rather than by surprise from a generic repo activation script.
 
 ## Optional direnv
 
-If `direnv` is installed later, the checked-in [.envrc](/var/home/scott/Repos/squinchmods/.envrc) will load the same environment automatically after:
+If `direnv` is installed later, the checked-in [`.envrc`](../.envrc) will load
+the same environment automatically after:
 
 ```sh
 direnv allow
@@ -73,4 +83,5 @@ Without `direnv`, use:
 source tooling/activate.sh
 ```
 
-You can add that to a repo-specific shell alias or wrapper if you want zero manual steps.
+You can add that to a repo-specific shell alias or wrapper if you want zero
+manual steps.

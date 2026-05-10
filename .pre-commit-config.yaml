@@ -6,7 +6,42 @@ repos:
         args: ['--maxkb=102400']
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
+    -   id: check-merge-conflict
+    -   id: check-case-conflict
+    -   id: mixed-line-ending
+        args: ['--fix=lf']
     -   id: check-yaml
     -   id: check-toml
         exclude: /META-INF/mods\.toml$
     -   id: check-json
+
+-   repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.1
+    hooks:
+    -   id: markdownlint-cli2
+
+-   repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+    -   id: gitleaks
+
+# Bash / shell scripts under tooling/
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+    -   id: shellcheck
+        args: ['--severity=warning']
+        files: ^tooling/.*\.sh$
+
+-   repo: local
+    hooks:
+    -   id: vegetate-spotless-check
+        name: vegetate ./gradlew spotlessCheck
+        entry: bash -c 'cd mods/minecraft/vegetate && ./gradlew --no-daemon spotlessCheck'
+        language: system
+        pass_filenames: false
+    -   id: vegetate-compile
+        name: vegetate ./gradlew compileJava compileTestJava
+        entry: bash -c 'cd mods/minecraft/vegetate && ./gradlew --no-daemon compileJava compileTestJava'
+        language: system
+        pass_filenames: false

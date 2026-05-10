@@ -5,14 +5,13 @@ import java.util.TreeMap;
 
 public class VegetateConfig {
 
-    public boolean disableAllMushrooms = false;
+  public boolean disableAllMushrooms = false;
 
-    private final Map<String, VegetationFeatureRule> featureRules = new TreeMap<>();
+  private final Map<String, VegetationFeatureRule> featureRules = new TreeMap<>();
 
-    public VegetateConfig() {
-    }
+  public VegetateConfig() {}
 
-    public Map<String, VegetationFeatureRule> getFeatureRules() {
-        return featureRules;
-    }
+  public Map<String, VegetationFeatureRule> getFeatureRules() {
+    return featureRules;
+  }
 }

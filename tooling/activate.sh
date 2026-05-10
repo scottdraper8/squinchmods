@@ -8,6 +8,8 @@ fi
 if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
     script_path="${BASH_SOURCE[0]}"
 elif [[ -n "${ZSH_VERSION:-}" ]]; then
+    # zsh-only expansion when sourced under zsh
+    # shellcheck disable=SC2296
     script_path="${(%):-%N}"
 else
     script_path="$0"
