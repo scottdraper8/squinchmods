@@ -1,7 +1,7 @@
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
-    id("net.neoforged.moddev.legacyforge") version "2.0.140"
+    id("net.neoforged.moddev.legacyforge") version "2.0.141"
 }
 
 group = project.property("mod_group") as String
