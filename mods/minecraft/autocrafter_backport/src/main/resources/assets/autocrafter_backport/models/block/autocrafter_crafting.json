@@ -1,0 +1,9 @@
+{
+  "parent": "autocrafter_backport:block/autocrafter_triggered",
+  "textures": {
+    "top": "autocrafter_backport:block/crafter_top_crafting",
+    "north": "autocrafter_backport:block/crafter_north_crafting",
+    "east": "autocrafter_backport:block/crafter_east_crafting",
+    "west": "autocrafter_backport:block/crafter_west_crafting"
+  }
+}

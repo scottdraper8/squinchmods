@@ -1,0 +1,33 @@
+{
+  "variants": {
+    "crafting=false,facing=down,triggered=false": { "model": "autocrafter_backport:block/autocrafter", "x": 90 },
+    "crafting=false,facing=down,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered", "x": 90 },
+    "crafting=true,facing=down,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting", "x": 90 },
+    "crafting=true,facing=down,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered", "x": 90 },
+
+    "crafting=false,facing=up,triggered=false": { "model": "autocrafter_backport:block/autocrafter", "x": 270 },
+    "crafting=false,facing=up,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered", "x": 270 },
+    "crafting=true,facing=up,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting", "x": 270 },
+    "crafting=true,facing=up,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered", "x": 270 },
+
+    "crafting=false,facing=north,triggered=false": { "model": "autocrafter_backport:block/autocrafter" },
+    "crafting=false,facing=north,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered" },
+    "crafting=true,facing=north,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting" },
+    "crafting=true,facing=north,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered" },
+
+    "crafting=false,facing=south,triggered=false": { "model": "autocrafter_backport:block/autocrafter", "y": 180 },
+    "crafting=false,facing=south,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered", "y": 180 },
+    "crafting=true,facing=south,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting", "y": 180 },
+    "crafting=true,facing=south,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered", "y": 180 },
+
+    "crafting=false,facing=west,triggered=false": { "model": "autocrafter_backport:block/autocrafter", "y": 270 },
+    "crafting=false,facing=west,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered", "y": 270 },
+    "crafting=true,facing=west,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting", "y": 270 },
+    "crafting=true,facing=west,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered", "y": 270 },
+
+    "crafting=false,facing=east,triggered=false": { "model": "autocrafter_backport:block/autocrafter", "y": 90 },
+    "crafting=false,facing=east,triggered=true": { "model": "autocrafter_backport:block/autocrafter_triggered", "y": 90 },
+    "crafting=true,facing=east,triggered=false": { "model": "autocrafter_backport:block/autocrafter_crafting", "y": 90 },
+    "crafting=true,facing=east,triggered=true": { "model": "autocrafter_backport:block/autocrafter_crafting_triggered", "y": 90 }
+  }
+}
