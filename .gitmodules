@@ -1,0 +1,6 @@
+[submodule "mods/minecraft/vegetate"]
+	path = mods/minecraft/vegetate
+	url = git@github.com:scottdraper8/vegetate.git
+[submodule "mods/minecraft/redstone-backport"]
+	path = mods/minecraft/redstone-backport
+	url = git@github.com:scottdraper8/redstone-backport.git
