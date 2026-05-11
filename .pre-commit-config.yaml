@@ -35,13 +35,8 @@ repos:
 
 -   repo: local
     hooks:
-    -   id: vegetate-spotless-check
-        name: vegetate ./gradlew spotlessCheck
-        entry: bash -c 'cd mods/minecraft/vegetate && ./gradlew --no-daemon spotlessCheck'
+    -   id: minecraft-mod-gradle-check
+        name: minecraft mod Gradle checks
+        entry: tooling/pre-commit/check-minecraft-mods.sh
         language: system
-        pass_filenames: false
-    -   id: vegetate-compile
-        name: vegetate ./gradlew compileJava compileTestJava
-        entry: bash -c 'cd mods/minecraft/vegetate && ./gradlew --no-daemon compileJava compileTestJava'
-        language: system
-        pass_filenames: false
+        files: ^(mods/minecraft/|tooling/pre-commit/check-minecraft-mods\.sh$|\.pre-commit-config\.yaml$)
