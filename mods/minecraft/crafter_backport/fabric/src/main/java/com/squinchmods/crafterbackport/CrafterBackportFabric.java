@@ -1,0 +1,131 @@
+package com.squinchmods.crafterbackport;
+
+import com.squinchmods.crafterbackport.block.CrafterBlock;
+import com.squinchmods.crafterbackport.blockentity.CrafterBlockEntity;
+import com.squinchmods.crafterbackport.menu.CrafterMenu;
+import javax.annotation.Nullable;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public class CrafterBackportFabric implements ModInitializer {
+  @Nullable public static Block CRAFTER_BLOCK;
+  @Nullable public static Item CRAFTER_BLOCK_ITEM;
+  @Nullable public static BlockEntityType<CrafterBlockEntity> CRAFTER_BLOCK_ENTITY;
+
+  @Override
+  public void onInitialize() {
+    Block block =
+        Registry.register(
+            BuiltInRegistries.BLOCK,
+            CrafterBackport.id("crafter"),
+            new CrafterBlock(
+                BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+    CRAFTER_BLOCK = block;
+
+    Item item =
+        Registry.register(
+            BuiltInRegistries.ITEM,
+            CrafterBackport.id("crafter"),
+            new BlockItem(block, new Item.Properties()));
+    CRAFTER_BLOCK_ITEM = item;
+
+    BlockEntityType<CrafterBlockEntity> beType =
+        Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CrafterBackport.id("crafter"),
+            FabricBlockEntityTypeBuilder.create(CrafterBlockEntity::new, block).build());
+    CRAFTER_BLOCK_ENTITY = beType;
+
+    MenuType<CrafterMenu> menuType =
+        Registry.register(
+            BuiltInRegistries.MENU,
+            CrafterBackport.id("crafter"),
+            new ExtendedScreenHandlerType<>(CrafterMenu::new));
+
+    // Initialize Platform
+    Platform.CRAFTER_BLOCK_ENTITY = () -> beType;
+    Platform.CRAFTER_MENU = () -> menuType;
+    Platform.SCREEN_OPENER =
+        (player, provider, pos) -> {
+          if (player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(
+                new ExtendedScreenHandlerFactory() {
+                  @Override
+                  public void writeScreenOpeningData(ServerPlayer player, FriendlyByteBuf buf) {
+                    buf.writeBlockPos(pos);
+                  }
+
+                  @Override
+                  public Component getDisplayName() {
+                    return provider.getDisplayName();
+                  }
+
+                  @Override
+                  @Nullable public AbstractContainerMenu createMenu(
+                      int syncId, Inventory playerInventory, Player player) {
+                    return provider.createMenu(syncId, playerInventory, player);
+                  }
+                });
+          }
+        };
+    Platform.ITEM_TRANSFER =
+        (level, pos, state, stack) -> {
+          Direction facing = state.getValue(CrafterBlock.FACING);
+          BlockPos outPos = pos.relative(facing);
+          BlockEntity be = level.getBlockEntity(outPos);
+          if (be instanceof Container container) {
+            ItemStack remaining = stack.copy();
+            for (int i = 0; i < container.getContainerSize(); i++) {
+              if (container.canPlaceItem(i, remaining)) {
+                ItemStack inSlot = container.getItem(i);
+                if (inSlot.isEmpty()) {
+                  container.setItem(i, remaining);
+                  return ItemStack.EMPTY;
+                } else if (ItemStack.isSameItemSameTags(inSlot, remaining)) {
+                  int toAdd =
+                      Math.min(remaining.getCount(), inSlot.getMaxStackSize() - inSlot.getCount());
+                  inSlot.grow(toAdd);
+                  remaining.shrink(toAdd);
+                  if (remaining.isEmpty()) return ItemStack.EMPTY;
+                }
+              }
+            }
+            return remaining;
+          }
+          return stack;
+        };
+
+    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS)
+        .register(
+            content -> {
+              content.accept(item);
+            });
+  }
+}
