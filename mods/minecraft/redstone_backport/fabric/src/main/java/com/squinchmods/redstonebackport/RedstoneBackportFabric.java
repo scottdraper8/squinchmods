@@ -17,6 +17,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -32,10 +33,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 
 public class RedstoneBackportFabric implements ModInitializer {
-  @Nullable public static Block CRAFTER_BLOCK;
-  @Nullable public static Item CRAFTER_BLOCK_ITEM;
-  @Nullable public static BlockEntityType<CrafterBlockEntity> CRAFTER_BLOCK_ENTITY;
-
   @Override
   public void onInitialize() {
     Block block =
@@ -47,21 +44,18 @@ public class RedstoneBackportFabric implements ModInitializer {
                     .mapColor(MapColor.METAL)
                     .strength(3.5F)
                     .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
-    CRAFTER_BLOCK = block;
 
     Item item =
         Registry.register(
             BuiltInRegistries.ITEM,
             RedstoneBackport.id("crafter"),
             new BlockItem(block, new Item.Properties()));
-    CRAFTER_BLOCK_ITEM = item;
 
     BlockEntityType<CrafterBlockEntity> beType =
         Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             RedstoneBackport.id("crafter"),
             FabricBlockEntityTypeBuilder.create(CrafterBlockEntity::new, block).build());
-    CRAFTER_BLOCK_ENTITY = beType;
 
     MenuType<CrafterMenu> menuType =
         Registry.register(
@@ -101,23 +95,7 @@ public class RedstoneBackportFabric implements ModInitializer {
           BlockPos outPos = pos.relative(facing);
           BlockEntity be = level.getBlockEntity(outPos);
           if (be instanceof Container container) {
-            ItemStack remaining = stack.copy();
-            for (int i = 0; i < container.getContainerSize(); i++) {
-              if (container.canPlaceItem(i, remaining)) {
-                ItemStack inSlot = container.getItem(i);
-                if (inSlot.isEmpty()) {
-                  container.setItem(i, remaining);
-                  return ItemStack.EMPTY;
-                } else if (ItemStack.isSameItemSameTags(inSlot, remaining)) {
-                  int toAdd =
-                      Math.min(remaining.getCount(), inSlot.getMaxStackSize() - inSlot.getCount());
-                  inSlot.grow(toAdd);
-                  remaining.shrink(toAdd);
-                  if (remaining.isEmpty()) return ItemStack.EMPTY;
-                }
-              }
-            }
-            return remaining;
+            return insertIntoContainer(container, facing.getOpposite(), stack);
           }
           return stack;
         };
@@ -127,5 +105,61 @@ public class RedstoneBackportFabric implements ModInitializer {
             content -> {
               content.accept(item);
             });
+  }
+
+  private static ItemStack insertIntoContainer(
+      Container container, @Nullable Direction side, ItemStack stack) {
+    ItemStack remaining = stack.copy();
+    int[] slots =
+        container instanceof WorldlyContainer worldly && side != null
+            ? worldly.getSlotsForFace(side)
+            : allSlots(container);
+
+    for (int slot : slots) {
+      if (!canPlace(container, slot, remaining, side)) {
+        continue;
+      }
+
+      ItemStack inSlot = container.getItem(slot);
+      int maxStackSize = Math.min(container.getMaxStackSize(), remaining.getMaxStackSize());
+      if (inSlot.isEmpty()) {
+        ItemStack placed = remaining.copy();
+        placed.setCount(Math.min(remaining.getCount(), maxStackSize));
+        container.setItem(slot, placed);
+        remaining.shrink(placed.getCount());
+      } else if (ItemStack.isSameItemSameTags(inSlot, remaining)) {
+        int space = Math.min(maxStackSize, inSlot.getMaxStackSize()) - inSlot.getCount();
+        if (space <= 0) {
+          continue;
+        }
+
+        int toAdd = Math.min(remaining.getCount(), space);
+        inSlot.grow(toAdd);
+        remaining.shrink(toAdd);
+        container.setChanged();
+      }
+
+      if (remaining.isEmpty()) {
+        return ItemStack.EMPTY;
+      }
+    }
+
+    return remaining;
+  }
+
+  private static boolean canPlace(
+      Container container, int slot, ItemStack stack, @Nullable Direction side) {
+    if (container instanceof WorldlyContainer worldly && side != null) {
+      return worldly.canPlaceItemThroughFace(slot, stack, side);
+    }
+    return container.canPlaceItem(slot, stack);
+  }
+
+  private static int[] allSlots(Container container) {
+    int[] slots = new int[container.getContainerSize()];
+    for (int i = 0; i < slots.length; i++) {
+      slots[i] = i;
+    }
+    return slots;
   }
 }

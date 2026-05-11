@@ -209,12 +209,10 @@ public class RedstoneBackportForge {
   @EventBusSubscriber(modid = RedstoneBackport.MOD_ID, bus = Bus.MOD, value = Dist.CLIENT)
   public static class ClientModEvents {
     @SubscribeEvent
+    @SuppressWarnings("FutureReturnValueIgnored")
     public static void onClientSetup(FMLClientSetupEvent event) {
-      var unused =
-          event.enqueueWork(
-              () ->
-                  MenuScreens.register(
-                      RedstoneBackportForge.CRAFTER_MENU.get(), CrafterScreen::new));
+      event.enqueueWork(
+          () -> MenuScreens.register(RedstoneBackportForge.CRAFTER_MENU.get(), CrafterScreen::new));
     }
   }
 }

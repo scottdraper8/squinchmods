@@ -19,11 +19,6 @@ public class CrafterScreen extends AbstractContainerScreen<CrafterMenu> {
   }
 
   @Override
-  protected void init() {
-    super.init();
-  }
-
-  @Override
   protected void renderBg(GuiGraphics gfx, float partialTick, int mouseX, int mouseY) {
     RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     gfx.blit(BG, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
@@ -33,7 +28,7 @@ public class CrafterScreen extends AbstractContainerScreen<CrafterMenu> {
     for (int row = 0; row < 3; row++) {
       for (int col = 0; col < 3; col++) {
         int slot = col + row * 3;
-        if (!((CrafterMenu) this.menu).isSlotEnabledClient(slot)) {
+        if (!this.menu.isSlotEnabledClient(slot)) {
           int x = left + 26 + col * 18;
           int y = top + 17 + row * 18;
           gfx.fill(x, y, x + 16, y + 16, -2001686352);
@@ -57,8 +52,7 @@ public class CrafterScreen extends AbstractContainerScreen<CrafterMenu> {
         int col = (int) ((mouseX - startX) / 18.0);
         int row = (int) ((mouseY - startY) / 18.0);
         int slot = col + row * 3;
-        this.minecraft.gameMode.handleInventoryButtonClick(
-            ((CrafterMenu) this.menu).containerId, slot);
+        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, slot);
         return true;
       }
     }
