@@ -76,6 +76,14 @@ public class CrafterBlockEntity extends BlockEntity implements MenuProvider, Wor
   public void toggleSlotEnabled(int slot) {
     if (slot >= 0 && slot < this.enabled.length) {
       this.enabled[slot] = !this.enabled[slot];
+      if (!this.enabled[slot]) {
+        ItemStack stack = this.items.get(slot);
+        if (!stack.isEmpty()) {
+          this.dropToFront(stack.copy());
+          this.items.set(slot, ItemStack.EMPTY);
+        }
+      }
+
       this.setChangedAndSync();
     }
   }
@@ -83,6 +91,14 @@ public class CrafterBlockEntity extends BlockEntity implements MenuProvider, Wor
   public void setSlotEnabled(int slot, boolean value) {
     if (slot >= 0 && slot < this.enabled.length) {
       this.enabled[slot] = value;
+      if (!this.enabled[slot]) {
+        ItemStack stack = this.items.get(slot);
+        if (!stack.isEmpty()) {
+          this.dropToFront(stack.copy());
+          this.items.set(slot, ItemStack.EMPTY);
+        }
+      }
+
       this.setChangedAndSync();
     }
   }

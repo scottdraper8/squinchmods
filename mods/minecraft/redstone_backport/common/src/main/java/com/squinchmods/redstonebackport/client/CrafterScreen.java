@@ -11,6 +11,8 @@ import net.minecraft.world.entity.player.Inventory;
 public class CrafterScreen extends AbstractContainerScreen<CrafterMenu> {
   private static final ResourceLocation BG =
       new ResourceLocation("redstone_backport", "textures/gui/container/crafter.png");
+  private static final ResourceLocation DISABLED_SLOT =
+      new ResourceLocation("redstone_backport", "textures/gui/container/crafter_disabled_slot.png");
 
   public CrafterScreen(CrafterMenu menu, Inventory playerInventory, Component title) {
     super(menu, playerInventory, title);
@@ -31,33 +33,10 @@ public class CrafterScreen extends AbstractContainerScreen<CrafterMenu> {
         if (!this.menu.isSlotEnabledClient(slot)) {
           int x = left + 26 + col * 18;
           int y = top + 17 + row * 18;
-          gfx.fill(x, y, x + 16, y + 16, -2001686352);
-          gfx.fill(x, y, x + 16, y + 1, -1593835521);
-          gfx.fill(x, y, x + 1, y + 16, -1593835521);
-          gfx.fill(x, y + 15, x + 16, y + 16, -1603901850);
-          gfx.fill(x + 15, y, x + 16, y + 16, -1603901850);
+          gfx.blit(DISABLED_SLOT, x - 1, y - 1, 0, 0, 18, 18, 18, 18);
         }
       }
     }
-  }
-
-  @Override
-  public boolean mouseClicked(double mouseX, double mouseY, int button) {
-    if (button == 1 && this.minecraft != null && this.minecraft.gameMode != null) {
-      int left = this.leftPos;
-      int top = this.topPos;
-      int startX = left + 26;
-      int startY = top + 17;
-      if (mouseX >= startX && mouseX < startX + 54 && mouseY >= startY && mouseY < startY + 54) {
-        int col = (int) ((mouseX - startX) / 18.0);
-        int row = (int) ((mouseY - startY) / 18.0);
-        int slot = col + row * 3;
-        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, slot);
-        return true;
-      }
-    }
-
-    return super.mouseClicked(mouseX, mouseY, button);
   }
 
   @Override

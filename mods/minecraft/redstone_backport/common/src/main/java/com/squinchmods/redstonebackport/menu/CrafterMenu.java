@@ -3,11 +3,11 @@ package com.squinchmods.redstonebackport.menu;
 import com.squinchmods.redstonebackport.Platform;
 import com.squinchmods.redstonebackport.blockentity.CrafterBlockEntity;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -92,18 +92,26 @@ public class CrafterMenu extends AbstractContainerMenu {
   }
 
   @Override
+  public void clicked(int slotId, int button, ClickType clickType, Player player) {
+    if (slotId >= 0 && slotId < 9) {
+      ItemStack slotStack = this.slots.get(slotId).getItem();
+      if (clickType == ClickType.PICKUP && this.getCarried().isEmpty() && slotStack.isEmpty()) {
+        if (!player.level().isClientSide) {
+          this.blockEntity.toggleSlotEnabled(slotId);
+          this.broadcastChanges();
+        }
+        return;
+      }
+    }
+    super.clicked(slotId, button, clickType, player);
+  }
+
+  @Override
   public boolean clickMenuButton(Player player, int id) {
     if (id >= 0 && id < 9) {
       if (!player.level().isClientSide) {
         this.blockEntity.toggleSlotEnabled(id);
         this.broadcastChanges();
-        player.displayClientMessage(
-            Component.literal(
-                "Crafter slot "
-                    + id
-                    + " -> "
-                    + (this.blockEntity.isSlotEnabled(id) ? "ENABLED" : "DISABLED")),
-            true);
       }
 
       return true;
@@ -121,9 +129,11 @@ public class CrafterMenu extends AbstractContainerMenu {
       moved = stack.copy();
       int containerSlots = 9;
       if (index < containerSlots) {
-        if (!this.moveItemStackTo(stack, containerSlots, this.slots.size(), true)) {
+        if (!this.moveItemStackTo(stack, containerSlots + 1, this.slots.size(), true)) {
           return ItemStack.EMPTY;
         }
+      } else if (index == 9) {
+        return ItemStack.EMPTY;
       } else if (!this.moveItemStackTo(stack, 0, containerSlots, false)) {
         return ItemStack.EMPTY;
       }
@@ -231,7 +241,7 @@ public class CrafterMenu extends AbstractContainerMenu {
 
     @Override
     public boolean isActive() {
-      return this.be.isSlotEnabled(this.slotIndex);
+      return true;
     }
 
     @Override
@@ -251,6 +261,11 @@ public class CrafterMenu extends AbstractContainerMenu {
 
     @Override
     public boolean mayPlace(ItemStack stack) {
+      return false;
+    }
+
+    @Override
+    public boolean mayPickup(Player player) {
       return false;
     }
 
