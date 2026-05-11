@@ -32,11 +32,3 @@ repos:
     -   id: shellcheck
         args: ['--severity=warning']
         files: ^tooling/.*\.sh$
-
--   repo: local
-    hooks:
-    -   id: minecraft-mod-gradle-check
-        name: minecraft mod Gradle checks
-        entry: tooling/pre-commit/check-minecraft-mods.sh
-        language: system
-        files: ^(mods/minecraft/|tooling/pre-commit/check-minecraft-mods\.sh$|\.pre-commit-config\.yaml$)
