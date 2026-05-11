@@ -21,4 +21,3 @@ classes/
 .architectury-transformer
 gradle_client_output.txt
 gradle_server_output.txt
-upstream/*.jar
