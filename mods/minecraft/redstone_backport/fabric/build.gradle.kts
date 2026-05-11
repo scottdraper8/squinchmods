@@ -1,5 +1,5 @@
 plugins {
-    id("fabric-loom") version "1.7-SNAPSHOT"
+    id("org.quiltmc.loom") version "1.7.4"
     `java-library`
 }
 

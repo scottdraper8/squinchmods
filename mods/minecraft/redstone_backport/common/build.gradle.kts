@@ -1,7 +1,10 @@
 plugins {
-    id("fabric-loom") version "1.7-SNAPSHOT"
+    id("org.quiltmc.loom") version "1.7.4"
     `java-library`
 }
+
+group = project.property("mod_group") as String
+version = "${project.property("mod_version")}+${project.property("minecraft_version")}"
 
 base {
     archivesName.set("${project.property("mod_id")}-common")

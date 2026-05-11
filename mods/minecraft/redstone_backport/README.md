@@ -1,6 +1,6 @@
 # Redstone Backport
 
-Early-release multi-loader (Forge + Fabric) workspace for the
+Early-release multi-loader (Forge + Fabric + Quilt) workspace for the
 `redstone_backport` mod on Minecraft 1.20.1.
 
 This mod is intended to backport redstone additions from later Minecraft
@@ -12,6 +12,7 @@ state, so scope and implementation details may change quickly.
 - `common`: Shared gameplay logic, resources, and vanilla-first abstractions.
 - `forge`: Forge-specific bootstrap, registrations, and capability adapters.
 - `fabric`: Fabric-specific bootstrap, registrations, and entrypoints.
+- `quilt`: Quilt-specific bootstrap, metadata, and entrypoints.
 
 ## Useful Commands
 
@@ -40,6 +41,11 @@ Alternatively, you can run Gradle directly from this folder:
 
 - `./gradlew :fabric:runClient` - launch the Fabric client
 - `./gradlew :fabric:runServer` - launch the Fabric server
+
+### Quilt Development
+
+- `./gradlew :quilt:runClient` - launch the Quilt client
+- `./gradlew :quilt:runServer` - launch the Quilt server
 
 ### General
 
