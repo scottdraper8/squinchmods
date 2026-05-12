@@ -3,24 +3,30 @@
 # Build a Minecraft mod in this monorepo.
 #
 # Usage:
-#   build <mod>
+#   build-mod <mod>
 #
 # Examples:
-#   build vegetate
+#   build-mod redstone-backport
 #
 set -euo pipefail
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Find tooling directory
+tooling_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+minecraft_dir="$(cd -- "${tooling_dir}/.." && pwd)"
+mods_dir="${minecraft_dir}/mods"
+
+# Bootstrap environment
+source "${tooling_dir}/env.sh"
 
 usage() {
     cat <<EOF
-Usage: build <mod>
+Usage: build-mod <mod>
 
 Arguments:
-  mod    Mod folder under ${script_dir}
+  mod    Mod folder name under ${mods_dir}
 
 Examples:
-  build vegetate
+  build-mod redstone-backport
 EOF
 }
 
@@ -30,8 +36,7 @@ if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 mod_name="$1"
-mod_dir="${script_dir}/${mod_name}"
-gradle_home_default="${TMPDIR:-/tmp}/squinchmods-gradle"
+mod_dir="${mods_dir}/${mod_name}"
 
 if [[ ! -d "${mod_dir}" ]]; then
     echo "error: mod '${mod_name}' not found at ${mod_dir}" >&2
@@ -43,6 +48,5 @@ if [[ ! -x "${mod_dir}/gradlew" ]]; then
     exit 1
 fi
 
-export GRADLE_USER_HOME="${GRADLE_USER_HOME:-${gradle_home_default}}"
-
+echo "Building mod: ${mod_name}..."
 exec "${mod_dir}/gradlew" -p "${mod_dir}" build
