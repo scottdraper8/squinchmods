@@ -1,11 +1,16 @@
+# Environment
 /.direnv/
 
-# OS files
+# Editors
+.vscode/
+
+# OS
 .directory
 .DS_Store
 Desktop.ini
 ehthumbs.db
 Thumbs.db
 
+# Project
 META-INF/
 games/minecraft/reference/
