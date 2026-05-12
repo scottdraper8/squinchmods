@@ -11,8 +11,6 @@ fi
 
 # tooling_dir is games/minecraft/tooling/
 tooling_dir="$(cd -- "$(dirname -- "${script_path}")" && pwd)"
-# repo_root is 3 levels up: games/minecraft/tooling/ -> games/minecraft/ -> games/ -> root
-repo_root="$(cd -- "${tooling_dir}/../../.." && pwd)"
 
 # 1. Java Management via .sdkmanrc (now in tooling/)
 sdkmanrc_path="${tooling_dir}/.sdkmanrc"

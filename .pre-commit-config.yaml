@@ -12,8 +12,11 @@ repos:
         args: ['--fix=lf']
     -   id: check-yaml
     -   id: check-toml
-        exclude: /META-INF/mods\.toml$
     -   id: check-json
+    -   id: check-ast
+        files: \.py$
+    -   id: debug-statements
+        files: \.py$
 
 -   repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.22.1
@@ -25,10 +28,10 @@ repos:
     hooks:
     -   id: gitleaks
 
-# Bash / shell scripts under tooling/
+# Shell scripts under games/minecraft/tooling/
 -   repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
     -   id: shellcheck
         args: ['--severity=warning']
-        files: ^tooling/.*\.sh$
+        files: ^games/minecraft/tooling/.*\.sh$
