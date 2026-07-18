@@ -14,3 +14,14 @@ Thumbs.db
 # Project
 META-INF/
 games/minecraft/reference/
+games/minecraft/qa/
+.qa-runs/
+.qa-incoming/
+.qa-staging/
+.qa-current/
+.qa-trash/
+
+# Agent-generated scratch
+.agent-docs/.cache/
+.agent-docs/tmp/
+.agent-docs/private/

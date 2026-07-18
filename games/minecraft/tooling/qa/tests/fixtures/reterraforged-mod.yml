@@ -1,0 +1,29 @@
+schema: 1
+
+mod:
+  id: reterraforged
+  display_name: ReTerraForged
+
+targets:
+  - id: neoforge-1.21.1
+    minecraft: "1.21.1"
+    loader: neoforge
+    loader_version: "21.1.172"
+    java: 21
+    capabilities: [command-script, server, worldgen]
+  - id: fabric-1.21.1
+    minecraft: "1.21.1"
+    loader: fabric
+    loader_version: "0.16.14"
+    java: 21
+    capabilities: [command-script, server, worldgen]
+
+profiles:
+  pre-pr:
+    tests:
+      - id: build
+      - id: server-smoke
+      - id: pregen
+        config:
+          preset: l
+          timeout_s: 7200

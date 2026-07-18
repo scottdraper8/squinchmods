@@ -18,11 +18,11 @@ minecraft_dir="$(cd -- "${tooling_dir}/.." && pwd)"
 source "${tooling_dir}/env.sh"
 
 reference_dir="${minecraft_dir}/reference"
-# Use redstone-backport's gradlew as the primary worker for fetching sources
-gradlew="${minecraft_dir}/mods/redstone-backport/gradlew"
+sources_root="${reference_dir}/sources"
+gradlew="${tooling_dir}/source-worker/gradlew"
 
 usage() {
-    cat <<EOF
+	cat <<EOF
 Usage: mc-source <version>
 
 Arguments:
@@ -34,24 +34,25 @@ EOF
 }
 
 if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 1
+	usage
+	exit 1
 fi
 
 version="$1"
-target_dir="${reference_dir}/${version}"
+mappings_dir="${sources_root}/${version}/official"
+target_dir="${mappings_dir}/src"
 
-if [[ -d "${target_dir}" ]]; then
-    echo "error: reference for version ${version} already exists at ${target_dir}"
-    exit 1
+if [[ -d "${mappings_dir}" ]]; then
+	echo "error: reference for version ${version} already exists at ${mappings_dir}"
+	exit 1
 fi
 
-mkdir -p "${reference_dir}"
+mkdir -p "${sources_root}"
 
 temp_dir=$(mktemp -d -t mc-source-XXXXXXXX)
 echo "Setting up temporary Gradle project in ${temp_dir}..."
 
-cat << EOF > "${temp_dir}/build.gradle"
+cat <<EOF >"${temp_dir}/build.gradle"
 plugins {
     id 'org.quiltmc.loom' version '1.15.1'
 }
@@ -66,7 +67,7 @@ dependencies {
 }
 EOF
 
-cat << EOF > "${temp_dir}/settings.gradle"
+cat <<EOF >"${temp_dir}/settings.gradle"
 pluginManagement {
     repositories {
         maven { url "https://maven.quiltmc.org/repository/release" }
@@ -85,14 +86,34 @@ echo "Generating sources for Minecraft ${version}..."
 sources_jar=$(find "${GRADLE_USER_HOME}/caches/quilt-loom/minecraftMaven" -name "*-sources.jar" | grep "${version}" | head -n 1)
 
 if [[ -z "${sources_jar}" ]]; then
-    echo "error: could not find decompiled sources jar for version ${version}"
-    rm -rf "${temp_dir}"
-    exit 1
+	echo "error: could not find decompiled sources jar for version ${version}"
+	rm -rf "${temp_dir}"
+	exit 1
 fi
 
 echo "Extracting sources to ${target_dir}..."
 mkdir -p "${target_dir}"
 unzip -q "${sources_jar}" -d "${target_dir}"
+
+sources_jar_sha256=$(sha256sum "${sources_jar}" | awk '{print $1}')
+generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cat <<EOF >"${mappings_dir}/manifest.json"
+{
+  "schema": 1,
+  "minecraft": "${version}",
+  "mappings": {
+    "type": "official",
+    "version": null
+  },
+  "tool": {
+    "name": "quilt-loom",
+    "version": "1.15.1"
+  },
+  "source_jar_sha256": "${sources_jar_sha256}",
+  "generated_at": "${generated_at}"
+}
+EOF
 
 echo "Cleaning up..."
 rm -rf "${temp_dir}"

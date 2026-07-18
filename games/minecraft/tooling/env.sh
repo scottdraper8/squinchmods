@@ -4,9 +4,9 @@
 
 # This script is intended to be sourced by other scripts or the user.
 if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-    script_path="${BASH_SOURCE[0]}"
+	script_path="${BASH_SOURCE[0]}"
 else
-    script_path="$0"
+	script_path="$0"
 fi
 
 # tooling_dir is games/minecraft/tooling/
@@ -17,19 +17,19 @@ sdkmanrc_path="${tooling_dir}/.sdkmanrc"
 sdkman_dir="${SDKMAN_DIR:-${HOME}/.sdkman}"
 
 if [[ -f "${sdkmanrc_path}" ]]; then
-    java_version="$(awk -F= '/^java=/{print $2}' "${sdkmanrc_path}" | tail -n 1)"
+	java_version="$(awk -F= '/^java=/{print $2}' "${sdkmanrc_path}" | tail -n 1)"
 
-    if [[ -n "${java_version}" ]]; then
-        java_home="${sdkman_dir}/candidates/java/${java_version}"
+	if [[ -n "${java_version}" ]]; then
+		java_home="${sdkman_dir}/candidates/java/${java_version}"
 
-        if [[ -d "${java_home}" ]]; then
-            export JAVA_HOME="${java_home}"
-            case ":${PATH}:" in
-                *":${JAVA_HOME}/bin:"*) ;;
-                *) export PATH="${JAVA_HOME}/bin:${PATH}" ;;
-            esac
-        fi
-    fi
+		if [[ -d "${java_home}" ]]; then
+			export JAVA_HOME="${java_home}"
+			case ":${PATH}:" in
+			*":${JAVA_HOME}/bin:"*) ;;
+			*) export PATH="${JAVA_HOME}/bin:${PATH}" ;;
+			esac
+		fi
+	fi
 fi
 
 # 2. Shared Monorepo Caches

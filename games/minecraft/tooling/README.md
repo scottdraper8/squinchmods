@@ -40,7 +40,8 @@ common artifacts, reducing disk usage and build times:
 
 - **`build-mod [mod-name]`**: Compiles the specified mod located in `games/minecraft/mods/`.
 - **`mc-source [version]`**: Downloads and decompiles the specified Minecraft version into
-  `games/minecraft/reference/`.
+  `games/minecraft/reference/sources/<version>/official/`, alongside a `manifest.json` describing
+  the extraction.
 
 **Note:** These tools automatically source `env.sh`. Functionality is maintained even if `direnv` or
 manual shell initialization has not been performed.

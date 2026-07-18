@@ -12,5 +12,10 @@ config:
     tables: false
   MD025:
     front_matter_title: ""
+  MD033: false
+  MD041:
+    # Allows a leading <div align="center"> line before the real # heading,
+    # used for the centered badge-header block at the top of README.md.
+    allow_preamble: true
   MD060:
     style: aligned

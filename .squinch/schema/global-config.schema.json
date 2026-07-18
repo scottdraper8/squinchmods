@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://squinchmods/.squinch/schema/global-config.schema.json",
+  "title": "squinchmods parent QA config",
+  "description": "Parent-level QA defaults. See .agent-docs/games/minecraft/README.md. Precedence: CLI args > mod repo config > this file > built-in defaults.",
+  "type": "object",
+  "required": ["schema", "globals"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "globals": {
+      "type": "object",
+      "required": ["default_profile", "profiles"],
+      "additionalProperties": false,
+      "properties": {
+        "default_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/profile"
+          }
+        },
+        "tests": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/testDefaults"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "extends": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_parallel": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_jobs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "anyOf": [{ "required": ["tests"] }, { "required": ["extends"] }]
+    },
+    "testDefaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "Test-specific configuration, shape depends on the test."
+        }
+      }
+    }
+  }
+}
