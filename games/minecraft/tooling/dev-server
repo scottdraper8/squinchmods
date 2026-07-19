@@ -1,0 +1,387 @@
+#!/usr/bin/env python3
+"""Start/stop a headless Minecraft dev server with RCON, and run ad hoc RCON commands against it.
+
+Usage:
+  dev-server start <mod> --loader <loader> [--seed N] [--datapack path.zip] [options...]
+  dev-server stop <mod> --loader <loader>
+  dev-server rcon <mod> --loader <loader> -- <command> [<command> ...]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import secrets
+import shutil
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+TOOLING_DIR = Path(__file__).resolve().parent
+MINECRAFT_DIR = TOOLING_DIR.parent
+MODS_DIR = MINECRAFT_DIR / "mods"
+ENV_SH = TOOLING_DIR / "env.sh"
+
+LOADERS = ["fabric", "forge", "neoforge", "quilt"]
+READY_PATTERNS = ("RCON running", "Done (")
+STATE_FILENAME = ".dev-server-state.json"
+
+
+# ── RCON client ──────────────────────────────────────────────────────────────
+
+
+class RconError(Exception):
+    pass
+
+
+def rcon_exec(
+    host: str, port: int, password: str, *commands: str, timeout: float = 15.0
+) -> list[str]:
+    """Authenticate, then run each command in order. Returns each response payload."""
+    packet_id = 0
+
+    def send_packet(sock: socket.socket, pkt_type: int, payload: str) -> int:
+        nonlocal packet_id
+        packet_id += 1
+        body = (
+            struct.pack("<ii", packet_id, pkt_type)
+            + payload.encode("utf-8")
+            + b"\x00\x00"
+        )
+        sock.sendall(struct.pack("<i", len(body)) + body)
+        return packet_id
+
+    def recv_exact(sock: socket.socket, n: int) -> bytes:
+        buf = b""
+        while len(buf) < n:
+            chunk = sock.recv(n - len(buf))
+            if not chunk:
+                raise RconError("socket closed unexpectedly")
+            buf += chunk
+        return buf
+
+    def read_packet(sock: socket.socket) -> tuple[int, int, str]:
+        (length,) = struct.unpack("<i", recv_exact(sock, 4))
+        data = recv_exact(sock, length)
+        pid, pkt_type = struct.unpack("<ii", data[:8])
+        payload = data[8:-2].decode("utf-8", errors="replace")
+        return pid, pkt_type, payload
+
+    responses = []
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.settimeout(timeout)
+        send_packet(sock, 3, password)  # SERVERDATA_AUTH
+        auth_pid, _pkt_type, _ = read_packet(sock)
+        if auth_pid == -1:
+            raise RconError("RCON authentication failed")
+
+        for command in commands:
+            send_packet(sock, 2, command)  # SERVERDATA_EXECCOMMAND
+            _, _, payload = read_packet(sock)
+            responses.append(payload)
+    return responses
+
+
+# ── ports ────────────────────────────────────────────────────────────────────
+
+
+def free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+# ── paths ────────────────────────────────────────────────────────────────────
+
+
+def mod_dir(mod: str) -> Path:
+    d = MODS_DIR / mod
+    if not d.is_dir():
+        raise SystemExit(f"error: mod '{mod}' not found at {d}")
+    return d
+
+
+def loader_run_dir(mod: str, loader: str) -> Path:
+    return mod_dir(mod) / loader / "run"
+
+
+def state_path(mod: str, loader: str) -> Path:
+    return loader_run_dir(mod, loader) / STATE_FILENAME
+
+
+def ensure_gradlew_executable(mod: str) -> None:
+    gradlew = mod_dir(mod) / "gradlew"
+    if not gradlew.is_file():
+        raise SystemExit(f"error: {gradlew} not found")
+    if not os.access(gradlew, os.X_OK):
+        gradlew.chmod(gradlew.stat().st_mode | 0o111)
+
+
+def sourced_env() -> dict[str, str]:
+    """Capture the environment env.sh would export, without needing bash for the actual launch."""
+    result = subprocess.run(
+        ["bash", "-c", f'source "{ENV_SH}" && env -0'],
+        capture_output=True,
+        check=True,
+    )
+    env: dict[str, str] = {}
+    for entry in result.stdout.split(b"\x00"):
+        if not entry:
+            continue
+        key, _, value = entry.decode("utf-8", errors="replace").partition("=")
+        env[key] = value
+    return env
+
+
+# ── start ────────────────────────────────────────────────────────────────────
+
+
+def cmd_start(args: argparse.Namespace) -> int:
+    mod, loader = args.mod, args.loader
+    run_dir = loader_run_dir(mod, loader)
+    sp = state_path(mod, loader)
+
+    if sp.exists():
+        stale = json.loads(sp.read_text(encoding="utf-8"))
+        try:
+            os.kill(stale["pid"], 0)
+            raise SystemExit(
+                f"error: a dev server for {mod}/{loader} is already tracked at {sp} "
+                f"(pid {stale['pid']} still alive) — stop it first"
+            )
+        except ProcessLookupError:
+            print(
+                f"stale state file for {mod}/{loader} (pid {stale['pid']} no longer "
+                f"running) — clearing it"
+            )
+            sp.unlink()
+
+    level_name = args.level_name or "world"
+    world_dir = run_dir / level_name
+    if world_dir.exists():
+        if args.fresh:
+            shutil.rmtree(world_dir)
+        else:
+            raise SystemExit(
+                f"error: {world_dir} already exists — pass --fresh to regenerate it, "
+                f"or --level-name to use a different world"
+            )
+
+    ensure_gradlew_executable(mod)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "eula.txt").write_text("eula=true\n", encoding="utf-8")
+
+    server_port = args.server_port or free_port()
+    rcon_port = args.rcon_port or free_port()
+    rcon_password = secrets.token_hex(16)
+
+    properties = {
+        "enable-rcon": "true",
+        "rcon.port": str(rcon_port),
+        "rcon.password": rcon_password,
+        "server-port": str(server_port),
+        "online-mode": "false",
+        "spawn-protection": "0",
+        "level-name": level_name,
+    }
+    if args.seed is not None:
+        properties["level-seed"] = args.seed
+    for extra in args.server_properties or []:
+        key, _, value = extra.partition("=")
+        properties[key] = value
+    (run_dir / "server.properties").write_text(
+        "\n".join(f"{k}={v}" for k, v in sorted(properties.items())) + "\n",
+        encoding="utf-8",
+    )
+
+    if args.datapack:
+        datapack_src = Path(args.datapack).expanduser().resolve()
+        if not datapack_src.is_file():
+            raise SystemExit(f"error: datapack {datapack_src} not found")
+        datapacks_dir = world_dir / "datapacks"
+        datapacks_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(datapack_src, datapacks_dir / datapack_src.name)
+
+    log_path = run_dir / "dev-server.log"
+    env = sourced_env()
+    with log_path.open("wb") as log_file:
+        proc = subprocess.Popen(
+            ["./gradlew", f":{loader}:runServer", "--console=plain"],
+            cwd=mod_dir(mod),
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+    deadline = time.monotonic() + args.timeout
+    ready = False
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise SystemExit(
+                f"error: server process exited before becoming ready (see {log_path})"
+            )
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+        if any(pattern in text for pattern in READY_PATTERNS):
+            ready = True
+            break
+        time.sleep(1)
+
+    if not ready:
+        raise SystemExit(
+            f"error: server did not become ready within {args.timeout}s (see {log_path})"
+        )
+
+    state = {
+        "mod": mod,
+        "loader": loader,
+        "pid": proc.pid,
+        "server_port": server_port,
+        "rcon_port": rcon_port,
+        "rcon_password": rcon_password,
+        "level_name": level_name,
+        "log_path": str(log_path),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    sp.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+    print(f"started {mod}/{loader} (pid {proc.pid})")
+    print(f"  server: 127.0.0.1:{server_port}")
+    print(f"  rcon:   127.0.0.1:{rcon_port} (password {rcon_password})")
+    print(f"  log:    {log_path}")
+    print(f"  state:  {sp}")
+    return 0
+
+
+# ── stop ─────────────────────────────────────────────────────────────────────
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    mod, loader = args.mod, args.loader
+    sp = state_path(mod, loader)
+    if not sp.exists():
+        raise SystemExit(f"error: no tracked dev server for {mod}/{loader} at {sp}")
+
+    state = json.loads(sp.read_text(encoding="utf-8"))
+    pid = state["pid"]
+    server_port, rcon_port = state["server_port"], state["rcon_port"]
+
+    try:
+        rcon_exec(
+            "127.0.0.1", rcon_port, state["rcon_password"], "stop", timeout=10.0
+        )
+        print("sent RCON stop")
+    except (RconError, OSError) as e:
+        print(f"RCON stop failed ({e}); falling back to killing the process")
+
+    deadline = time.monotonic() + args.timeout
+    exited = False
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            exited = True
+            break
+        time.sleep(1)
+
+    if not exited:
+        print(f"process {pid} still alive after {args.timeout}s, sending SIGKILL")
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        time.sleep(1)
+
+    time.sleep(1)  # give the OS a moment to release the sockets
+    still_bound = [p for p in (server_port, rcon_port) if not port_is_free(p)]
+    if still_bound:
+        print(f"warning: port(s) still bound after teardown: {still_bound}")
+    else:
+        print("ports confirmed free")
+
+    sp.unlink()
+    print(f"stopped {mod}/{loader}")
+    return 1 if still_bound else 0
+
+
+# ── rcon ─────────────────────────────────────────────────────────────────────
+
+
+def cmd_rcon(args: argparse.Namespace) -> int:
+    sp = state_path(args.mod, args.loader)
+    if not sp.exists():
+        raise SystemExit(
+            f"error: no tracked dev server for {args.mod}/{args.loader} at {sp}"
+        )
+    state = json.loads(sp.read_text(encoding="utf-8"))
+    responses = rcon_exec(
+        "127.0.0.1", state["rcon_port"], state["rcon_password"], *args.command
+    )
+    for command, response in zip(args.command, responses):
+        print(f">>> {command}")
+        print(response)
+    return 0
+
+
+# ── CLI ──────────────────────────────────────────────────────────────────────
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="dev-server", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_start = sub.add_parser(
+        "start", help="Launch a headless dev server with RCON enabled"
+    )
+    p_start.add_argument("mod")
+    p_start.add_argument("--loader", required=True, choices=LOADERS)
+    p_start.add_argument("--seed")
+    p_start.add_argument("--datapack", help="Path to a datapack zip to stage before boot")
+    p_start.add_argument("--level-name")
+    p_start.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Delete an existing world of the same level-name before starting",
+    )
+    p_start.add_argument("--server-port", type=int)
+    p_start.add_argument("--rcon-port", type=int)
+    p_start.add_argument("--timeout", type=float, default=180.0)
+    p_start.add_argument("--server-properties", nargs="+", metavar="key=value")
+    p_start.set_defaults(func=cmd_start)
+
+    p_stop = sub.add_parser(
+        "stop", help="Stop a tracked dev server and verify teardown"
+    )
+    p_stop.add_argument("mod")
+    p_stop.add_argument("--loader", required=True, choices=LOADERS)
+    p_stop.add_argument("--timeout", type=float, default=60.0)
+    p_stop.set_defaults(func=cmd_stop)
+
+    p_rcon = sub.add_parser(
+        "rcon", help="Run one or more commands against a tracked dev server"
+    )
+    p_rcon.add_argument("mod")
+    p_rcon.add_argument("--loader", required=True, choices=LOADERS)
+    p_rcon.add_argument("command", nargs="+")
+    p_rcon.set_defaults(func=cmd_rcon)
+
+    args = parser.parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

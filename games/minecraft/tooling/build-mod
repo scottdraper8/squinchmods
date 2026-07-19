@@ -43,9 +43,14 @@ if [[ ! -d "${mod_dir}" ]]; then
 	exit 1
 fi
 
-if [[ ! -x "${mod_dir}/gradlew" ]]; then
-	echo "error: ${mod_dir}/gradlew is missing or not executable" >&2
+if [[ ! -f "${mod_dir}/gradlew" ]]; then
+	echo "error: ${mod_dir}/gradlew is missing" >&2
 	exit 1
+fi
+
+# The executable bit doesn't reliably persist across a submodule branch checkout.
+if [[ ! -x "${mod_dir}/gradlew" ]]; then
+	chmod +x "${mod_dir}/gradlew"
 fi
 
 echo "Building mod: ${mod_name}..."

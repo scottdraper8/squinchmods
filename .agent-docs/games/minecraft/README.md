@@ -14,6 +14,7 @@ games/minecraft/
     build-mod            `./gradlew build` for one mod, with env.sh bootstrapped
     mc-source             source-extraction script
     source-worker/        its own minimal Gradle wrapper, independent of any mod
+    dev-server            start/stop a headless dev server with RCON, for ad hoc live investigation
     qa/                  the QA planner/runner (squinch-qa)
   reference/             gitignored: decompiled source, curated reference worlds
   qa-state/              gitignored: QA runtime state (generated per run)

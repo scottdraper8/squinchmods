@@ -17,124 +17,52 @@ slower and less reliable than just testing on a real client first. See the retro
 
 ## 1. Set up a headless dev server with RCON
 
-Do this once per mod; reuse the run directory afterward.
+Use `games/minecraft/tooling/dev-server` — it writes `eula.txt`/`server.properties`, picks free
+server/RCON ports, waits for readiness, and prints connection info, all in one step:
 
 ```bash
-cd <mod-repo>/<loader>/run   # e.g. fabric/run — created by a first runServer invocation if it doesn't exist yet
-mkdir -p .   # ensure the dir exists before writing into it
-printf 'eula=true\n' > eula.txt
-printf 'online-mode=false\nenable-rcon=true\nrcon.port=25575\nrcon.password=<pick-anything>\nserver-port=25565\nlevel-seed=<your-seed>\nlevel-name=world\nspawn-protection=0\n' > server.properties
+games/minecraft/tooling/dev-server start <mod> --loader <loader> --seed <your-seed> --fresh
 ```
 
 To load a specific exported preset/datapack (e.g. one exported from the mod's own in-game preset
-editor), drop it in _before_ first launch — Minecraft auto-discovers a datapack placed in
-`<level-name>/datapacks/` at world creation, same as a player would:
+editor), pass it directly — it's staged into `<level-name>/datapacks/` before first launch, the same
+place Minecraft auto-discovers a datapack at world creation:
 
 ```bash
-mkdir -p world/datapacks
-cp /path/to/exported-preset.zip world/datapacks/
+games/minecraft/tooling/dev-server start <mod> --loader <loader> --seed <your-seed> --fresh \
+  --datapack /path/to/exported-preset.zip
 ```
 
-Launch (from the mod repo root, not the run dir):
+`--fresh` regenerates the world if one already exists under the same `--level-name` (default
+`world`) — required the first time, or whenever the seed/datapack/instrumentation changes; omitting
+it against an existing world is a deliberate refusal, not a silent reuse. See `dev-server --help`
+for the rest (`--level-name`, `--server-properties key=value ...`, explicit
+`--server-port`/`--rcon-port`).
 
-```bash
-cd <mod-repo>
-chmod +x gradlew   # see the branch-switching note below — this doesn't always persist
-./gradlew :<loader>:runServer --console=plain > /tmp/server.log 2>&1
-```
-
-Run this with a backgrounding mechanism your tool supports (`run_in_background: true` in this
-session), then wait for readiness rather than a fixed sleep:
-
-```bash
-until grep -qE "RCON running|FAILED|Exception in thread" /tmp/server.log 2>/dev/null; do sleep 3; done
-```
-
-**Use `enable-rcon=true` from the start, not a stdin/FIFO pipe.** A hand-rolled stdin pump was tried
-first this session and cost real time to multiple layered failures (stale duplicate readers on the
+**RCON, not a stdin/FIFO pipe, is why this works reliably.** A hand-rolled stdin pump was tried
+first historically and cost real time to multiple layered failures (stale duplicate readers on the
 same pipe, Gradle's daemon silently relaying stdin through an internal channel that breaks when a
 stale build session shares the daemon, unexplained command drops on bursts of more than a couple of
-commands). RCON is a real protocol with per-command request/response framing and had none of these
-problems once switched to. No reason to reach for anything else.
+commands). RCON is a real protocol with per-command request/response framing and has none of these
+problems. `dev-server` enables it by default; there's no reason to reach for anything else.
 
-## 2. The RCON client
+## 2. Running commands
 
-No `mcrcon` (or equivalent) package was available; this ~60-line script was written from scratch and
-worked reliably for the whole investigation. Save it once, reuse it:
-
-```python
-#!/usr/bin/env python3
-"""Minimal Minecraft RCON client. Usage: rcon.py <host> <port> <password> <command...>"""
-import socket
-import struct
-import sys
-
-PACKET_ID = 0
-
-
-def _send_packet(sock, pkt_type, payload):
-    global PACKET_ID
-    PACKET_ID += 1
-    pid = PACKET_ID
-    body = struct.pack("<ii", pid, pkt_type) + payload.encode("utf-8") + b"\x00\x00"
-    sock.sendall(struct.pack("<i", len(body)) + body)
-    return pid
-
-
-def _read_packet(sock):
-    raw_len = _recv_exact(sock, 4)
-    (length,) = struct.unpack("<i", raw_len)
-    data = _recv_exact(sock, length)
-    pid, pkt_type = struct.unpack("<ii", data[:8])
-    payload = data[8:-2].decode("utf-8", errors="replace")
-    return pid, pkt_type, payload
-
-
-def _recv_exact(sock, n):
-    buf = b""
-    while len(buf) < n:
-        chunk = sock.recv(n - len(buf))
-        if not chunk:
-            raise ConnectionError("socket closed")
-        buf += chunk
-    return buf
-
-
-def main():
-    host, port, password = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-    commands = sys.argv[4:]
-
-    sock = socket.create_connection((host, port), timeout=15)
-    try:
-        _send_packet(sock, 3, password)  # SERVERDATA_AUTH
-        pid, pkt_type, _ = _read_packet(sock)
-        if pid == -1:
-            print("AUTH_FAILED", file=sys.stderr)
-            sys.exit(1)
-
-        for cmd in commands:
-            _send_packet(sock, 2, cmd)  # SERVERDATA_EXECCOMMAND
-            _, _, payload = _read_packet(sock)
-            print(f">>> {cmd}")
-            print(payload)
-    finally:
-        sock.close()
-
-
-if __name__ == "__main__":
-    main()
+```bash
+games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- "<command1>" "<command2>" ...
 ```
 
-Usage: `python3 rcon.py localhost 25575 <password> "<command1>" "<command2>" ...` — sends commands
-sequentially, waits for each response before sending the next, prints both. Multiple commands in one
-invocation is reliable (unlike the old stdin/FIFO approach) since RCON has real per-command framing.
+Sends commands sequentially against the server `start` already launched (reading connection info
+from its state file, so no host/port/password bookkeeping is needed), waits for each response before
+sending the next, and prints both. Multiple commands in one invocation is reliable since RCON has
+real per-command framing.
 
 ## 3. Common RCON usage patterns
 
 **Confirm the world state before trusting anything else:**
 
 ```bash
-python3 rcon.py localhost 25575 <password> "seed"
+games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- "seed"
 ```
 
 **Force-generate a specific region before querying it** (structures/terrain don't exist to query
@@ -142,7 +70,7 @@ until chunks are actually generated — `/locate` finds a theoretical position, 
 anything):
 
 ```bash
-python3 rcon.py localhost 25575 <password> "forceload add <minX> <minZ> <maxX> <maxZ>"
+games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- "forceload add <minX> <minZ> <maxX> <maxZ>"
 ```
 
 **Checking a single block's type is limited** — there is no vanilla command that returns an
@@ -151,7 +79,7 @@ etc.); for a plain block it errors `"The target block is not a block entity"`. T
 via commands is a predicate check against a guessed type:
 
 ```bash
-python3 rcon.py localhost 25575 <password> \
+games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- \
   "execute if block <x> <y> <z> minecraft:water run say WATER" \
   "execute unless block <x> <y> <z> minecraft:water run say NOT_WATER"
 ```
@@ -159,17 +87,16 @@ python3 rcon.py localhost 25575 <password> \
 This does not scale to "what block is this" without knowing what to guess — for anything beyond a
 handful of manual spot-checks, write instrumentation instead (below).
 
-**Stopping cleanly** — `stop` alone was not always sufficient this session; the server occasionally
-didn't fully exit (still holding its RCON/server ports minutes later), which then broke the _next_
-launch with a port-bind failure. Always verify, and force-kill if needed:
+**Stopping cleanly:**
 
 ```bash
-python3 rcon.py localhost 25575 <password> "stop"
-sleep 6
-pkill -9 -f "TransformerRuntime" 2>/dev/null   # or your loader's equivalent process pattern
-pkill -9 -f ":<loader>:runServer" 2>/dev/null
-ss -tlnp 2>/dev/null | grep -E "<rcon-port>|<server-port>"   # must be empty before relaunching
+games/minecraft/tooling/dev-server stop <mod> --loader <loader>
 ```
+
+Sends RCON `stop`, falls back to killing the process if it doesn't respond, and — the specific fix
+for a real historical failure mode (`stop` alone not always fully exiting, still holding its
+RCON/server ports minutes later and breaking the _next_ launch with a port-bind failure) — verifies
+the ports are actually free before reporting success, warning explicitly if they aren't.
 
 ## 4. Writing QA-only debug instrumentation (Mixins)
 
@@ -269,14 +196,14 @@ git stash pop                        # if this fails specifically on the gradlew
 
 ## 6. Cleanup checklist between test runs
 
-- Delete the world save before changing seed/preset/instrumentation and relaunching:
-  `rm -rf <loader>/run/world`.
-- If preserving old runs for comparison, rename them deliberately and clean them up afterward.
-  Archived `world.*` directories pile up quickly, and right now this is a manual cleanup step.
-- Confirm no server process survived a `stop`:
-  `ps aux | grep -iE "runServer|Knot|TransformerRuntime"`.
-- Confirm the RCON/server ports are actually free before relaunching:
-  `ss -tlnp 2>/dev/null | grep -E "<rcon-port>|<server-port>"`.
+- `dev-server start --fresh` deletes the world save for you before regenerating with a new
+  seed/preset/instrumentation — no manual `rm -rf` needed.
+- `dev-server stop` confirms no server process survived and that the RCON/server ports are actually
+  free before reporting success, warning explicitly if they aren't — no manual `ps`/`ss` checking
+  needed.
+- If preserving old runs for comparison, rename the world directory deliberately and clean it up
+  afterward. Archived `world.*` directories still pile up and still need manual cleanup —
+  `dev-server` doesn't manage retention of anything beyond the single active `--level-name`.
 - If driving this from an agent session with background task tracking, background tasks and
   scheduled wakeups don't automatically clean themselves up just because the underlying process died
   — verify and explicitly stop/cancel anything still shown as "running" that shouldn't be.
