@@ -65,7 +65,7 @@ class TestRemoteWorkflow:
         assert init["if"] == "env.RUN_ID_VALID == 'true'"
         assert "qa-manifest.json" in init["run"]
         assert "result.json" in init["run"]
-        assert 'run_dir="games/minecraft/qa/runs/$RUN_ID"' in init["run"]
+        assert 'run_dir="games/minecraft/qa-state/runs/$RUN_ID"' in init["run"]
         assert "QA_EXIT=1" in init["run"]
 
     def test_artifact_upload_is_always_and_matches_downloader(self):
@@ -79,7 +79,7 @@ class TestRemoteWorkflow:
         # the action at runtime rather than by the workflow schema.
         inner = yaml.safe_load(upload["with"]["with"])
         assert inner["name"] == "qa-${{ inputs.run_id }}"
-        assert inner["path"] == "games/minecraft/qa/runs/${{ inputs.run_id }}/"
+        assert inner["path"] == "games/minecraft/qa-state/runs/${{ inputs.run_id }}/"
         assert inner["include-hidden-files"] is True
         assert inner["if-no-files-found"] == "error"
 

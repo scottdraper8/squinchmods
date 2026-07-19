@@ -74,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--qa-runs-dir",
         metavar="<path>",
         default=None,
-        help="Directory for run artifacts (default: <repo-root>/games/minecraft/qa/runs)",
+        help="Directory for run artifacts (default: <repo-root>/games/minecraft/qa-state/runs)",
     )
     run_p.add_argument(
         "--dry-run",
@@ -106,7 +106,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--promote",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Promote passing pregen worlds to games/minecraft/qa/current after a passing run",
+        help="Promote passing pregen worlds to games/minecraft/qa-state/current after a passing run",
     )
     run_p.add_argument(
         "--clean",
@@ -117,7 +117,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     promote_p = subparsers.add_parser(
         "promote",
-        help="Promote a completed run's worlds into games/minecraft/qa/current",
+        help="Promote a completed run's worlds into games/minecraft/qa-state/current",
     )
     promote_p.add_argument(
         "--run-id", metavar="<id>", required=True, help="Run ID to promote"
@@ -131,7 +131,7 @@ def _build_parser() -> argparse.ArgumentParser:
     promote_p.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate and report what would be promoted without touching games/minecraft/qa/current",
+        help="Validate and report what would be promoted without touching games/minecraft/qa-state/current",
     )
     promote_p.add_argument(
         "--repo-root",
@@ -143,7 +143,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--qa-runs-dir",
         metavar="<path>",
         default=None,
-        help="Directory the run lives under (default: <repo-root>/games/minecraft/qa/runs)",
+        help="Directory the run lives under (default: <repo-root>/games/minecraft/qa-state/runs)",
     )
 
     remote_p = subparsers.add_parser(
@@ -169,13 +169,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--qa-runs-dir",
         metavar="<path>",
         default=None,
-        help="Directory for downloaded run artifacts (default: <repo-root>/games/minecraft/qa/runs)",
+        help="Directory for downloaded run artifacts (default: <repo-root>/games/minecraft/qa-state/runs)",
     )
     remote_p.add_argument(
         "--promote",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Promote passing remote pregen worlds to games/minecraft/qa/current after download",
+        help="Promote passing remote pregen worlds to games/minecraft/qa-state/current after download",
     )
     remote_p.add_argument(
         "--poll-interval",
@@ -222,12 +222,12 @@ def _build_parser() -> argparse.ArgumentParser:
     clean_p.add_argument(
         "--runs",
         action="store_true",
-        help="Prune games/minecraft/qa/runs",
+        help="Prune games/minecraft/qa-state/runs",
     )
     clean_p.add_argument(
         "--trash",
         action="store_true",
-        help="Prune games/minecraft/qa/trash",
+        help="Prune games/minecraft/qa-state/trash",
     )
     clean_p.add_argument(
         "--keep-runs",
@@ -266,7 +266,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--qa-runs-dir",
         metavar="<path>",
         default=None,
-        help="Override the runs directory (default: games/minecraft/qa/runs)",
+        help="Override the runs directory (default: games/minecraft/qa-state/runs)",
     )
 
     return parser

@@ -272,7 +272,7 @@ class TestExitCodes:
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not on PATH")
 class TestSubprocessSmoke:
     def test_squinch_qa_plan_via_subprocess(self, fake_repo):
-        squinch_script = REAL_REPO_ROOT / "tools" / "squinch"
+        squinch_script = REAL_REPO_ROOT / "tooling" / "squinch"
         result = subprocess.run(
             [
                 str(squinch_script),

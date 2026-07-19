@@ -14,7 +14,7 @@ Thumbs.db
 # Project
 META-INF/
 games/minecraft/reference/
-games/minecraft/qa/
+games/minecraft/qa-state/
 .qa-runs/
 .qa-incoming/
 .qa-staging/

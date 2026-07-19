@@ -24,7 +24,8 @@ plans/
   ocean-depth/                       configurable ocean depth feature
   strata/                            strata thickness weighting
   mountain-variability/              mountain scaling, summit shaping, variety
-  tall-world-scaling/                tall-world height cutoff investigation + recovered findings
+  tall-world-scaling/                retrospective only; branch retired 2026-07-18, split into
+                                      ocean-depth and mountain-variability above
   shorelines/                        beach/shore port (beach system, integration, compat)
 refs/
   branch-map.md                      RTF branch inventory and agent-ref/docs-branch history

@@ -11,7 +11,7 @@ RUN_ID_RE = re.compile(r"^\d+-[0-9a-f]{8}$")
 
 
 def default_qa_root(repo_root: Path) -> Path:
-    return repo_root / "games" / "minecraft" / "qa"
+    return repo_root / "games" / "minecraft" / "qa-state"
 
 
 def default_qa_runs_dir(repo_root: Path) -> Path:

@@ -21,8 +21,8 @@ uv sync
 ```
 
 This installs `squinch-qa` and its dependencies (PyYAML ≥ 6, jsonschema ≥ 4) into a local `.venv`.
-The `tools/squinch` dispatcher calls `uv run --project games/minecraft/tooling/qa` automatically, so
-you do not need to activate the venv manually.
+The `tooling/squinch` dispatcher calls `uv run --project games/minecraft/tooling/qa` automatically,
+so you do not need to activate the venv manually.
 
 ---
 
@@ -50,7 +50,7 @@ source directory, and raises a clear error if the config exists but the source c
 
 ## CLI Usage
 
-All commands are dispatched through `tools/squinch`:
+All commands are dispatched through `tooling/squinch`:
 
 ```sh
 squinch qa plan <mod-slug> --profile <profile-name> [--target <target-id>] [--repo-root <path>]
@@ -212,10 +212,10 @@ squinch qa run redstone-backport --profile dev --dry-run
 
 ### QA Runtime Layout
 
-Each invocation creates a timestamped directory under `games/minecraft/qa/runs/`:
+Each invocation creates a timestamped directory under `games/minecraft/qa-state/runs/`:
 
 ```text
-games/minecraft/qa/
+games/minecraft/qa-state/
 └── runs/
     └── 1705320000000-a1b2c3d4/            ← run_id: unix-ms timestamp + random hex suffix
         ├── plan.json                      ← copy of the execution plan
@@ -233,10 +233,10 @@ games/minecraft/qa/
                         └── mymod-1.0.0.jar
 ```
 
-Promoted worlds live under `games/minecraft/qa/current/<mod-id>/<target-id>/<test-id>/`:
+Promoted worlds live under `games/minecraft/qa-state/current/<mod-id>/<target-id>/<test-id>/`:
 
 ```text
-games/minecraft/qa/current/
+games/minecraft/qa-state/current/
 ├── redstone-backport/
 │   └── forge-1.20.1/
 │       └── pregen/
@@ -269,8 +269,11 @@ The old root layout is legacy-only and should not be used by the active workflow
                     └── mymod-1.0.0.jar
 ```
 
-Both `games/minecraft/qa/` and the legacy root `.qa-*` directories are gitignored at the repo root
-so old local artifacts are not accidentally committed during migration cleanup.
+Both `games/minecraft/qa-state/` and the legacy root `.qa-*` directories are gitignored at the repo
+root so old local artifacts are not accidentally committed during migration cleanup.
+
+`qa-state/` avoids colliding with `games/minecraft/tooling/qa/` (the planner/runner's own source) —
+one is the tool, the other is everything the tool generates.
 
 ### Cleanup
 

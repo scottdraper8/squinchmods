@@ -361,7 +361,7 @@ class TestRunPlanWiring:
         exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
 
         assert exit_code == 0
-        assert calls == [tmp_path / "games" / "minecraft" / "qa"]
+        assert calls == [tmp_path / "games" / "minecraft" / "qa-state"]
 
     def test_run_clean_false_skips_cleanup(self, tmp_path, monkeypatch):
         from squinch_qa.runner import create_run_state, run_plan
