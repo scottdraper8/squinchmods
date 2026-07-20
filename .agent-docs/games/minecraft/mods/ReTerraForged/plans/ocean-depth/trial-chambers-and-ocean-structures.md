@@ -22,9 +22,10 @@ sample. **No single fix covers every ocean-adjacent structure — the underlying
 genuinely different per structure**, summarized in the table at the end of this doc.
 
 The rest of this document is the research trail that produced the shipped fix: root-cause proof, the
-structure survey, three algorithm iterations (each with a real mistake caught by live testing, not
-review), and the separate Ancient City biome-climate finding. Kept as historical record of why the
-final design looks the way it does, not as a description of an in-progress investigation.
+structure survey, several algorithm iterations (each with a real mistake caught by live testing, not
+review, including one found by playing on a real client after shipping), and the separate Ancient
+City biome-climate finding. Kept as historical record of why the final design looks the way it does,
+not as a description of an in-progress investigation.
 
 ## Confirmed by direct visual reproduction
 
@@ -621,6 +622,40 @@ bottom-side check was mostly validated against.
 
 Zero exceptions across all three preset runs.
 
+### Real-footprint ceiling: a false accept found by real client testing, not measurement
+
+The real-bbox safety check compares the structure's real top against `maxLocalY`, but until now
+`maxLocalY` was still the same pre-build floor-grid sample used to pick the initial target — the
+shallowest point found anywhere across the full `max_distance_from_center` radius, regardless of
+where the structure actually ended up sprawling. That's the right worst-case philosophy for a
+pre-build guess, there's no other information available yet, but reusing it as the final verdict has
+a real gap: a hill on the far side of that radius, nowhere near the real structure, can grant it
+headroom it doesn't actually have.
+
+Found by playing on a real client, not by a scanner: a Trial Chambers instance in the
+`worldDepth=16` mountain preset visibly protruding through a plains hillside. Diagnostic logging
+traced the exact candidate: anchored at `Y=55`, close to its own sampled floor (`worstFloor=54` —
+the anchor itself wasn't the problem), but its real top reached `Y=87`, checked against
+`maxLocalY=109` — comfortably below that ceiling on paper, and accepted. The `109` came from a
+`bestSurface=119` sample elsewhere in the 116-block radius, nowhere near the piece that actually
+poked through.
+
+Fixed by re-deriving the ceiling after building, from the real footprint instead of the pre-build
+guess radius: `rtf$sampleLocalCeiling()` grid-samples across the real bounding box's own X/Z extent
+and takes the lowest point found there. Same worst-case-within-reach philosophy used everywhere else
+in this design, just correctly scoped to where the structure actually is rather than anywhere it
+could theoretically have reached. Scoping and worst-casing both matter together here, not
+separately: taking the lowest point over the old, unscoped radius would have been far too
+conservative (some low point nearly always exists somewhere in 116 blocks of mountain terrain, which
+would starve the window-rescue path of the exact headroom it exists to find). Narrowing the sample
+to the real footprint first is what makes taking the worst case within it the right call instead of
+an overcautious one.
+
+Live-verified: the exact reported location no longer generates (correctly rejected instead of
+wrongly accepted), the mountain preset's other healthy instances are unchanged, and the very-deep
+preset's already-documented skip/bury cases matched their prior results exactly (same bounding
+boxes, same solidity) — no regression.
+
 ## Ancient City / deep_dark: structure defect exists, but biome climate blocks the screenshot
 
 `MixinJigsawStartHeightFixQA` fires identically for Ancient City via the same shared mechanism — a
@@ -819,9 +854,14 @@ only, then discarded before committing:
   `start_height` range (`-40..-20`) categorically invalid — below the dimension's own floor. Six
   real, healthy Trial Chambers (10-23% solid) generated there anyway, all with bounding boxes well
   above `Y=-16`, meaning every one of them necessarily used the upward window-rescue path to exist
-  at all. Ancient City's own push-up path was not separately observed live in this run (the nearest
-  candidate in this preset was over 16,000 blocks away) but is the identical, unbranched code path
-  already exercised six times here and already verified for skip/bury via the very-deep preset.
+  at all. Ancient City's own push-up path was separately confirmed too (2026-07-20, follow-up): the
+  plain preset's nearest real Ancient City was over 16,000 blocks from spawn (`deep_dark` is very
+  rare at this shallow a `worldDepth`), but dramatically taller mountains
+  (`terrain.general.globalVerticalScale`/`terrain.mountains.verticalScale` `1.0 → 4.0`) combined
+  with a denser `ancient_city` `structure_set` override brought 11 real, healthy instances (`10-24%`
+  solid) within a single ~200x200 forceload near spawn, all sitting at `Y=145..199` — nowhere close
+  to the blind `Y=-53` anchor, so every one of them also required the window-rescue path. See
+  `qa-presets.md` for the saved preset and exact numbers.
 - **Normal generation.** Goldilocks preset (vanilla `worldDepth=64`): 6/6 randomly sampled
   candidates (3 Trial Chambers, 3 Ancient Cities) generated with no correction needed — confirms no
   regression to ordinary generation.
@@ -853,13 +893,13 @@ only, then discarded before committing:
 
 ## Summary table
 
-| Structure      | Depth-aware today?        | Root cause if not                                                                                                                                                                 | Confidence                                                                                                                                                                                                                                                                                                                                                        |
-| -------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ocean Monument | Fixed in RTF              | Hardcoded absolute anchor (`Y=39`), sampled height discarded                                                                                                                      | High — code-confirmed, live-verified, fixed by `b687932`                                                                                                                                                                                                                                                                                                          |
-| Ocean Ruins    | **Yes**                   | n/a                                                                                                                                                                               | High — empirically verified via direct block-level ground scan, 10 placements including extreme deep water, zero exceptions                                                                                                                                                                                                                                       |
-| Shipwrecks     | **Yes**                   | n/a                                                                                                                                                                               | High — empirically verified against vanilla's own footprint-averaged calculation, exact match in both measured placements                                                                                                                                                                                                                                         |
-| Trial Chambers | Fixed in RTF (production) | Blind `start_height` with no terrain check, combined with `ENCAPSULATE`'s per-piece-only halo                                                                                     | High — reproduction, discovery, and magnitude measurement confirmed at both a floating and a healthy chamber, code-traced to the exact mechanism; the production mixin (`MixinJigsawStructure`, `6b180fd`) is live-verified for all four behaviors (skip, bury/push-down, push-up, unaffected normal generation) across three reference presets                   |
-| Ancient City   | Fixed in RTF (production) | Same blind `start_height` as trial chambers, but real instances require `deep_dark`; current scans show low ocean floors and `deep_dark` climate do not overlap in tested regions | High on mechanism, biome-climate separation, and live-verified skip/bury behavior (exact corrected-Y match to the prior QA-validated mixin); push-up shares the identical unbranched code path verified via Trial Chambers but wasn't independently observed live; no naturally-occurring floating/protruding real-world instance found (32 samples, all healthy) |
+| Structure      | Depth-aware today?        | Root cause if not                                                                                                                                                                 | Confidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ocean Monument | Fixed in RTF              | Hardcoded absolute anchor (`Y=39`), sampled height discarded                                                                                                                      | High — code-confirmed, live-verified, fixed by `b687932`                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Ocean Ruins    | **Yes**                   | n/a                                                                                                                                                                               | High — empirically verified via direct block-level ground scan, 10 placements including extreme deep water, zero exceptions                                                                                                                                                                                                                                                                                                                                                                      |
+| Shipwrecks     | **Yes**                   | n/a                                                                                                                                                                               | High — empirically verified against vanilla's own footprint-averaged calculation, exact match in both measured placements                                                                                                                                                                                                                                                                                                                                                                        |
+| Trial Chambers | Fixed in RTF (production) | Blind `start_height` with no terrain check, combined with `ENCAPSULATE`'s per-piece-only halo                                                                                     | High — reproduction, discovery, and magnitude measurement confirmed at both a floating and a healthy chamber, code-traced to the exact mechanism; `MixinJigsawStructure` is live-verified for all four behaviors (skip, bury/push-down, push-up, unaffected normal generation) across three reference presets, plus a further real-footprint-ceiling refinement (`69d2f5b`, see "Real-footprint ceiling" above) after real client testing caught a surface-protrusion gap the QA scanners hadn't |
+| Ancient City   | Fixed in RTF (production) | Same blind `start_height` as trial chambers, but real instances require `deep_dark`; current scans show low ocean floors and `deep_dark` climate do not overlap in tested regions | High on mechanism, biome-climate separation, and live-verified skip/bury/push-up behavior (exact corrected-Y match to the prior QA-validated mixin for bury; 11 real push-up instances confirmed in a tall-mountain `worldDepth=16` variant); no naturally-occurring floating/protruding real-world instance found (32 samples, all healthy)                                                                                                                                                     |
 
 ## Reproduction reference
 

@@ -14,12 +14,16 @@ Done. Production mixin `MixinJigsawStructure` (no logging, no QA scaffolding) is
 `feat/configurable-ocean-depth` (`6b180fd`, pushed to origin) and live-verified across three preset
 depths for all four required behaviors: skip (no valid window), bury/push-down under deep oceans,
 push-up window rescue (proven via a `worldDepth=16` preset where the blind range is categorically
-invalid), and unaffected normal generation. The five QA-only diagnostic scanner mixins were not
-carried over — they remain only on the local `qa/configurable-ocean-depth` branch for future
-re-verification if ever needed. Full detail, live-verification results, and the still-open
-product/scope call (does this belong in `feat/configurable-ocean-depth` at all, vs. a documented
-known limitation — not a technical question) are in `trial-chambers-and-ocean-structures.md`'s
-"Status" and "Production cleanup and live verification" sections. Do not re-derive any of this.
+invalid), and unaffected normal generation. A follow-up commit (`69d2f5b`) fixed a real gap found by
+playing on a real client afterward, a surface-protrusion case the pre-build ceiling check couldn't
+catch because it was comparing against a distant hill instead of the real footprint, see the
+"Real-footprint ceiling" section in `trial-chambers-and-ocean-structures.md` for the mechanism. The
+five QA-only diagnostic scanner mixins were not carried over — they remain only on the local
+`qa/configurable-ocean-depth` branch for future re-verification if ever needed. Full detail,
+live-verification results, and the still-open product/scope call (does this belong in
+`feat/configurable-ocean-depth` at all, vs. a documented known limitation — not a technical
+question) are in `trial-chambers-and-ocean-structures.md`'s "Status" and "Production cleanup and
+live verification" sections. Do not re-derive any of this.
 
 ## Biome climate-banding — deliberately deferred, zero progress since flagged
 
