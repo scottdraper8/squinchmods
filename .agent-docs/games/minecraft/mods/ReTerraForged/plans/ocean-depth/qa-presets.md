@@ -2,9 +2,23 @@
 
 ## Purpose
 
-Reference for the exported datapacks used during PR #97 ocean-depth QA. These live outside the repo
-in the Modrinth test profile, so record the exact paths and key values here before the context gets
-lost.
+Reference for the datapacks used during PR #97 ocean-depth QA.
+
+**Canonical copies now live in this repo** under `test-presets/` (added 2026-07-20, after the
+Modrinth profile's `exports/` directory was found to have already lost one preset once — see the
+"Note (2026-07-19)" below). Prefer these committed copies for any new QA; the Modrinth profile paths
+below are the original source and are kept as a secondary reference only.
+
+| Name                                 | Committed copy                           | SHA-256                                                            |
+| ------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------ |
+| Very deep ocean test                 | `test-presets/very-deep.zip`             | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
+| Goldilocks (vanilla-depth max ocean) | `test-presets/goldilocks.zip`            | `b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878` |
+| Mountain, `worldDepth=16`            | `test-presets/mountain-worldDepth16.zip` | `546aeab25e0d61b59638ff1da81d661f2817c50c5886e54b0297523d31ce1c68` |
+
+The `worldDepth=16` mountain preset is the hand-reconstructed extreme-shallow preset described in
+`trial-chambers-and-ocean-structures.md`'s "Upward window rescue" section (`min_y=-16`,
+`height=400`, dense Trial Chambers `structure_set` override `spacing=8, separation=3`) — committed
+here since it was previously reconstructed ad hoc each session with no canonical saved copy.
 
 Use the exported `.zip` files as the source of truth for server/client QA. The loose JSON files in
 `config/reterraforged/presets/` are useful for reading values, but Minecraft loads the exported
