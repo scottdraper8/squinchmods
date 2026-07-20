@@ -63,12 +63,29 @@ dev-server stop <mod> --loader <loader>
 writes `eula.txt` and `server.properties`, stages a datapack into `world/datapacks/` if given, waits
 for the ready line, and records connection info in a state file (`.dev-server-state.json`) inside
 the loader's run directory. `stop` reads that state, sends an RCON `stop`, falls back to killing the
-process if needed, and verifies the ports are actually free — not just that the process exited —
-before reporting success.
+process if needed, and checks whether the RCON/server ports are actually free afterward, warning
+explicitly if they aren't.
 
 Refuses to start over an existing world of the same `--level-name` unless `--fresh` is passed, so a
 new seed/datapack never silently mixes with stale state. A state file left behind by a process
 that's no longer running is detected and cleared automatically on the next `start`.
+
+### Known limitations
+
+- **`stop`'s port-still-bound warning does not mean the process actually got cleaned up — a manual
+  kill is currently required.** Confirmed repeatedly (2026-07-19): Architectury's transformer
+  wrapper spawns the real game process as a _child_, not the PID `dev-server` tracks, so `stop` can
+  warn about a port still being bound while that real, heavy (200%+ CPU observed) process keeps
+  running indefinitely. Workaround: `ss -ltnp | grep <port>` (the port `stop` warned about) to find
+  the actual PID, then `kill -TERM` it, falling back to `-KILL` if it doesn't exit within a few
+  seconds.
+- **A `start` that times out waiting for "ready" can leave an entirely untracked process tree
+  running, with no warning at all** — since no PID ever gets recorded for `stop` to later attempt
+  cleaning up. After any `start` that reports a timeout or failure, check
+  `ps aux | grep -i "KnotServer\|runServer"` explicitly before retrying or moving on — don't assume
+  a failed attempt cleaned itself up.
+- Neither is fixed yet; both require the workarounds above until `dev-server` itself is improved to
+  track and kill the actual child process in both cases.
 
 ## Manual Setup
 

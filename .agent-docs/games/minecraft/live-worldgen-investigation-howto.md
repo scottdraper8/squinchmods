@@ -80,9 +80,16 @@ via commands is a predicate check against a guessed type:
 
 ```bash
 games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- \
-  "execute if block <x> <y> <z> minecraft:water run say WATER" \
-  "execute unless block <x> <y> <z> minecraft:water run say NOT_WATER"
+  "execute if block <x> <y> <z> minecraft:water run seed" \
+  "execute unless block <x> <y> <z> minecraft:water run seed"
 ```
+
+**Use a command that actually returns text over RCON as the predicate's signal, not `say`.** `say`
+broadcasts to chat/console but doesn't populate its own RCON response payload —
+`execute if ... run say WATER` executes successfully but comes back empty either way,
+indistinguishable from the condition being false. `seed` (or any other command that always prints
+something) reliably distinguishes "condition true" (text present) from "condition false" (empty
+response).
 
 This does not scale to "what block is this" without knowing what to guess — for anything beyond a
 handful of manual spot-checks, write instrumentation instead (below).
@@ -103,6 +110,35 @@ the ports are actually free before reporting success, warning explicitly if they
 Once manual command-based probing stops scaling (need automatic, precise, repeatable measurement
 rather than one-block-at-a-time guessing), write a throwaway debug Mixin, compiled directly into the
 mod jar. Not gated behind a debug flag — it's a QA-only build, not meant to ship.
+
+**Never pipe a build through `| tail` (or anything else) and trust the shell's exit code.** A
+pipeline's exit status is the _last_ command's, not the build's —
+`./gradlew ... | tail -60; echo $?` reports `tail`'s exit code (almost always 0), not gradle's. This
+silently masked two real build failures in this session (a Javadoc comment containing `*/`
+mid-sentence, which closes the comment early and breaks compilation) — the background task reported
+"completed" both times while the build had actually failed. Redirect to a file instead and check its
+content directly: `./gradlew ... > build.log 2>&1; echo "EXIT=$?"`, then grep the file for
+`BUILD FAILED`/`error:`, or just confirm the expected output artifact (a `.class` file, a fresh jar)
+actually exists and is newer than the source. Don't trust "the background task said it completed" as
+proof of success by itself.
+
+**`@Shadow`-ing a field declared in the mixin target's _superclass_, not the target class itself,
+can fail silently.** Mixin's annotation processor prints "Cannot find target for @Shadow field" as a
+warning, not a hard error — the build still succeeds, but the mixin doesn't actually apply the way
+you'd expect at runtime. Use an `@Accessor` mixin targeting the class that actually _declares_ the
+field instead (the same pattern as accessing any other private/protected field via Mixin) —
+accessors resolve correctly regardless of how deep in the hierarchy the field lives.
+
+**When a structure's own `postProcess()` does more than a single-column heightmap sample — footprint
+averaging, a secondary uneven-terrain adjustment, anything beyond `getHeight(type, x, z)` — a naive
+"resample and diff" QA check produces false positives.** Hit this directly with vanilla shipwrecks:
+non-beached shipwrecks average `OCEAN_FLOOR_WG` across their whole footprint, not one column, so a
+QA mixin comparing the final placement against a single fresh sample read large, alarming-looking
+deltas that turned out to exactly match vanilla's own footprint average once replicated (delta
+against the real calculation: exactly zero). Either replicate the actual vanilla arithmetic
+precisely, or sidestep needing to at all by checking the real _outcome_ instead — a block-level scan
+for actual solid ground near the placement is independent of whichever internal calculation produced
+the Y, and answers the question that actually matters ("is this floating") directly.
 
 **The one hazard that matters and cost a real crash this session:** if your hook fires _during
 active chunk generation_ (any hook that runs inside a structure/feature-generation callback, e.g. a
@@ -168,42 +204,62 @@ dot-separated subpackages, e.g. `"qa.MixinFoo"` for `raccoonman.reterraforged.mi
 
 ## 5. Applying the same instrumentation across multiple branches
 
-Needed when comparing behavior between a baseline branch and a feature branch. This was a fully
-manual dance this session and is worth automating if this pattern recurs:
+Needed when comparing behavior between a baseline branch and a feature branch. **Use a git worktree,
+not stash/checkout** — confirmed working cleanly in practice (a stash-based dance was tried in an
+earlier session and hit real problems: the executable bit on `gradlew` doesn't reliably persist
+across a branch checkout, and `git stash pop` doesn't cleanly restore an untracked file across a
+branch switch when there's also a conflicting tracked-file change, e.g. that same permission diff on
+both branches). A worktree sidesteps all of that entirely by giving the baseline branch its own real
+directory and working tree, with no stash/checkout choreography at all:
 
 ```bash
-# on the feature branch, with instrumentation already written and working:
-git stash -u                         # preserves both tracked (mixins.json) and untracked (new mixin file) changes
-git checkout <baseline-branch>
-chmod +x gradlew                     # executable bit does NOT reliably persist across a branch checkout
-mkdir -p <mixin-package-dir>
-# recreate the mixin file(s) by hand (git stash's untracked-file entry doesn't cleanly `pop` across
-# a branch switch if there's also a conflicting tracked-file change, e.g. the same gradlew permission
-# diff on both branches) — simplest to just re-write the file content directly rather than fight it
-# add the same registration line to this branch's mixins.json
+# from the feature branch, with instrumentation already written and working there:
+git worktree add ../<mod>-baseline <baseline-branch>   # e.g. ../ReTerraForged-baseline 1.21.1
+
+# copy the same QA mixin source + mixins.json registration line into the worktree
+mkdir -p ../<mod>-baseline/<mixin-package-dir>
+cp <mixin-package-dir>/*.java ../<mod>-baseline/<mixin-package-dir>/
+# edit ../<mod>-baseline/<mixins.json path> to add the same registration line
+
+cd ../<mod>-baseline
+chmod +x gradlew
 ./gradlew :<loader>:build -q
 cp <loader>/build/libs/<artifact>-<version>-fabric-<mc-version>.jar <destination>.jar
+cd -
 
-# clean up before returning:
-git checkout -- <mixins.json path>
-rm -rf <mixin-package-dir>
-git checkout <feature-branch>
-chmod +x gradlew
-git stash pop                        # if this fails specifically on the gradlew permission conflict,
-                                      # it still restores the untracked mixin file; just re-add the
-                                      # mixins.json registration line by hand and `git stash drop`
+# clean up when done — this also drops the copied QA mixin files and never touches the
+# baseline branch's own git history:
+git worktree remove ../<mod>-baseline --force
 ```
+
+If placing the worktree as a sibling under the mods directory (e.g. `games/minecraft/mods/`), tools
+like `dev-server` that resolve mods by literal directory name under that path can address it
+directly by its worktree folder name, same as any other mod checkout — no special-casing needed.
 
 ## 6. Cleanup checklist between test runs
 
 - `dev-server start --fresh` deletes the world save for you before regenerating with a new
   seed/preset/instrumentation — no manual `rm -rf` needed.
-- `dev-server stop` confirms no server process survived and that the RCON/server ports are actually
-  free before reporting success, warning explicitly if they aren't — no manual `ps`/`ss` checking
-  needed.
+- **`dev-server stop`/`start` have known process-cleanup gaps — manual `ps`/`ss` checking is still
+  needed in practice.** See "Known limitations" in `games/minecraft/tooling/README.md` for both
+  failure modes and their workarounds; don't assume a stop or a failed start actually cleaned up.
 - If preserving old runs for comparison, rename the world directory deliberately and clean it up
   afterward. Archived `world.*` directories still pile up and still need manual cleanup —
   `dev-server` doesn't manage retention of anything beyond the single active `--level-name`.
 - If driving this from an agent session with background task tracking, background tasks and
   scheduled wakeups don't automatically clean themselves up just because the underlying process died
   — verify and explicitly stop/cancel anything still shown as "running" that shouldn't be.
+
+## 7. Reading vanilla Minecraft source for comparison
+
+A full decompiled/mapped vanilla source tree already exists on this machine — do not reconstruct
+vanilla behavior from memory or guess at it; read it directly:
+
+```text
+games/minecraft/reference/sources/1.21.1/official/src/net/minecraft/...
+```
+
+`1.20.1/official` and `1.20.4/official` siblings also exist under the same `reference/sources/` root
+for older-version comparisons. This is genuine decompiled source (confirmed present, not a guess) —
+prefer it over web search or training-data recall whenever comparing a mod's worldgen/mixin behavior
+against vanilla's actual implementation.

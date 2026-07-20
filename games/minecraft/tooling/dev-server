@@ -306,8 +306,16 @@ def cmd_stop(args: argparse.Namespace) -> int:
             pass
         time.sleep(1)
 
-    time.sleep(1)  # give the OS a moment to release the sockets
-    still_bound = [p for p in (server_port, rcon_port) if not port_is_free(p)]
+    # Socket release isn't instant under heavy load, so poll for a few seconds
+    # rather than checking once.
+    still_bound: list[int] = []
+    port_deadline = time.monotonic() + 10.0
+    while time.monotonic() < port_deadline:
+        still_bound = [p for p in (server_port, rcon_port) if not port_is_free(p)]
+        if not still_bound:
+            break
+        time.sleep(1)
+
     if still_bound:
         print(f"warning: port(s) still bound after teardown: {still_bound}")
     else:
@@ -329,7 +337,11 @@ def cmd_rcon(args: argparse.Namespace) -> int:
         )
     state = json.loads(sp.read_text(encoding="utf-8"))
     responses = rcon_exec(
-        "127.0.0.1", state["rcon_port"], state["rcon_password"], *args.command
+        "127.0.0.1",
+        state["rcon_port"],
+        state["rcon_password"],
+        *args.command,
+        timeout=args.timeout,
     )
     for command, response in zip(args.command, responses):
         print(f">>> {command}")
@@ -377,6 +389,13 @@ def main() -> int:
     p_rcon.add_argument("mod")
     p_rcon.add_argument("--loader", required=True, choices=LOADERS)
     p_rcon.add_argument("command", nargs="+")
+    p_rcon.add_argument(
+        "--timeout",
+        type=float,
+        default=60.0,
+        help="Per-response wait, in seconds (raise this for commands like forceload "
+        "that trigger heavy generation and can leave the server slow to respond)",
+    )
     p_rcon.set_defaults(func=cmd_rcon)
 
     args = parser.parse_args()

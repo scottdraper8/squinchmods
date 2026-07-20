@@ -6,6 +6,16 @@ Replaces the earlier ocean-depth plan. The branch has been renamed from
 `fix/tall-world-ocean-scaling` to `feat/configurable-ocean-depth`. This is a feature, not a fix —
 RTF never had configurable ocean depth.
 
+**Superseded note (2026-07-19):** this plan's slider-clamp formula below (§ Slider bounds, § file 9)
+is stale. The shipped clamp is `properties.seaLevel + properties.worldDepth - 10`
+(`WorldSettingsPage.java:180`, confirmed) — a 10-block margin was added after this plan was written,
+undocumented here or anywhere else until now. That flat margin is exactly the mechanism investigated
+in `trial-chambers-and-ocean-structures.md` and `biome-climate-banding-investigation.md`: it's too
+small to guarantee underground biomes/structures have room to exist near the floor in many presets
+(see the extreme vs. Goldilocks preset comparison), and a formula-derived replacement is proposed
+there (Fix Design Options, Option A) but not yet implemented. Treat everything below as the
+_original_ design, not current behavior.
+
 ## Approach
 
 **Reset to `1.21.1` and rebuild.** The existing commit (`deea518`) is majority throwaway: 7 of 19

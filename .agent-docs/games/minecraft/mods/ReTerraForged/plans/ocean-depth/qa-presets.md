@@ -24,12 +24,43 @@ Known `/locate structure minecraft:monument` result for both shallowest and very
 
 ## Available Datapacks
 
-| Name                  | Exported datapack                                                                                                                                                      | Key values                                                                                         | SHA-256                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Very deep ocean test  | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset.zip`            | `oceanDepth=677`, `worldDepth=624`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER` | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
-| Shallowest ocean test | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-shallowest.zip` | `oceanDepth=10`, `worldDepth=128`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`  | `5ae7ba936536abc2930ec719b869e19aadb35a783d999f4e81c22358f9aa6383` |
+| Name                                 | Exported datapack                                                                                                                                                      | Key values                                                                                         | SHA-256                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Very deep ocean test                 | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset.zip`            | `oceanDepth=677`, `worldDepth=624`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER` | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
+| Shallowest ocean test                | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-shallowest.zip` | `oceanDepth=10`, `worldDepth=128`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`  | `5ae7ba936536abc2930ec719b869e19aadb35a783d999f4e81c22358f9aa6383` |
+| Goldilocks (vanilla-depth max ocean) | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-goldilocks.zip` | `oceanDepth=117`, `worldDepth=64`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`  | `b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878` |
 
-Both exported zips contain the RTF preset at:
+**Note (2026-07-19):** `ocean-depth-test-preset-shallowest.zip` is referenced above and in
+`monument-placement-research.md`, but is no longer present in the Modrinth profile's `exports/`
+directory as of this investigation — only the very-deep and Goldilocks exports currently exist
+there. Re-export it before relying on the shallowest preset again.
+
+"Goldilocks" is not an RTF-internal name; it's this investigation's label for the deepest _legal_
+ocean at otherwise vanilla world depth (`worldDepth=64`, the codec default): `oceanDepth=117` is the
+UI/code maximum for `seaLevel=63` with `worldDepth=64` (`seaLevel + worldDepth - 10`, see
+`WorldSettingsPage` in Source-code correction below). It was created specifically to test whether
+Ancient Cities could protrude into oceans with a fixed structure `start_height` even without RTF's
+extreme deep-ocean settings — that test led to discovering the biome climate-banding issue described
+in `biome-climate-banding-investigation.md`. Unlike the very-deep/shallowest exports, the exported
+datapack's `preset.json` omits `worldDepth` from `world.properties` (it equals the codec default),
+but the loose preset JSON in `presets/ocean-depth-test-preset-goldilocks.json` does list it
+explicitly.
+
+For direct-scanner runs, the Goldilocks RTF preset was combined with a dense Ancient City
+`structure_set` override (`spacing=6`, `separation=2`, see Practical notes in the resume doc) into a
+single datapack zip, `combined-ocean-depth-goldilocks-vanilla-depth-dense-ancient-city.zip`. There
+is no build script for this combination in the repo; it was assembled ad hoc by adding a second
+`data/` path into a copy of the Goldilocks export. Current on-disk copies (run artifacts, not
+canonical sources):
+
+```text
+games/minecraft/mods/ReTerraForged/fabric/run/world/datapacks/combined-ocean-depth-goldilocks-vanilla-depth-dense-ancient-city.zip
+games/minecraft/mods/ReTerraForged/fabric/run/qa-biome-bands-goldilocks/datapacks/combined-ocean-depth-goldilocks-vanilla-depth-dense-ancient-city.zip
+games/minecraft/mods/ReTerraForged/fabric/run/qa-goldilocks-climate-axis/datapacks/combined-ocean-depth-goldilocks-vanilla-depth-dense-ancient-city.zip
+/tmp/rtf-goldilocks-vanilla-depth-dense-20260719/combined-ocean-depth-goldilocks-vanilla-depth-dense-ancient-city.zip
+```
+
+All exported zips contain the RTF preset at:
 
 ```text
 data/reterraforged/reterraforged/worldgen/preset/preset.json
@@ -52,10 +83,11 @@ terrain.general.terrainRegionSize=1200
 
 Readable copies from the Modrinth profile:
 
-| Name                  | Path                                                                                                                                                             | SHA-256                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Very deep ocean test  | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/presets/ocean-depth-test-preset.json`     | `64425cbecf15956c00227c62da4b363deea0a1dd1202466d21a17b5f6332ab46` |
-| Shallowest ocean test | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/presets/ocean-depth-test-preset (1).json` | `ce90c89125b1ed5c79b6c12ce9a15eeadf2070702eb78a4b67fe212f2b3e27ef` |
+| Name                                 | Path                                                                                                                                                                    | SHA-256                                                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Very deep ocean test                 | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/presets/ocean-depth-test-preset.json`            | `64425cbecf15956c00227c62da4b363deea0a1dd1202466d21a17b5f6332ab46` |
+| Shallowest ocean test                | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/presets/ocean-depth-test-preset (1).json`        | `ce90c89125b1ed5c79b6c12ce9a15eeadf2070702eb78a4b67fe212f2b3e27ef` |
+| Goldilocks (vanilla-depth max ocean) | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/presets/ocean-depth-test-preset-goldilocks.json` | `8df44a80bcb8ee2f3ed1842c325a494e16d5a0a638788ec256c82147c9124c65` |
 
 ## Headless Server Use
 
@@ -91,6 +123,11 @@ historical run artifacts; prefer the Modrinth `exports/` paths above when starti
   the large open-column floor variation seen during monument sampling.
 - Shallowest preset: verifying that the monument fix also handles shallow ocean floors, including
   the accepted outcome where a monument may protrude above the waterline.
+- Goldilocks preset: originally built to test whether Ancient Cities' fixed structure `start_height`
+  could expose them protruding into oceans without needing RTF's extreme deep-ocean settings.
+  Combined with a dense Ancient City `structure_set` override, it became the primary preset for the
+  `deep_dark`/low-ocean-floor biome climate-banding scans.
 
-See `monument-placement-research.md` for the measured monument floor samples and
-`trial-chambers-and-ocean-structures.md` for the trial chamber reproduction.
+See `monument-placement-research.md` for the measured monument floor samples,
+`trial-chambers-and-ocean-structures.md` for the trial chamber reproduction and Ancient City search
+data, and `biome-climate-banding-investigation.md` for the Goldilocks/extreme biome-band scans.
