@@ -1,6 +1,6 @@
 # Headless Dev-Server QA: How-To
 
-## Status: 2026-07-18
+## Status: 2026-07-20
 
 Operational companion to `live-worldgen-investigation-retrospective.md` (pain points and process
 narrative). The RTF ocean-depth notes under `mods/ReTerraForged/plans/ocean-depth/` are case studies
@@ -72,6 +72,24 @@ anything):
 ```bash
 games/minecraft/tooling/dev-server rcon <mod> --loader <loader> -- "forceload add <minX> <minZ> <maxX> <maxZ>"
 ```
+
+**`forceload add` is capped at 256 chunks per call** (vanilla's own limit) — a region larger than
+16x16 chunks errors with `Too many chunks in the specified area` instead of silently truncating.
+
+**Multiple large `forceload` calls issued back-to-back can crash the server via the watchdog**,
+confirmed directly (2026-07-20): eight ~200-chunk `forceload` commands sent in one `rcon` invocation
+against an expensive preset (RTF's very-deep ocean preset, ~105ms/chunk thread time) blocked the
+main thread long enough that vanilla's `ServerWatchdog` killed the process outright — a real crash,
+not a timeout warning, with its own crash report. Not a mixin bug; it's the same watchdog that would
+fire against unmodified vanilla under enough simultaneous forced generation. Two independent fixes,
+use both: pass `--server-properties max-tick-time=-1` to `dev-server start` to disable the watchdog
+for the session, and send `forceload` calls one region at a time (each in its own `rcon` invocation,
+with a longer `--timeout` — heavy presets can take minutes per region) rather than batched together.
+After a watchdog crash, the underlying game process can still be running as an orphaned child (the
+same Architectury child-process issue as "Known limitations" in `games/minecraft/tooling/README.md`)
+even though the `rcon`/`start` command itself reports failure — check `ps aux | grep KnotServer` and
+manually kill it before retrying, and clear the stale `.dev-server-state.json` if `start` refuses to
+proceed.
 
 **Checking a single block's type is limited** — there is no vanilla command that returns an
 arbitrary block's exact ID. `/data get block <pos>` only works for block _entities_ (chests, signs,
