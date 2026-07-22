@@ -14,7 +14,7 @@ that actually shipped.
 
 - **Ocean floor depth below Y=0** → `feat/configurable-ocean-depth` (PR #97). Not built on top of
   the tall-world branch's commit (`deea518`) — that commit was judged "majority throwaway" and the
-  feature was rewritten from scratch. See `../ocean-depth/dynamic-height-ocean-depth-plan.md`.
+  feature was rewritten from scratch. See `../ocean-depth/ocean-depth-design.md`.
 - **Mountain height/shape in tall worlds** → `feat/mountain-region-variability`. Also not built on
   the tall-world branch's commit (`5e28063`, "Fix tall-world mountain scaling") — that whole
   approach (automatic tall-world projection + automatic mountain-width multipliers) was explicitly

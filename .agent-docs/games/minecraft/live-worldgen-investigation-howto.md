@@ -1,6 +1,6 @@
 # Headless Dev-Server QA: How-To
 
-## Status: 2026-07-20
+## Status: 2026-07-22
 
 Operational companion to `live-worldgen-investigation-retrospective.md` (pain points and process
 narrative). The RTF ocean-depth notes under `mods/ReTerraForged/plans/ocean-depth/` are case studies
@@ -182,6 +182,25 @@ chunk against the current generation step's dependency radius) — it never thro
 points got skipped alongside the result, so a reading's completeness is visible rather than silently
 partial.
 
+**For validating a fix that only matters once blocks are actually placed (fluid/lava placement,
+anything decided by an `Aquifer.FluidPicker` or similar post-generation pass), don't hook generation
+at all — forceload the target region first, then poll from a tick hook until the chunks are present,
+then read real blocks.** This sidesteps the `WorldGenRegion` hazard above entirely, because by the
+time the scan runs the chunks are fully generated ordinary level chunks, not mid-generation ones:
+
+```java
+if (!level.hasChunk(chunkX, chunkZ)) {
+    return; // still forceloading — try again next tick
+}
+BlockState state = level.getBlockState(pos); // safe, this is a real generated chunk now
+```
+
+Trigger the `forceload add <minX> <minZ> <maxX> <maxZ>` RCON command yourself before the scan starts
+running, then let the mixin's own polling loop (same `hasChunk` check, just outside any generation
+callback) decide when to actually read. This was the only reliable way to confirm a fluid-placement
+fix's real, physically-placed output (verifying zero obsidian and correct floor material at specific
+columns) rather than re-deriving what the fix's own function _should_ return.
+
 **Test the instrumentation itself against the exact target scenario on the headless server before
 ever shipping it anywhere** — this is what would have caught the crash before it reached a real
 tester. Launch, forceload the target area, watch the log for your marker _and_ for crash signatures
@@ -220,6 +239,19 @@ same thing. Use marker names like `generation sample`, `placement sample`, `dela
 (check the existing file for the package/naming convention — RTF's is flat short-name-per-entry with
 dot-separated subpackages, e.g. `"qa.MixinFoo"` for `raccoonman.reterraforged.mixin.qa.MixinFoo`).
 
+**Two QA mixins targeting the same class with an identically-named-and-signatured field or method
+silently collide — Sponge Mixin merges them into the target class with no warning, and only one
+implementation actually ends up firing at runtime.** Hit this three separate times across different
+QA mixins in one investigation, always targeting `MinecraftServer` (a natural, shared hook point for
+"run this scan on server tick") from multiple independent throwaway mixins, each independently named
+a field `rtf$started` or a method `rtf$maybeStart` without checking what sibling QA mixins already
+declared. The build succeeds, the mod loads, and the symptom is confusing rather than obviously
+wrong (the log for one scan just never appears, or appears with values that don't match what that
+mixin's own code should produce) — there's no error pointing at the actual cause. Prefix every
+QA-mixin member with something unique to that specific mixin/investigation, not a generic
+`started`/`run`/`init`, especially for anything hooking a commonly-shared class like
+`MinecraftServer` or `NoiseChunk` that other QA mixins are also likely to target.
+
 ## 5. Applying the same instrumentation across multiple branches
 
 Needed when comparing behavior between a baseline branch and a feature branch. **Use a git worktree,
@@ -253,6 +285,16 @@ git worktree remove ../<mod>-baseline --force
 If placing the worktree as a sibling under the mods directory (e.g. `games/minecraft/mods/`), tools
 like `dev-server` that resolve mods by literal directory name under that path can address it
 directly by its worktree folder name, same as any other mod checkout — no special-casing needed.
+
+**For a strict before/after comparison of one specific fix, pin the worktree to the exact commit,
+not a branch tip.** `git worktree add --detach <path> <exact-sha>` (the fix commit itself for
+"after", its immediate parent for "before") guarantees the only difference between the two built
+jars is that one commit — a live branch tip almost always carries later, unrelated commits layered
+on top (in one case, ~15 of them, including an unrelated fix from the same investigation), which
+silently weakens the comparison from "does this commit work" to "does this commit plus everything
+else that happened to land afterward work." Detached-HEAD worktrees behave identically to normal
+ones for building; there's no reason to ever build a before/after pair from branch tips when the
+actual commits being compared are known.
 
 ## 6. Cleanup checklist between test runs
 
