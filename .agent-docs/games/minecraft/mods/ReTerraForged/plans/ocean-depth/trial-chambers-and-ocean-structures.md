@@ -746,10 +746,11 @@ deep_dark:       depth point 1.1, erosion -1.0..-0.375
 So the general risk is not "Ancient Cities are special." The general risk is that very deep RTF
 ocean terrain can be physically deep while still sampling as surface/ocean-like on the biome `depth`
 axis, which may suppress vanilla cave/underground biomes in those low-ocean columns. This broader
-banding question is now measured in `biome-climate-banding-investigation.md`: Goldilocks low-ocean
-columns had zero `deep_dark`, `dripstone_caves`, or `lush_caves` hits at all sampled fixed and
-floor-relative Y bands; the extreme preset recovered some `deep_dark` near absolute world bottom and
-some `lush_caves` far below the local floor, but still had zero low-floor cave-biome hits at Ancient
+banding question is now measured in
+`../biome-climate-banding/biome-climate-banding-investigation.md`: Goldilocks low-ocean columns had
+zero `deep_dark`, `dripstone_caves`, or `lush_caves` hits at all sampled fixed and floor-relative Y
+bands; the extreme preset recovered some `deep_dark` near absolute world bottom and some
+`lush_caves` far below the local floor, but still had zero low-floor cave-biome hits at Ancient
 City's `Y=-27` band. Modded cave or underground biomes that register through vanilla/TerraBlender
 climate parameters could be affected the same way if they depend on the `depth` axis, but that
 remains a compatibility risk to test per mod.
@@ -763,9 +764,9 @@ change and should be regression-tested against vanilla cave biomes and modded cl
 biomes.
 
 The original extreme preset (`worldDepth=624`, `oceanDepth=677`) has now been rerun with the broader
-coarse scanner in `biome-climate-banding-investigation.md`. Older direct scans had already proved
-the same practical failure in the original searched area: low floors were common, `deep_dark`
-columns existed, and overlap was zero:
+coarse scanner in `../biome-climate-banding/biome-climate-banding-investigation.md`. Older direct
+scans had already proved the same practical failure in the original searched area: low floors were
+common, `deep_dark` columns existed, and overlap was zero:
 
 ```text
 center=(-30768,-34080), radius=1024, step=16, threshold floor<=-64:

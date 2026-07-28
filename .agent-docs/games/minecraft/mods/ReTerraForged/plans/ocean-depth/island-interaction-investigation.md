@@ -10,8 +10,8 @@ turned out to have a clean, isolated fix (see `pr-97-ocean-floor-noise-comment-d
 independently-confirmed contributing mechanisms, only one of which is actually caused by
 `oceanDepth`, and a case for why a real fix needs to rebuild part of the archipelago system rather
 than patch it. **Not fixed in this PR** - this doc is the equivalent of
-`biome-climate-banding-investigation.md` for this feature: real findings, no shipped fix, flagged
-for a dedicated follow-up PR.
+`../biome-climate-banding/biome-climate-banding-investigation.md` for this feature: real findings,
+no shipped fix, flagged for a dedicated follow-up PR.
 
 ## Background
 
@@ -106,13 +106,13 @@ that something here really is depth-driven, just not through the mechanism origi
    correctly reporting a genuinely-unstable _actual_ `islandAlpha`, not an artifact of the
    technique.
 
-## Finding 3: `continentFade`'s window is too narrow, and this is `oceanDepth`-independent
+## Finding 3: pointwise `continentFade` can clip islands; narrow presets amplify it
 
 While debugging (3) above, direct instrumentation of the exact values at the unstable location
 showed `continentFade` itself swinging from `0.0005` to `0.31` (over 600x) across the same 10 blocks
 where the instability showed up - while the `continentEdge` value it's built from moved by a
 completely unremarkable `0.0997 → 0.0904` over that same span (a normal, gentle change for a
-large-scale continent field). The cause:
+large-scale continent field). The immediate cause in the tested preset:
 `continentFade = 1 - smoothStep(islandCoast, deepOcean, continentEdge)`, and
 `islandCoast`/`deepOcean` sit only `0.026` apart by default. A smooth, gentle change in the
 underlying value, passed through a narrow window, produces a sharp change in the output - a
@@ -120,16 +120,23 @@ smaller-scale version of exactly the same "narrow window doesn't scale to the re
 to cover" problem as Finding 2, just via a completely different field (`continentFade`, not the
 coastline noise).
 
-**Checked whether this is a preset-authoring issue rather than a bug**: it is not. Every one of the
-8 `ControlPoints` instances in the mod's own shipped `Presets.java` (lines 24, 68, 112, 157, 201,
-245, 300, 523) uses an `islandCoast`/`deepOcean` gap between roughly `0.009` and `0.028`. This is
-the mod's actual out-of-the-box behavior, not something a user has to misconfigure to hit.
+The narrow window itself is preset tuning, not proof of an unavoidable generator defect. Every one
+of the 8 `ControlPoints` instances in the mod's own shipped `Presets.java` (lines 24, 68, 112, 157,
+201, 245, 300, 523) uses an `islandCoast`/`deepOcean` gap between roughly `0.009` and `0.028`, so
+the shipped tuning makes the sharp version of the symptom common; a wider gap can soften it.
 
-Crucially, **this mechanism does not depend on `oceanDepth` at all** - it's a function of
-`continentScale` and the fixed control-point gap. It would produce a sharp-ish island edge at the
-default `oceanDepth=63` too, wherever an island happens to sit near a continent-fade boundary. It's
-a real, pre-existing archipelago bug, just not one this PR's ocean-depth feature caused or made
-worse.
+The generator-level problem is that `continentFade` is evaluated and multiplied into `islandAlpha`
+independently at every sampled point. An island crossing the continent-fade boundary can therefore
+be partly suppressed or clipped instead of being accepted or rejected as a whole from the island's
+center, radius, and actual coastline clearance. Changing the preset window can alter how gradual the
+clipping is, but it does not make island eligibility stable for the whole island.
+
+Crucially, **this mechanism does not depend on `oceanDepth` at all** - it's a function of the
+pointwise continent field and the preset's control-point gap. With the shipped narrow gaps it can
+produce a sharp island edge at the default `oceanDepth=63` too, wherever an island happens to cross
+a continent-fade boundary. The unstable per-island eligibility is a real, pre-existing archipelago
+design problem; the exact sharpness is preset-dependent, and this PR's ocean-depth feature neither
+caused nor worsened it.
 
 ## Why this needs a rewrite, not a third patch
 
@@ -140,19 +147,21 @@ is exactly why fixes (1) and (2) under Finding 2 both failed in different ways, 
 exists at all (the same "threshold, not distance" pattern, just applied to `continentEdge` instead
 of the coastline noise).
 
-The continent generator (`UpliftContinentGenerator`) doesn't have this problem: it's built on a
-Voronoi/cellular search, and `continentDistance` (an actual Euclidean-style distance to the nearest
-cell center) falls out of that computation as a natural byproduct, not something bolted on. RTF
-already uses the same cellular technique elsewhere too (`Noises.worleyEdge`, used for some mountain
-shapes in `Populators.makeMountains2/3`) at a cost the engine already pays for continents on every
-single terrain cell in the world - it would not be a more expensive technique than what's already
-running today.
+The continent generator (`UpliftContinentGenerator`) demonstrates the useful part of this pattern:
+it is built on a Voronoi/cellular search and produces a direct geometric distance as a natural
+byproduct rather than reverse-engineering one from a smoothstepped alpha. Despite its name,
+`Cell.continentDistance` is specifically distance to the nearest Voronoi cell boundary in normalized
+cell space, before the later variance and coastal shaping; it is not distance to the rendered
+continent coastline and cannot be reused as-is here. RTF already uses related cellular techniques
+elsewhere too (`Noises.worleyEdge`, used for some mountain shapes in `Populators.makeMountains2/3`).
 
 Rebuilding archipelago island shape on the same cellular basis (islands placed at jittered cell
 centers, shelf/beach/land widths expressed and scaled in real blocks against a real distance, rather
-than reverse-engineered from a smoothstepped alpha) would fix Findings 2 and 3 by construction and
-make Finding 1's whole warp-fold class of bug structurally impossible, instead of three separate
-patches layered on code that was never designed to expose the thing all three actually need.
+than reverse-engineered from a smoothstepped alpha) would fix Finding 2 by construction and make
+Finding 1's whole warp-fold class of bug structurally avoidable. Finding 3 still needs an explicit
+continent-clearance design: a real distance to the island shoreline does not automatically provide
+distance to the main-continent shoreline. The rewrite should make island eligibility stable per
+island cell instead of retaining the current narrow, pointwise `continentFade` multiplication.
 
 This is a bigger, riskier change than anything else in this investigation:
 
@@ -169,23 +178,25 @@ This is a bigger, riskier change than anything else in this investigation:
 
 ## Recommendation
 
-Treat this the same way `biome-climate-banding-investigation.md` treats its own finding: real,
-confirmed, worth fixing, but scoped as its own PR rather than bolted onto this one. Candidate next
-steps for that future PR:
+Treat this the same way `../biome-climate-banding/biome-climate-banding-investigation.md` treats its
+own finding: real, confirmed, worth fixing, but not something to bolt onto this PR. The scope and
+sequencing decision is recorded in `archipelago-follow-up-scope.md`: implement the cellular redesign
+as the sole production follow-up. The tested Finding 1 warp change remains diagnostic evidence and
+should not ship separately because the rewrite replaces that code path. Candidate steps for the
+rewrite:
 
 - Prototype archipelago on a Worley/cellular base (mirroring `UpliftContinentGenerator`'s pattern),
   with shelf/beach/land widths expressed in real blocks from the start.
 - Once distance is a first-class value, apply the same `oceanDepth`-scaling principle already proven
   for `Populators.makeDeepOcean` to the shelf width specifically.
-- Fix `continentFade`'s narrow window as part of the same pass, using the same real-distance
-  approach, rather than as a separate patch.
+- Replace `continentFade`'s narrow pointwise window with stable per-island continent eligibility and
+  an explicit continent-clearance query. The island distance field alone does not solve this.
 - Revisit per-island edge-steepness _variance_ (volcanic islands rising sharply vs. gentle sloped
   ones) as a deliberate feature once distance is real and cheap to query - a coarse,
   `continentFade`- style auxiliary noise is the right tool for that variance specifically (cheap,
   doesn't need to track fine coastline detail), just not for the distance measurement itself.
-- Confirm before shipping whether Finding 1's warp-strength fix should still land independently in
-  the meantime, since it's a real, isolated bug fix with no dependency on the larger rewrite - worth
-  a decision in that future PR, not assumed here.
+- Use Finding 1's known coordinate and before/after profiles as regression evidence for the new
+  distance field, without carrying the temporary warp-strength change into production.
 
 ## Status
 

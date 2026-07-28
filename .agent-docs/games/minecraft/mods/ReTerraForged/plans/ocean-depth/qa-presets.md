@@ -71,10 +71,10 @@ UI/code maximum for `seaLevel=63` with `worldDepth=64` (`seaLevel + worldDepth -
 `WorldSettingsPage.java`). It was created specifically to test whether Ancient Cities could protrude
 into oceans with a fixed structure `start_height` even without RTF's extreme deep-ocean settings —
 that test led to discovering the biome climate-banding issue described in
-`biome-climate-banding-investigation.md`. Unlike the very-deep/shallowest exports, the exported
-datapack's `preset.json` omits `worldDepth` from `world.properties` (it equals the codec default),
-but the loose preset JSON in `presets/ocean-depth-test-preset-goldilocks.json` does list it
-explicitly.
+`../biome-climate-banding/biome-climate-banding-investigation.md`. Unlike the very-deep/shallowest
+exports, the exported datapack's `preset.json` omits `worldDepth` from `world.properties` (it equals
+the codec default), but the loose preset JSON in `presets/ocean-depth-test-preset-goldilocks.json`
+does list it explicitly.
 
 All exported zips contain the RTF preset at:
 
@@ -151,5 +151,5 @@ historical run artifacts; prefer the committed `test-presets/` copies when start
 
 See `monument-placement-research.md` for the measured monument floor samples,
 `trial-chambers-and-ocean-structures.md` for the trial chamber reproduction and Ancient City search
-data, `biome-climate-banding-investigation.md` for the Goldilocks/extreme biome-band scans, and
-`island-interaction-investigation.md` for the archipelago findings.
+data, `../biome-climate-banding/biome-climate-banding-investigation.md` for the Goldilocks/extreme
+biome-band scans, and `island-interaction-investigation.md` for the archipelago findings.

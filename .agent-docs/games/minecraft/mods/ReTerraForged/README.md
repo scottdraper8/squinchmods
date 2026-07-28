@@ -26,6 +26,7 @@ plans/
   mountain-variability/              mountain scaling, summit shaping, variety
   tall-world-scaling/                retrospective only; branch retired 2026-07-18, split into
                                       ocean-depth and mountain-variability above
+  biome-climate-banding/             root climate correction and dynamic underground banding
   shorelines/                        beach/shore port (beach system, integration, compat)
 refs/
   branch-map.md                      RTF branch inventory and agent-ref/docs-branch history
