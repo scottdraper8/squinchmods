@@ -1,6 +1,13 @@
 # Dynamic Underground Biome Banding — Design Plan
 
-## Status: 2026-07-27 — implemented and live-path validated
+## Status: 2026-07-27 — implemented, internally self-consistent, NOT verified against real chunks
+
+Read "Visual verification attempt failed" near the end before trusting the word "validated" anywhere
+else in this document. Every number below was checked standalone-against-standalone, never against a
+real generated chunk — a later session tried to find real screenshot coordinates, found zero real
+divergence anywhere it checked (including 70 candidates from a systematic scan), and traced it to a
+genuine standalone-vs-real-generation mismatch. The numbers below may still be correct — but that is
+now an assumption this document is flagging, not something it has proven.
 
 This is a follow-on to the root climate-mapping fix in `biome-climate-banding-investigation.md`
 (committed at `bbd845c` on `qa/biome-climate-mapping` and `fix/biome-climate-mapping`). That fix is
@@ -339,15 +346,117 @@ it to `TBCompat.TERRABLENDER_COMPAT_MIXINS`, the same gating the production `ter
 already use. Verified both ways afterward: clean boot and scan with TerraBlender + YungsCaveBiomes
 both loaded, and clean boot and scan with neither loaded.
 
+## Visual verification attempt — failed; read this before trusting "validated" above
+
+A later session tried to find real screenshot coordinates proving the fix works, to answer a direct
+question: "will I actually see a difference between the fixed and unfixed mod at these coordinates."
+It did not find one anywhere it checked, and along the way found that this entire document's
+validation methodology has a real gap. This section is the detailed account; a shorter version lives
+in `agent-resume.md`.
+
+### What was tried, in order, and how each attempt failed
+
+1. **Manual `/locate` + spot-check**, 3 individually-picked coordinates
+   (dripstone/lush/`deep_dark`), fixed vs. unfixed worlds, same seed, `very-deep` preset. Result:
+   **zero divergence** at any of them — identical biome in both worlds every time, including at the
+   exact boundary where `dripstone_caves` starts (bisected to the block; both worlds crossed at the
+   same Y). `/locate` finds the **most obvious** example of a biome, which tends to be a column
+   where other climate axes (continentalness especially) already decide the outcome regardless of
+   the depth fix — RTF's raw continentalness saturates near `1.0` on ordinary land in **both**
+   states, so `dripstone_caves` specifically may be a poor choice of biome to test this with. The
+   "~26 blocks deeper" finding from the root investigation is a statistical average across thousands
+   of columns, not a guaranteed per-column shift.
+2. **A systematic regional scanner** (`DivergenceCandidateScanner`, QA-branch-only), classifying
+   columns by terrain category and logging biome-per-depth across a `radius=2048, step=64` grid in
+   both worlds, diffing the two logs to generate real candidates instead of guessing. This surfaced
+   a striking aggregate gap — 32% highland cave-biome presence at depth-144 in the fixed world vs.
+   0% in unfixed — and 70 specific candidate coordinates where the two logs disagreed.
+3. **Verified those 70 candidates against real generated chunks** (forceload the region, then
+   `/execute if biome`, not a cold query). **0 of 70 survived.** Spot-checked what was actually
+   there instead at several: identical biomes in both worlds every time (e.g. both `taiga`, both
+   `snowy_plains`), matching what the **unfixed** side had predicted, not the fixed side.
+4. **Root cause**: `DivergenceCandidateScanner` calls `biomeSource.getNoiseBiome()` as a cold
+   standalone query from a bare background thread on the server's first tick — not through real
+   chunk generation. This is the same **class** of bug the root-fix investigation already found and
+   fixed once, for a different field: `Heightmap.applyRivers()`'s terrain-erosion capture only being
+   correct through the real `TileGenerator` chunk-generation path, not a standalone scan (see
+   "Erosion" in `biome-climate-banding-investigation.md`). It recurred here, for the fixed-side
+   router specifically, in a form nobody re-checked for when dynamic banding was added. The class is
+   now marked `KNOWN BROKEN` in its own Javadoc.
+
+**Confirmed, real-chunk-verified ground truth from this entire attempt: 4 positions, all identical
+between fixed and unfixed.** Zero real divergences found this session, across two different search
+methods.
+
+### The bigger problem: this document's own validation has the same gap
+
+Every aggregate number in "Live-path validation results" above — 3/6 and 5/10 candidate/band counts,
+the run-length averages, "0 mismatches below climate depth `1.1`" — was computed by comparing one
+standalone `biomeSource.getNoiseBiome()` query against **another** standalone query (the pre-banding
+list), never against `LevelChunk.getNoiseBiome()` on an actually-generated chunk. The only things in
+this whole investigation ever checked against genuinely real chunks are the root fix's RU 312/312
+finished-chunk test and the Ancient City structure check — both from **before** dynamic banding
+existed. A standalone query has now been directly shown to diverge from real generation in this
+exact codebase. That does not mean the numbers above are wrong — both sides of each standalone
+comparison could share the same bias and cancel out in the **relative** comparison — but it does
+mean this was never actually checked, and "implemented and validated" overstates what was done. Read
+it as "implemented and internally self-consistent."
+
+### Three code states exist; this session only ever compared two of them
+
+- **State 0** — `c3e2c98`, fully unfixed. Built as worktree `ReTerraForged-unfixed-baseline`, kept
+  for reuse (fabric jar already built).
+- **State 1** — `bbd845c`, root fix only, **no dynamic banding**. This is the exact state the
+  original "deep_dark stretches to bedrock" diagnosis in this document's "The problem this
+  addresses" section was made against. **No worktree for this state exists yet.**
+- **State 2** — `ad491ab` / current `qa/biome-climate-mapping` head, root fix + dynamic banding.
+
+This session only ever compared **State 0 vs. State 2** — every spot-check, every scanner candidate.
+That is the wrong pair for demonstrating "`deep_dark` no longer stretches forever," which is
+specifically a banding-on-vs-off claim, i.e. **State 1 vs. State 2** — never built, never tested.
+State 0 vs. State 2 (or State 0 vs. State 1) is the right pair for the **original** root-fix claim
+about cave biomes starting shallower — but that comparison, checked four separate times now via two
+different methods, found nothing. That result deserves real follow-up, not a shrug.
+
+### Instructions for whoever picks this up next
+
+1. Never trust a standalone biome-source query as ground truth in this codebase without a real-chunk
+   cross-check, and build that check in from the start of any new instrumentation. The pattern is
+   already documented in `live-worldgen-investigation-howto.md` and was already used correctly once
+   by the RU 312/312 test: forceload the target region, poll until the chunk is actually present,
+   then read `LevelChunk.getNoiseBiome()` — not `Climate.Sampler.sample()` cold.
+2. Build State 1 as its own worktree (`git worktree add --detach <path> bbd845c`, from inside the
+   RTF repo) — it does not exist yet.
+3. To test "deep_dark doesn't stretch forever": compare State 1 vs. State 2 (not State 0),
+   real-chunk method, at a real highland column past climate depth `1.1` in a very-deep preset. Dig
+   straight down for real, tally consecutive `deep_dark` blocks in both states. State 1 should run
+   unbounded to bedrock once triggered; State 2 should cap around 80-160 blocks, finally actually
+   verifying (not just repeating) the run-length stats claimed above.
+4. To test "cave biomes start shallower": compare State 0 vs. State 1 (or State 2), same real-chunk
+   method, at **many** real columns, individually verified — not a cold scan. Try humidity-sensitive
+   biomes (`lush_caves`, or an RU dry-cave biome) rather than `dripstone_caves` — see point 1 above
+   on why dripstone specifically may be a poor test case.
+5. To find a "more bands" screenshot: plain RTF only has 3 vanilla candidates, not enough to look
+   dramatically banded. Use Regions Unexplored or YungsCaveBiomes (both already staged at
+   `fabric/run/qa-staged-mods/` in the QA worktree) for real variety, and verify any candidate
+   against a real generated chunk before treating it as a screenshot spot.
+6. Don't scan thousands of columns for real-chunk ground truth — forceload is capped at 256 chunks
+   per call and generation for the very-deep preset is slow. Use a standalone scan only to produce a
+   shortlist, then real-chunk-verify a small sample (10-20) before trusting it. A near-zero hit
+   rate, like this session's, is a signal the standalone method is broken — fix that before
+   generating more candidates through it.
+
 ## Remaining validation, not a blocker to the implementation candidate
 
 - A visual client pass is still the right way to judge whether weirdness-regime boundaries read as
-  natural in exposed caves; the headless measurements establish coherence and scale, not aesthetics.
+  natural in exposed caves; the headless measurements establish coherence and scale, not aesthetics
+  — though per the section above, a real client pass would also be the first genuine real-chunk
+  check this feature has ever received.
 - The dynamic scanner validates the live source selected by world generation, including RU's
   `InjectorBiomeSource`, but did not repeat the root investigation's 312-point finished-chunk parity
   matrix. Surface identity is exact by direct original-list comparison, and the default-size
   underground noise graph is unchanged, so the prior coast-continuity measurements remain
-  mechanically applicable.
+  mechanically applicable — with the same standalone-vs-real caveat as everything else on this page.
 - RU's `inferno` does not use the recognized vanilla depth signature and therefore keeps its
   original behavior (including long vertical runs). This is the intended safe failure described
   above, not a claim of compatibility with arbitrary custom registration schemes.
