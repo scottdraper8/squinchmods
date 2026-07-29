@@ -9,7 +9,7 @@ profile exports" below).
 
 | Name                                          | Committed copy                                       | SHA-256                                                            |
 | --------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| Very deep ocean test                          | `test-presets/very-deep.zip`                         | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
+| Very deep ocean test                          | `test-presets/very-deep.zip`                         | `58c875c2b2b93b8b7b997b9a666c4aad93afe94e8f55e66f93b0ad49e9a1b5ca` |
 | Goldilocks (vanilla-depth max ocean)          | `test-presets/goldilocks.zip`                        | `b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878` |
 | Mountain, `worldDepth=16`                     | `test-presets/mountain-worldDepth16.zip`             | `546aeab25e0d61b59638ff1da81d661f2817c50c5886e54b0297523d31ce1c68` |
 | Very deep, archipelago enabled                | `test-presets/very-deep-archipelago.zip`             | `558410784d1aee8813ce9bc2738a123a1092f5a8f32e6b0fb5586e89fbe0d3ac` |
@@ -26,6 +26,11 @@ flipped on (`IslandSettings.makeDefault()`, all other fields identical) — buil
 interaction investigation (`island-interaction-investigation.md`) since none of the base presets had
 archipelago turned on. Kept as the starting point for whoever picks up that investigation's
 recommended follow-up PR.
+
+As of 2026-07-28, canonical `very-deep.zip` explicitly sets `lavaLevel=-575`. It otherwise matches
+the prior archive byte-for-byte by extracted entry content. The prior archive used the codec default
+`lavaLevel=-54` and had SHA-256 `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`;
+retain that checksum when describing historical runs made before the lava adjustment.
 
 Two earlier presets built as one-off screenshot aids for the (now-shipped) Trial Chambers/Ancient
 City work — a `deep_dark`-allowed variant and a tall-mountain/dense-Ancient-City variant, both
@@ -55,11 +60,11 @@ Known `/locate structure minecraft:monument` result for both shallowest and very
 The presets above were originally authored in a Modrinth profile before being committed here. Those
 original paths are kept as a secondary reference only — prefer the committed copies for any new QA.
 
-| Name                                 | Modrinth export path                                                                                                                                                   | Key values                                                                                         | SHA-256                                                            |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Very deep ocean test                 | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset.zip`            | `oceanDepth=677`, `worldDepth=624`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER` | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
-| Shallowest ocean test                | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-shallowest.zip` | `oceanDepth=10`, `worldDepth=128`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`  | `5ae7ba936536abc2930ec719b869e19aadb35a783d999f4e81c22358f9aa6383` |
-| Goldilocks (vanilla-depth max ocean) | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-goldilocks.zip` | `oceanDepth=117`, `worldDepth=64`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`  | `b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878` |
+| Name                                 | Modrinth export path                                                                                                                                                   | Key values                                                                                                                  | SHA-256                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Very deep ocean test                 | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset.zip`            | `oceanDepth=677`, `worldDepth=624`, `worldHeight=384`, `seaLevel=63`, default `lavaLevel=-54`, `spawnType=CONTINENT_CENTER` | `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837` |
+| Shallowest ocean test                | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-shallowest.zip` | `oceanDepth=10`, `worldDepth=128`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`                           | `5ae7ba936536abc2930ec719b869e19aadb35a783d999f4e81c22358f9aa6383` |
+| Goldilocks (vanilla-depth max ocean) | `/home/scott/.var/app/com.modrinth.ModrinthApp/data/ModrinthApp/profiles/[TEST] RTF Fabric 1.21.1/config/reterraforged/exports/ocean-depth-test-preset-goldilocks.zip` | `oceanDepth=117`, `worldDepth=64`, `worldHeight=384`, `seaLevel=63`, `spawnType=CONTINENT_CENTER`                           | `b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878` |
 
 The shallowest export has gone missing from the Modrinth profile's `exports/` directory before, with
 no trace of why — another reason to treat the committed `test-presets/` copies as the source of

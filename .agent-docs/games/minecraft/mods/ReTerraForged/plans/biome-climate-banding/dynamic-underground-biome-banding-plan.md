@@ -405,12 +405,16 @@ The pre-fix finished-chunk log is retained as
 
 ### Exact fixed-vs-unfixed screenshot points
 
-All final worlds used seed `3216933670` and canonical `very-deep.zip`, SHA-256
-`0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`. State 0 was rebuilt from
-detached `c3e2c98`, which is exactly the current upstream 1.21.1 branch tip (`upstream/1.21.1`), not
-from an arbitrary older ancestor or a later feature branch. State 2 used the QA equivalent of
-production clean commit `8d0dea5`. Each listed center was confirmed via RCON to be `minecraft:air`
-and to have the stated biome in both fresh worlds.
+All final worlds used seed `3216933670` and the pre-lava-adjustment `very-deep.zip`, SHA-256
+`0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`. On 2026-07-28 the canonical pack
+was changed only by explicitly setting `lavaLevel=-575`; its current SHA-256 is
+`58c875c2b2b93b8b7b997b9a666c4aad93afe94e8f55e66f93b0ad49e9a1b5ca`. Lava level does not feed biome
+climate selection, so the stored-biome results remain applicable, but the air/block-context
+measurements below describe the earlier default-`-54` run. State 0 was rebuilt from detached
+`c3e2c98`, which is exactly the current upstream 1.21.1 branch tip (`upstream/1.21.1`), not from an
+arbitrary older ancestor or a later feature branch. State 2 used the QA equivalent of production
+clean commit `8d0dea5`. Each listed center was confirmed via RCON to be `minecraft:air` and to have
+the stated biome in both fresh worlds.
 
 | Coordinate       | State 0, unfixed | State 2, fixed  | Real nearby feature difference                                               |
 | ---------------- | ---------------- | --------------- | ---------------------------------------------------------------------------- |

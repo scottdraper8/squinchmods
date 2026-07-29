@@ -95,11 +95,15 @@ not another scanner failure: chunk biome filling uses `NoiseChunk.cachedClimateS
 propagates the preset to the cached sampler. After that change, all 4,096 column profiles diverged
 as intended; 165 columns contained real air at a divergent biome cell (240 open cells total).
 
-The final paired worlds use seed `3216933670`, canonical `very-deep.zip` (SHA-256
+The final paired worlds use seed `3216933670`, the pre-lava-adjustment `very-deep.zip` (SHA-256
 `0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`), and finished chunks
-`(80,100)..(95,115)`. The "before" jar is genuinely the upstream 1.21.1 state: detached `c3e2c98`,
-which is exactly `upstream/1.21.1`. Every coordinate below was independently confirmed with RCON to
-be air and to have the stated biome in both freshly generated worlds:
+`(80,100)..(95,115)`. On 2026-07-28 the canonical pack was changed only by explicitly setting
+`lavaLevel=-575`; its current SHA-256 is
+`58c875c2b2b93b8b7b997b9a666c4aad93afe94e8f55e66f93b0ad49e9a1b5ca`. The biome-profile results remain
+applicable because lava level is not a biome-climate input, but the air/block-context checks below
+record the earlier default-`-54` run. The "before" jar is genuinely the upstream 1.21.1 state:
+detached `c3e2c98`, which is exactly `upstream/1.21.1`. Every coordinate below was independently
+confirmed with RCON to be air and to have the stated biome in both freshly generated worlds:
 
 | Coordinate       | Unfixed `c3e2c98` | Fixed `8d0dea5` equivalent | Visible fixed-world evidence within 12 blocks                     |
 | ---------------- | ----------------- | -------------------------- | ----------------------------------------------------------------- |
