@@ -1,6 +1,6 @@
 # Headless Dev-Server QA: How-To
 
-## Status: 2026-07-22
+## Status: 2026-07-28
 
 Operational companion to `live-worldgen-investigation-retrospective.md` (pain points and process
 narrative). The RTF ocean-depth notes under `mods/ReTerraForged/plans/ocean-depth/` are case studies
@@ -200,6 +200,31 @@ running, then let the mixin's own polling loop (same `hasChunk` check, just outs
 callback) decide when to actually read. This was the only reliable way to confirm a fluid-placement
 fix's real, physically-placed output (verifying zero obsidian and correct floor material at specific
 columns) rather than re-deriving what the fix's own function _should_ return.
+
+**Biome fixes need the same finished-chunk rule. Read `LevelChunk.getNoiseBiome()`, not a standalone
+`BiomeSource` prediction.** This caught a shipped-candidate defect that every prior aggregate scan
+missed: RTF's dynamic banding attached configuration to `RandomState.sampler()`, so cold queries
+returned the intended bands, but `NoiseBasedChunkGenerator.doCreateBiomes()` actually fills the
+chunk palette with `NoiseChunk.cachedClimateSampler()`. Finished chunks therefore remained unbanded.
+The reliable regional pattern is:
+
+1. Force-generate at most a 16x16-chunk region.
+2. Poll on the server thread until `ServerChunkCache.getChunkNow(chunkX, chunkZ)` returns a
+   `LevelChunk` for every target.
+3. Read every stored quart cell with `LevelChunk.getNoiseBiome(quartX, quartY, quartZ)`.
+4. Compress each vertical column into biome runs and record quart-cell center points whose real
+   block is air.
+5. Diff two jars' logs offline, then confirm the shortlisted air cells with RCON `execute if biome`
+   and `execute if block ... minecraft:air`.
+
+The QA implementation in RTF commit `d2b50c3` scanned 4,096 columns / roughly 792,000 stored biome
+cells in under 200 ms. Chunk generation was orders of magnitude slower, so scanning all 16 quart
+columns in each already-generated chunk is cheap; there is no need to undersample the palette. Keep
+the scan on the server thread because `getChunkNow()` deliberately returns `null` off-thread.
+
+When a cold scan and finished chunks disagree, investigate which sampler/context the real consumer
+constructs before changing the scanner's candidate thresholds. A cold query can be internally
+self-consistent and still exercise a different object graph from chunk generation.
 
 **Test the instrumentation itself against the exact target scenario on the headless server before
 ever shipping it anywhere** — this is what would have caught the crash before it reached a real

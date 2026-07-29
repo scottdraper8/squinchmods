@@ -1,24 +1,28 @@
 # Dynamic Underground Biome Banding — Design Plan
 
-## Status: 2026-07-27 — implemented, internally self-consistent, NOT verified against real chunks
+## Status: 2026-07-28 — implemented and verified against finished Fabric chunks
 
-Read "Visual verification attempt failed" near the end before trusting the word "validated" anywhere
-else in this document. Every number below was checked standalone-against-standalone, never against a
-real generated chunk — a later session tried to find real screenshot coordinates, found zero real
-divergence anywhere it checked (including 70 candidates from a systematic scan), and traced it to a
-genuine standalone-vs-real-generation mismatch. The numbers below may still be correct — but that is
-now an assumption this document is flagging, not something it has proven.
+The original validation was standalone-against-standalone and missed a real production defect:
+finished chunks use `NoiseChunk.cachedClimateSampler()`, but the implementation initially attached
+the banding preset only to `RandomState.sampler()`. A finished-chunk scanner proved that State 1 and
+the nominal State 2 had identical underground biome palettes across all 4,096 tested columns.
+Production follow-up `366caae` on the QA branch, mirrored as `8d0dea5` on the clean fix branch,
+propagates the preset into the cached sampler. Repeating the same real-chunk matrix then produced
+intended differences in all 4,096 columns and real open-cave screenshot coordinates. Read
+"Real-chunk verification and screenshot coordinates" near the end for the evidence and retained
+artifacts.
 
 This is a follow-on to the root climate-mapping fix in `biome-climate-banding-investigation.md`
 (committed at `bbd845c` on `qa/biome-climate-mapping` and `fix/biome-climate-mapping`). That fix is
 a **hard prerequisite** for everything below, not parallel or competing work — see "Why the root fix
 has to come first" below.
 
-The production implementation is commit `ad491ab` on `qa/biome-climate-mapping`, mirrored as
-`7a0491b` on clean branch `fix/biome-climate-mapping`. QA scanner commit `78fab7e` and its
-region-aware comparison fix `0664f23` (see "Multi-region compatibility — closed" below) exist only
-on the QA branch, per the convention in `refs/branch-map.md`. Both branches pass the full Fabric +
-NeoForge build.
+The production implementation is commit `ad491ab` plus live-path follow-up `366caae` on
+`qa/biome-climate-mapping`, mirrored as `7a0491b` plus `8d0dea5` on clean branch
+`fix/biome-climate-mapping`. QA scanner commit `78fab7e` and its region-aware comparison fix
+`0664f23` (see "Multi-region compatibility — closed" below) exist only on the QA branch, as does
+finished-chunk scanner `d2b50c3`, per the convention in `refs/branch-map.md`. Both branches pass the
+full Fabric + NeoForge build.
 
 ## Implementation outcome
 
@@ -258,7 +262,11 @@ the same way every other climate field here already is. The R-tree/list only gro
 entries at world-load time — irrelevant against vanilla's own full parameter list, which already has
 hundreds.
 
-## Live-path validation results
+## Standalone live-source validation results
+
+These measurements use the server's live biome source and remain useful for scale/distribution
+comparisons, but they do not read finished chunk palettes. The later real-chunk section is the
+authoritative check that the behavior reaches generated worlds.
 
 All runs used seed `3216933670`, the real headless dev server, and 4,225 columns at 128-block
 horizontal spacing. The scanner followed each column from its RTF density surface to minimum Y in
@@ -346,117 +354,115 @@ it to `TBCompat.TERRABLENDER_COMPAT_MIXINS`, the same gating the production `ter
 already use. Verified both ways afterward: clean boot and scan with TerraBlender + YungsCaveBiomes
 both loaded, and clean boot and scan with neither loaded.
 
-## Visual verification attempt — failed; read this before trusting "validated" above
+## Real-chunk verification and screenshot coordinates
 
-A later session tried to find real screenshot coordinates proving the fix works, to answer a direct
-question: "will I actually see a difference between the fixed and unfixed mod at these coordinates."
-It did not find one anywhere it checked, and along the way found that this entire document's
-validation methodology has a real gap. This section is the detailed account; a shorter version lives
-in `agent-resume.md`.
+The first visual-coordinate attempt failed for an important reason that should remain part of the
+history. `DivergenceCandidateScanner` performed a cold
+`biomeSource.getNoiseBiome(..., RandomState.sampler())` scan from a background thread. It reported
+70 candidates, but zero survived force-generation and RCON checks. That scanner remains marked
+`KNOWN BROKEN` and is no longer registered on the QA branch.
 
-### What was tried, in order, and how each attempt failed
+QA commit `d2b50c3` replaces it with `RealChunkBiomeProfileScanner`. The new scanner:
 
-1. **Manual `/locate` + spot-check**, 3 individually-picked coordinates
-   (dripstone/lush/`deep_dark`), fixed vs. unfixed worlds, same seed, `very-deep` preset. Result:
-   **zero divergence** at any of them — identical biome in both worlds every time, including at the
-   exact boundary where `dripstone_caves` starts (bisected to the block; both worlds crossed at the
-   same Y). `/locate` finds the **most obvious** example of a biome, which tends to be a column
-   where other climate axes (continentalness especially) already decide the outcome regardless of
-   the depth fix — RTF's raw continentalness saturates near `1.0` on ordinary land in **both**
-   states, so `dripstone_caves` specifically may be a poor choice of biome to test this with. The
-   "~26 blocks deeper" finding from the root investigation is a statistical average across thousands
-   of columns, not a guaranteed per-column shift.
-2. **A systematic regional scanner** (`DivergenceCandidateScanner`, QA-branch-only), classifying
-   columns by terrain category and logging biome-per-depth across a `radius=2048, step=64` grid in
-   both worlds, diffing the two logs to generate real candidates instead of guessing. This surfaced
-   a striking aggregate gap — 32% highland cave-biome presence at depth-144 in the fixed world vs.
-   0% in unfixed — and 70 specific candidate coordinates where the two logs disagreed.
-3. **Verified those 70 candidates against real generated chunks** (forceload the region, then
-   `/execute if biome`, not a cold query). **0 of 70 survived.** Spot-checked what was actually
-   there instead at several: identical biomes in both worlds every time (e.g. both `taiga`, both
-   `snowy_plains`), matching what the **unfixed** side had predicted, not the fixed side.
-4. **Root cause**: `DivergenceCandidateScanner` calls `biomeSource.getNoiseBiome()` as a cold
-   standalone query from a bare background thread on the server's first tick — not through real
-   chunk generation. This is the same **class** of bug the root-fix investigation already found and
-   fixed once, for a different field: `Heightmap.applyRivers()`'s terrain-erosion capture only being
-   correct through the real `TileGenerator` chunk-generation path, not a standalone scan (see
-   "Erosion" in `biome-climate-banding-investigation.md`). It recurred here, for the fixed-side
-   router specifically, in a form nobody re-checked for when dynamic banding was added. The class is
-   now marked `KNOWN BROKEN` in its own Javadoc.
+- waits until chunks `(80,100)..(95,115)` have been force-generated;
+- runs on the server thread, where `ServerChunkCache.getChunkNow()` is valid;
+- reads the biome actually stored in each `LevelChunk`, never a cold source prediction;
+- scans all 16 quart columns per chunk and every quart Y from the real surface to minimum Y;
+- compresses the result into vertical biome runs and records center-point air cells; and
+- measures the real block palette in a 12-block radius around shortlisted screenshot points.
 
-**Confirmed, real-chunk-verified ground truth from this entire attempt: 4 positions, all identical
-between fixed and unfixed.** Zero real divergences found this session, across two different search
-methods.
+The scan itself is fast: 4,096 columns and approximately 792,000 stored biome cells took 170-190 ms.
+The slow operation is generating the 256 chunks. This is the useful large-scale workflow for future
+searches: choose a 16x16 region, forceload it once per jar, diff the compressed column lines, then
+RCON-check only the open divergent cells.
 
-### The bigger problem: this document's own validation has the same gap
+### The real live-path defect it caught
 
-Every aggregate number in "Live-path validation results" above — 3/6 and 5/10 candidate/band counts,
-the run-length averages, "0 mismatches below climate depth `1.1`" — was computed by comparing one
-standalone `biomeSource.getNoiseBiome()` query against **another** standalone query (the pre-banding
-list), never against `LevelChunk.getNoiseBiome()` on an actually-generated chunk. The only things in
-this whole investigation ever checked against genuinely real chunks are the root fix's RU 312/312
-finished-chunk test and the Ancient City structure check — both from **before** dynamic banding
-existed. A standalone query has now been directly shown to diverge from real generation in this
-exact codebase. That does not mean the numbers above are wrong — both sides of each standalone
-comparison could share the same bias and cancel out in the **relative** comparison — but it does
-mean this was never actually checked, and "implemented and validated" overstates what was done. Read
-it as "implemented and internally self-consistent."
+State 1 now exists as detached worktree `ReTerraForged-root-fix-only` at exact commit `bbd845c`. The
+first finished-chunk State 1 vs. State 2 comparison found zero underground biome differences in all
+4,096 columns. This disproved the earlier assumption that standalone-vs-standalone agreement was
+enough.
 
-### Three code states exist; this session only ever compared two of them
+Vanilla `NoiseBasedChunkGenerator.doCreateBiomes()` fills biome palettes with
+`noiseChunk.cachedClimateSampler(...)`, not `RandomState.sampler()`. Commit `ad491ab` attached the
+banding preset only to the latter. The standalone scanner therefore built and queried the banded
+list while real chunk generation never passed `UndergroundBiomeBanding`'s preset guard.
 
-- **State 0** — `c3e2c98`, fully unfixed. Built as worktree `ReTerraForged-unfixed-baseline`, kept
-  for reuse (fabric jar already built).
-- **State 1** — `bbd845c`, root fix only, **no dynamic banding**. This is the exact state the
-  original "deep_dark stretches to bedrock" diagnosis in this document's "The problem this
-  addresses" section was made against. **No worktree for this state exists yet.**
-- **State 2** — `ad491ab` / current `qa/biome-climate-mapping` head, root fix + dynamic banding.
+Production follow-up `366caae` on `qa/biome-climate-mapping`, mirrored as `8d0dea5` on
+`fix/biome-climate-mapping`, injects at `NoiseChunk.cachedClimateSampler()` return and propagates
+the RTF preset into that sampler. Repeating the same matrix afterward produced:
 
-This session only ever compared **State 0 vs. State 2** — every spot-check, every scanner candidate.
-That is the wrong pair for demonstrating "`deep_dark` no longer stretches forever," which is
-specifically a banding-on-vs-off claim, i.e. **State 1 vs. State 2** — never built, never tested.
-State 0 vs. State 2 (or State 0 vs. State 1) is the right pair for the **original** root-fix claim
-about cave biomes starting shallower — but that comparison, checked four separate times now via two
-different methods, found nothing. That result deserves real follow-up, not a shrug.
+```text
+finished columns compared:               4,096
+columns with different vertical profile: 4,096
+columns with shared-air divergence:        165
+shared open biome cells differing:          240
+```
 
-### Instructions for whoever picks this up next
+The pre-fix finished-chunk log is retained as
+`fabric/run/qa-real-chunk-profile-state2-pre-live-fix.log`, SHA-256
+`ff7bac7fc581e16980f43f7ec8440903fa91f05c4aa7c47d0526839e83b9347e`.
 
-1. Never trust a standalone biome-source query as ground truth in this codebase without a real-chunk
-   cross-check, and build that check in from the start of any new instrumentation. The pattern is
-   already documented in `live-worldgen-investigation-howto.md` and was already used correctly once
-   by the RU 312/312 test: forceload the target region, poll until the chunk is actually present,
-   then read `LevelChunk.getNoiseBiome()` — not `Climate.Sampler.sample()` cold.
-2. Build State 1 as its own worktree (`git worktree add --detach <path> bbd845c`, from inside the
-   RTF repo) — it does not exist yet.
-3. To test "deep_dark doesn't stretch forever": compare State 1 vs. State 2 (not State 0),
-   real-chunk method, at a real highland column past climate depth `1.1` in a very-deep preset. Dig
-   straight down for real, tally consecutive `deep_dark` blocks in both states. State 1 should run
-   unbounded to bedrock once triggered; State 2 should cap around 80-160 blocks, finally actually
-   verifying (not just repeating) the run-length stats claimed above.
-4. To test "cave biomes start shallower": compare State 0 vs. State 1 (or State 2), same real-chunk
-   method, at **many** real columns, individually verified — not a cold scan. Try humidity-sensitive
-   biomes (`lush_caves`, or an RU dry-cave biome) rather than `dripstone_caves` — see point 1 above
-   on why dripstone specifically may be a poor test case.
-5. To find a "more bands" screenshot: plain RTF only has 3 vanilla candidates, not enough to look
-   dramatically banded. Use Regions Unexplored or YungsCaveBiomes (both already staged at
-   `fabric/run/qa-staged-mods/` in the QA worktree) for real variety, and verify any candidate
-   against a real generated chunk before treating it as a screenshot spot.
-6. Don't scan thousands of columns for real-chunk ground truth — forceload is capped at 256 chunks
-   per call and generation for the very-deep preset is slow. Use a standalone scan only to produce a
-   shortlist, then real-chunk-verify a small sample (10-20) before trusting it. A near-zero hit
-   rate, like this session's, is a signal the standalone method is broken — fix that before
-   generating more candidates through it.
+### Exact fixed-vs-unfixed screenshot points
+
+All final worlds used seed `3216933670` and canonical `very-deep.zip`, SHA-256
+`0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`. State 0 was rebuilt from
+detached `c3e2c98`, which is exactly the current upstream 1.21.1 branch tip (`upstream/1.21.1`), not
+from an arbitrary older ancestor or a later feature branch. State 2 used the QA equivalent of
+production clean commit `8d0dea5`. Each listed center was confirmed via RCON to be `minecraft:air`
+and to have the stated biome in both fresh worlds.
+
+| Coordinate       | State 0, unfixed | State 2, fixed  | Real nearby feature difference                                               |
+| ---------------- | ---------------- | --------------- | ---------------------------------------------------------------------------- |
+| `1454 -50 1650`  | Savanna          | Dripstone Caves | fixed adds 5 dripstone blocks and 1 pointed dripstone in radius 12           |
+| `1362 -82 1662`  | Savanna          | Deep Dark       | open-cave biome/F3 difference                                                |
+| `1522 -376 1654` | Deep Dark        | Dripstone Caves | fixed adds 5 dripstone blocks and 2 pointed dripstone in radius 12           |
+| `1422 -394 1838` | Deep Dark        | Lush Caves      | fixed adds 224 clay, 16 moss, moss carpet, grasses, and azaleas in radius 12 |
+
+The last point is the strongest visual comparison. Its unfixed column becomes Deep Dark at `Y=-217`
+and stays Deep Dark uninterrupted through the world floor at `-624`. Its fixed profile is:
+
+```text
+savanna          116..153
+dripstone caves    8..115
+savanna          -68..7
+deep dark       -256..-69
+dripstone caves -380..-257
+lush caves      -504..-381
+deep dark       -624..-505
+```
+
+For paired screenshots, create both worlds fresh, switch to spectator, and run
+`/tp @s 1422 -394 1838`. Existing chunks will not be retrofitted; their stored biome palettes and
+already-placed features remain unchanged.
+
+Authoritative final logs:
+
+| State                            | Artifact                                                               | SHA-256                                                            |
+| -------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| State 0 (`c3e2c98`)              | unfixed worktree `fabric/run/qa-real-chunk-profile-state0-final.log`   | `b57f2e936af5e3f8d1e7584143680892ff197d03c2d245ccc252d5bfbd5d4138` |
+| State 1 (`bbd845c`)              | root-only worktree `fabric/run/qa-real-chunk-profile-state1-final.log` | `19a6450d0118e665f135fa5e5092b7e89337373312615aa41aad1e9662896e19` |
+| State 2 (`366caae` + QA scanner) | QA worktree `fabric/run/qa-real-chunk-profile-state2-final.log`        | `724dd3bad3cf7bc1cec1c95bcdb4d4136a553de5c45c3fb2a219880bd352626d` |
+
+The State 0 vs. State 1 vanilla-only profiles were identical underground in this particular region;
+only three surface-height lines differed. That does not invalidate the root fix's prior RU 312/312
+finished-chunk parity test, but it means a dedicated visual coordinate for the root mapping alone
+still needs a broader or modded real-chunk search.
 
 ## Remaining validation, not a blocker to the implementation candidate
 
 - A visual client pass is still the right way to judge whether weirdness-regime boundaries read as
-  natural in exposed caves; the headless measurements establish coherence and scale, not aesthetics
-  — though per the section above, a real client pass would also be the first genuine real-chunk
-  check this feature has ever received.
-- The dynamic scanner validates the live source selected by world generation, including RU's
-  `InjectorBiomeSource`, but did not repeat the root investigation's 312-point finished-chunk parity
-  matrix. Surface identity is exact by direct original-list comparison, and the default-size
-  underground noise graph is unchanged, so the prior coast-continuity measurements remain
-  mechanically applicable — with the same standalone-vs-real caveat as everything else on this page.
+  natural in exposed caves. The headless run now proves real biome and feature differences, but it
+  does not make an aesthetic judgment.
+- Repeat the new finished-chunk profile matrix with Regions Unexplored on Fabric and with
+  TerraBlender + YungsCaveBiomes on NeoForge. Their standalone positional paths passed before the
+  cached-sampler fix, but that is no longer enough evidence for live chunk generation.
+- Repeat representative Goldilocks, `worldDepth=16`, and Biome Size 50/900 cases with the
+  finished-chunk scanner. Their band counts and reachability were measured by the old standalone
+  scanner; the default-size very-deep preset is the case now closed against real chunks.
+- Find a State 0 vs. State 1 open-cave screenshot coordinate for the root climate mapping alone. The
+  tested vanilla region was deliberately excellent for long-band detection but happened to select
+  identical underground biomes in those two states.
 - RU's `inferno` does not use the recognized vanilla depth signature and therefore keeps its
   original behavior (including long vertical runs). This is the intended safe failure described
   above, not a claim of compatibility with arbitrary custom registration schemes.
