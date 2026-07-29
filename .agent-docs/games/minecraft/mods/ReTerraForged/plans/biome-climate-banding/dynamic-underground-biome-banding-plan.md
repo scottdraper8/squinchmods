@@ -6,19 +6,19 @@ The original validation was standalone-against-standalone and missed a real prod
 finished chunks use `NoiseChunk.cachedClimateSampler()`, but the implementation initially attached
 the banding preset only to `RandomState.sampler()`. A finished-chunk scanner proved that State 1 and
 the nominal State 2 had identical underground biome palettes across all 4,096 tested columns.
-Production follow-up `366caae` on the QA branch, mirrored as `8d0dea5` on the clean fix branch,
+Production follow-up `366caae` on the QA branch, mirrored as `9a1ccdb` on the clean fix branch,
 propagates the preset into the cached sampler. Repeating the same real-chunk matrix then produced
 intended differences in all 4,096 columns and real open-cave screenshot coordinates. Read
 "Real-chunk verification and screenshot coordinates" near the end for the evidence and retained
 artifacts.
 
 This is a follow-on to the root climate-mapping fix in `biome-climate-banding-investigation.md`
-(committed at `bbd845c` on `qa/biome-climate-mapping` and `fix/biome-climate-mapping`). That fix is
-a **hard prerequisite** for everything below, not parallel or competing work — see "Why the root fix
-has to come first" below.
+(committed at `bbd845c` on `qa/biome-climate-mapping` and message-rewritten as `a5bee8f` on
+`fix/biome-climate-mapping`). That fix is a **hard prerequisite** for everything below, not parallel
+or competing work — see "Why the root fix has to come first" below.
 
 The production implementation is commit `ad491ab` plus live-path follow-up `366caae` on
-`qa/biome-climate-mapping`, mirrored as `7a0491b` plus `8d0dea5` on clean branch
+`qa/biome-climate-mapping`, mirrored as `622c56a` plus `9a1ccdb` on clean branch
 `fix/biome-climate-mapping`. QA scanner commit `78fab7e` and its region-aware comparison fix
 `0664f23` (see "Multi-region compatibility — closed" below) exist only on the QA branch, as does
 finished-chunk scanner `d2b50c3`, per the convention in `refs/branch-map.md`. Both branches pass the
@@ -388,7 +388,7 @@ Vanilla `NoiseBasedChunkGenerator.doCreateBiomes()` fills biome palettes with
 banding preset only to the latter. The standalone scanner therefore built and queried the banded
 list while real chunk generation never passed `UndergroundBiomeBanding`'s preset guard.
 
-Production follow-up `366caae` on `qa/biome-climate-mapping`, mirrored as `8d0dea5` on
+Production follow-up `366caae` on `qa/biome-climate-mapping`, mirrored as `9a1ccdb` on
 `fix/biome-climate-mapping`, injects at `NoiseChunk.cachedClimateSampler()` return and propagates
 the RTF preset into that sampler. Repeating the same matrix afterward produced:
 
@@ -413,7 +413,7 @@ climate selection, so the stored-biome results remain applicable, but the air/bl
 measurements below describe the earlier default-`-54` run. State 0 was rebuilt from detached
 `c3e2c98`, which is exactly the current upstream 1.21.1 branch tip (`upstream/1.21.1`), not from an
 arbitrary older ancestor or a later feature branch. State 2 used the QA equivalent of production
-clean commit `8d0dea5`. Each listed center was confirmed via RCON to be `minecraft:air` and to have
+clean commit `9a1ccdb`. Each listed center was confirmed via RCON to be `minecraft:air` and to have
 the stated biome in both fresh worlds.
 
 | Coordinate       | State 0, unfixed | State 2, fixed  | Real nearby feature difference                                               |

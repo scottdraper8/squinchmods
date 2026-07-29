@@ -24,11 +24,10 @@ Strata layering is not a cause of the biome-selection problem. It has a small se
 later cave carving and on how recognizable some already-selected Regions Unexplored caves are. That
 effect should be kept separate from the climate-distribution fix.
 
-A production fix is implemented and committed (`bbd845c`) in worktree
-`ReTerraForged-biome-climate-qa`, on both `qa/biome-climate-mapping` (the working branch for this
-line of work going forward) and `fix/biome-climate-mapping` (a clean, fix-only branch forked from
-the same commit — see `refs/branch-map.md` for the convention). It corrects the registered router
-fields at their Java source instead of patching generated datapack JSON:
+A production fix is implemented as `bbd845c` on `qa/biome-climate-mapping` in worktree
+`ReTerraForged-biome-climate-qa`, and as message-rewritten equivalent `a5bee8f` on the clean
+`fix/biome-climate-mapping` branch. See `refs/branch-map.md` for the branch convention. It corrects
+the registered router fields at their Java source instead of patching generated datapack JSON:
 
 - climate depth now uses the same registered, surface-relative RTF depth function as terrain;
 - the RTF surface climate remains unchanged, with a depth-based transition from `0.03` to `0.125`;

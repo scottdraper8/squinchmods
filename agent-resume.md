@@ -44,14 +44,15 @@ screenshot-able islands to work against.
 
 ## Biome climate distribution — root and dynamic-banding fixes real-chunk verified
 
-The root fix remains commit `bbd845c` on both branches. Dynamic underground banding was introduced
-as production commit `ad491ab` on `qa/biome-climate-mapping`, mirrored cleanly as `7a0491b` on
-`fix/biome-climate-mapping`. A real-chunk pass on 2026-07-28 found and fixed a missing live-path
-connection: `NoiseChunk.cachedClimateSampler()` did not receive the banding preset, so finished
-Fabric chunks silently retained the unbanded biome list even though standalone scans passed. The
-production follow-up is `366caae` on the QA branch and `8d0dea5` on the clean fix branch. QA-only
-real-chunk scanner commit `d2b50c3` supersedes the cold scanners for visual-coordinate searches.
-Both worktrees pass the full Fabric + NeoForge build.
+The root fix is commit `bbd845c` on the QA branch and its message-rewritten equivalent `a5bee8f` on
+the clean branch. Dynamic underground banding was introduced as production commit `ad491ab` on
+`qa/biome-climate-mapping`, mirrored cleanly as `622c56a` on `fix/biome-climate-mapping`. A
+real-chunk pass on 2026-07-28 found and fixed a missing live-path connection:
+`NoiseChunk.cachedClimateSampler()` did not receive the banding preset, so finished Fabric chunks
+silently retained the unbanded biome list even though standalone scans passed. The production
+follow-up is `366caae` on the QA branch and `9a1ccdb` on the clean fix branch. QA-only real-chunk
+scanner commit `d2b50c3` supersedes the cold scanners for visual-coordinate searches. Both worktrees
+pass the full Fabric + NeoForge build.
 
 Read `dynamic-underground-biome-banding-plan.md` for the algorithm and retained evidence. Short
 version: convention-following vanilla/modded cave candidates are redistributed from climate depth
@@ -91,7 +92,7 @@ expensive step.
 The first correct comparison was State 1 (`bbd845c`, root fix only) versus the then-current State 2.
 It found zero underground differences in all 4,096 columns. That was a real implementation failure,
 not another scanner failure: chunk biome filling uses `NoiseChunk.cachedClimateSampler()`, while
-`ad491ab` attached the preset only to `RandomState.sampler()`. Commit `366caae` / `8d0dea5`
+`ad491ab` attached the preset only to `RandomState.sampler()`. Commit `366caae` / `9a1ccdb`
 propagates the preset to the cached sampler. After that change, all 4,096 column profiles diverged
 as intended; 165 columns contained real air at a divergent biome cell (240 open cells total).
 
@@ -105,7 +106,7 @@ record the earlier default-`-54` run. The "before" jar is genuinely the upstream
 detached `c3e2c98`, which is exactly `upstream/1.21.1`. Every coordinate below was independently
 confirmed with RCON to be air and to have the stated biome in both freshly generated worlds:
 
-| Coordinate       | Unfixed `c3e2c98` | Fixed `8d0dea5` equivalent | Visible fixed-world evidence within 12 blocks                     |
+| Coordinate       | Unfixed `c3e2c98` | Fixed `9a1ccdb` equivalent | Visible fixed-world evidence within 12 blocks                     |
 | ---------------- | ----------------- | -------------------------- | ----------------------------------------------------------------- |
 | `1454 -50 1650`  | Savanna           | Dripstone Caves            | 5 dripstone blocks and 1 pointed dripstone; none before           |
 | `1362 -82 1662`  | Savanna           | Deep Dark                  | biome/F3 difference in an open cave                               |
@@ -211,7 +212,7 @@ workaround.
   original-value lookup, fixing a false positive the scanner reported once a second TerraBlender
   region was genuinely populated), plus `d2b50c3` (finished-chunk profile/visual scanner). The clean
   branch is checked out at `games/minecraft/mods/ReTerraForged-biome-climate-fix` at merge commit
-  `032e63b`, which retains production tip `8d0dea5`, contains no scanner, and incorporates
+  `9099214`, which retains production tip `9a1ccdb`, contains no scanner, and incorporates
   `upstream/1.21.1` through `9e445dd`. Its rebuilt Fabric artifact is
   `/var/home/scott/Desktop/rtf-biome-banding-fix.jar`, SHA-256
   `973472d59ce92cfc051bd5efc276ea7ac867c0ffabf443f308ed1dde8d5c5131`. The detached root-only
