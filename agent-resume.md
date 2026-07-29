@@ -210,11 +210,15 @@ workaround.
   retained QA-only commits include `78fab7e` (dynamic scanner) and `0664f23` (region-aware
   original-value lookup, fixing a false positive the scanner reported once a second TerraBlender
   region was genuinely populated), plus `d2b50c3` (finished-chunk profile/visual scanner). The clean
-  branch is checked out at `games/minecraft/mods/ReTerraForged-biome-climate-fix` at `8d0dea5`, with
-  no scanner. The detached root-only comparison worktree is
-  `games/minecraft/mods/ReTerraForged-root-fix-only` at `bbd845c`. Dynamic-banding logs and
-  checksums are listed in its plan document; older root-fix logs and the authoritative
-  `qa-coast-edge-blend-production-exported-v2.zip` remain listed in the root investigation.
+  branch is checked out at `games/minecraft/mods/ReTerraForged-biome-climate-fix` at merge commit
+  `032e63b`, which retains production tip `8d0dea5`, contains no scanner, and incorporates
+  `upstream/1.21.1` through `9e445dd`. Its rebuilt Fabric artifact is
+  `/var/home/scott/Desktop/rtf-biome-banding-fix.jar`, SHA-256
+  `973472d59ce92cfc051bd5efc276ea7ac867c0ffabf443f308ed1dde8d5c5131`. The detached root-only
+  comparison worktree is `games/minecraft/mods/ReTerraForged-root-fix-only` at `bbd845c`.
+  Dynamic-banding logs and checksums are listed in its plan document; older root-fix logs and the
+  authoritative `qa-coast-edge-blend-production-exported-v2.zip` remain listed in the root
+  investigation.
 - The Regions Unexplored source used by that worktree is at
   `games/minecraft/mods/RegionsUnexplored-investigation` on branch `21.1`, commit `f5dfe4ee`.
 - Seed `3216933670` is the standard seed for all of this investigation's reproduction cases.
