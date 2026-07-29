@@ -11,8 +11,7 @@ generation changes without a release boundary requiring an interim fix. The test
 `0.03F` experiment remains useful evidence that the existing high-frequency warp folds; it is not
 production work.
 
-The rewrite belongs in a dedicated feature PR and is not part of PR #97. PR #97 can merge first
-without requiring a release before this work lands.
+The rewrite belongs in a dedicated feature PR.
 
 ## Size and integration boundary
 
@@ -89,7 +88,8 @@ before/after builds. Run with fresh worlds whenever the implementation or preset
 
 The matrix must include:
 
-- canonical `very-deep`, Goldilocks, and `worldDepth=16` archipelago presets at seed `3216933670`;
+- canonical `very-deep`, Goldilocks, and `worldDepth=16` archipelago presets from
+  `../../qa/presets/` at seed `3216933670`;
 - a default-depth/default-island-settings preset;
 - several fixed windows, including the known `(230250, 163350)` area;
 - direct heightmap profiles for broad deterministic measurement; and

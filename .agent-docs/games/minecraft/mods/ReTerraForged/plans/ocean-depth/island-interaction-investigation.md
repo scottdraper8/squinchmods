@@ -1,6 +1,6 @@
 # Island Interaction (Archipelago) Under Deep RTF Oceans
 
-## Status: 2026-07-22
+## Status: rewrite scoped, implementation not started
 
 Investigation into PR #97's "Island Interaction" checklist item ("near vertical walls aren't ideal,
 ideally should fade over a wider area. Is this a preset config issue?"). Originally suspected to be
@@ -9,9 +9,8 @@ turned out to have a clean, isolated fix (see `pr-97-ocean-floor-noise-comment-d
 `Populators.makeDeepOcean`). Island Interaction did not. What follows is why: three distinct,
 independently-confirmed contributing mechanisms, only one of which is actually caused by
 `oceanDepth`, and a case for why a real fix needs to rebuild part of the archipelago system rather
-than patch it. **Not fixed in this PR** - this doc is the equivalent of
-`../biome-climate-banding/biome-climate-banding-investigation.md` for this feature: real findings,
-no shipped fix, flagged for a dedicated follow-up PR.
+than patch it. This remains unfinished and is scoped for a dedicated follow-up in
+`archipelago-follow-up-scope.md`.
 
 ## Background
 
@@ -20,7 +19,7 @@ None of the three committed QA test presets (`very-deep.zip`, `goldilocks.zip`,
 in all three, confirmed by reading the raw preset JSON - this field lives at the top level of
 `Preset`, not nested under `world`, which is easy to miss). Built three `-archipelago` variants
 (same data, `island` block replaced with `IslandSettings.makeDefault()`) specifically to get real,
-screenshot-able islands for this investigation; they're alongside the originals in `test-presets/`.
+screenshot-able islands for this investigation; canonical copies are in `../../qa/presets/`.
 
 Seed used throughout: `3216933670` (matches the existing QA convention).
 
@@ -178,12 +177,10 @@ This is a bigger, riskier change than anything else in this investigation:
 
 ## Recommendation
 
-Treat this the same way `../biome-climate-banding/biome-climate-banding-investigation.md` treats its
-own finding: real, confirmed, worth fixing, but not something to bolt onto this PR. The scope and
-sequencing decision is recorded in `archipelago-follow-up-scope.md`: implement the cellular redesign
-as the sole production follow-up. The tested Finding 1 warp change remains diagnostic evidence and
-should not ship separately because the rewrite replaces that code path. Candidate steps for the
-rewrite:
+The scope and sequencing decision is recorded in `archipelago-follow-up-scope.md`: implement the
+cellular redesign as the sole production follow-up. The tested Finding 1 warp change remains
+diagnostic evidence and should not ship separately because the rewrite replaces that code path.
+Candidate steps for the rewrite:
 
 - Prototype archipelago on a Worley/cellular base (mirroring `UpliftContinentGenerator`'s pattern),
   with shelf/beach/land widths expressed in real blocks from the start.
@@ -198,10 +195,8 @@ rewrite:
 - Use Finding 1's known coordinate and before/after profiles as regression evidence for the new
   distance field, without carrying the temporary warp-strength change into production.
 
-## Status
+## Current implementation state
 
-Not fixed in this PR. Findings 1-3 above are confirmed via direct empirical testing against the real
-production code path (not simulated), using the same seed/coordinate methodology as the rest of this
-investigation. No code changes from this investigation are included in the ocean-depth PR;
-`ArchipelagoPopulator.java` and `Heightmap.java` were reverted back to their pre-investigation
-state.
+Findings 1-3 are confirmed against the real production code path. No production archipelago change
+has been made, and no implementation branch exists. Start from the complete contract in
+`archipelago-follow-up-scope.md`, not from the isolated warp-strength experiment.

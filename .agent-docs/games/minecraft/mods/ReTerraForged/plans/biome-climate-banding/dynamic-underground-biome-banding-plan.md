@@ -1,472 +1,86 @@
-# Dynamic Underground Biome Banding — Design Plan
+# Dynamic Underground Biome Banding — Final Design Reference
 
-## Status: 2026-07-28 — implemented and verified against finished Fabric chunks
+The design is implemented. See `biome-climate-banding-investigation.md` for the complete
+retrospective, validation evidence, screenshot coordinates, and rejected approaches.
 
-The original validation was standalone-against-standalone and missed a real production defect:
-finished chunks use `NoiseChunk.cachedClimateSampler()`, but the implementation initially attached
-the banding preset only to `RandomState.sampler()`. A finished-chunk scanner proved that State 1 and
-the nominal State 2 had identical underground biome palettes across all 4,096 tested columns.
-Production follow-up `366caae` on the QA branch, mirrored as `9a1ccdb` on the clean fix branch,
-propagates the preset into the cached sampler. Repeating the same real-chunk matrix then produced
-intended differences in all 4,096 columns and real open-cave screenshot coordinates. Read
-"Real-chunk verification and screenshot coordinates" near the end for the evidence and retained
-artifacts.
+## Invariants
 
-This is a follow-on to the root climate-mapping fix in `biome-climate-banding-investigation.md`
-(committed at `bbd845c` on `qa/biome-climate-mapping` and message-rewritten as `a5bee8f` on
-`fix/biome-climate-mapping`). That fix is a **hard prerequisite** for everything below, not parallel
-or competing work — see "Why the root fix has to come first" below.
+- Surface and shallow biome selection use the original parameter list.
+- Dynamic selection begins only at climate depth `1.1`.
+- Band count and scale respond to configured world dimensions and Biome Size.
+- Compatible modded cave biomes participate without hardcoded biome IDs.
+- TerraBlender's positional region choice is preserved.
+- Unknown registration schemes retain their original behavior.
+- Actual chunk generation and standalone lookups receive the same RTF preset context.
 
-The production implementation is commit `ad491ab` plus live-path follow-up `366caae` on
-`qa/biome-climate-mapping`, mirrored as `622c56a` plus `9a1ccdb` on clean branch
-`fix/biome-climate-mapping`. QA scanner commit `78fab7e` and its region-aware comparison fix
-`0664f23` (see "Multi-region compatibility — closed" below) exist only on the QA branch, as does
-finished-chunk scanner `d2b50c3`, per the convention in `refs/branch-map.md`. Both branches pass the
-full Fabric + NeoForge build.
+## Candidate discovery
 
-## Implementation outcome
+`UndergroundBiomeBanding` scans each climate parameter list for the compatibility signature used by
+vanilla underground biomes:
 
-`UndergroundBiomeBanding` scans each climate list for the deliberately narrow compatibility
-signature established below: depth span `0.2..0.9` or point `1.1`, with weirdness left at
-`FULL_RANGE`. It groups those entries by biome in encounter order and leaves nonconforming mod
-registrations untouched.
+- depth span `0.2..0.9` or point `1.1`; and
+- weirdness left at `FULL_RANGE`.
 
-The final layout:
+Matching entries are grouped by biome in encounter order. Nonmatching entries remain untouched. This
+intentionally supports convention-following mod registrations without guessing how arbitrary custom
+placement systems should be redistributed.
 
-- preserves every original `0.2..0.9` point and routes all climate targets below depth `1.1` through
-  the original list, giving exact shallow and surface identity;
-- spans dynamic bands from climate depth `1.1` to `(worldDepth + min(worldHeight, 256)) / 128`;
-- chooses band count from candidate count, usable vertical space, and `Biome Size`, using
-  square-root scaling and a cap of 32 so extreme settings remain useful without exploding the
-  R-tree;
-- partitions weirdness `[-1, 1]` into one strict regime per candidate, then cyclically rotates the
-  candidate assigned to each band across regimes, so a shallow column can omit a band without making
-  that biome globally unreachable;
-- adds full-climate fallback points after the first transition band to prevent one constrained
-  candidate from saturating a deep column; and
-- changes underground climate frequency from fixed `0.25` to `0.25 * 225 / biomeSize`, which is
-  byte-for-byte equivalent at the default `Biome Size=225`.
+## Depth layout
 
-Fabric without TerraBlender lazily builds a banded list beside the original `MultiNoiseBiomeSource`.
-TerraBlender retains every original regional R-tree, builds a parallel banded list for each
-non-empty region, preserves TerraBlender's uniqueness-selected region, and uses the parallel list
-only at depth `>=1.1`. This matters: falling back to the default region for shallow targets would
-have hidden another TerraBlender mod's surface biomes.
-
-## The problem this addresses
-
-The root fix restores vanilla-like underground biome selection at the depths RTF was tested at. But
-RTF's `worldDepth`/`worldHeight` are user-configurable (that's the whole point of the
-`configurable-ocean-depth` branch this all sits on), and the underlying selection mechanism has a
-structural property that only becomes visible at configuration extremes:
-
-Vanilla's biome climate model has **one** axis that varies with Y (`depth`); the other five
-(temperature, humidity, continentalness, erosion, weirdness) are pure `(x, z)` fields, constant for
-an entire column below the surface transition. Confirmed directly from vanilla source
-(`NoiseRouterData.DEPTH`'s registration is `yClampedGradient(...) + a flatCached 2D offset`; the
-`OverworldBiomeBuilder` climate axes for temperature/humidity/continentalness/erosion are all
-`DensityFunctions.shiftedNoise2d`, cached per column). Once a column's depth value passes every
-registered biome's depth window except the deepest one (`deep_dark`, a single point at `1.1` — the
-only vanilla biome with nothing deeper registered above it), nothing in the selection changes for
-the rest of that column, all the way to bedrock, because every other axis is already frozen.
-
-At vanilla's fixed world depth (64 blocks below sea level) this is invisible — the "everything is
-deep_dark below this point" zone is at most ~100 blocks. Under RTF's configurable depth, it isn't
-bounded: a very deep preset (RTF's own `very-deep` test preset goes to `worldDepth=624`) would have
-that same zone stretch for hundreds of blocks, starting close to the surface, because deep_dark's
-registered depth target (`1.1`) is a fixed constant with no relationship to how deep the configured
-world actually is. The inverse also holds: a sufficiently shallow world can fail to ever reach
-`depth=1.1` before hitting the configured floor, meaning deep_dark becomes unreachable, not just
-rare.
-
-## Goals (agreed 2026-07-27)
-
-1. Introduce more than the current 2 depth stages ("banding") when there's room for it — not
-   necessarily by authoring new biome content in this pass (see scope note below), but by
-   redistributing whatever biomes are already registered (vanilla's, and any installed mod's) across
-   more depth slots.
-2. Vertical size of each band should scale with **both** `worldDepth`/`worldHeight` and RTF's
-   `Biome Size` setting (`ClimateSettings.BiomeShape.biomeSize`), not be a fixed absolute block
-   count.
-3. Horizontal scale of underground biome selection should also scale with `Biome Size` — currently a
-   confirmed bug: the underground climate noise added by the root fix uses a hardcoded vanilla scale
-   (`0.25`, see `PresetNoiseRouterData`'s `shiftedNoise2d` calls), completely decoupled from
-   `ClimateModule.biomeFreq` (`1.0F / biomeSize`), which only drives RTF's own _surface_ climate
-   noise. Cranking Biome Size up today visibly enlarges surface biomes while cave biomes underneath
-   keep vanilla's native (much finer) grain.
-4. Stay compatible with biome-adding mods (Regions Unexplored, Terralith, anything else using the
-   same registration conventions) — their biomes should participate in the new banding, not be left
-   behind in the old 2-stage model, and shouldn't be broken by this change.
-5. Where the configured world is too shallow to fit every band comfortably, gracefully compress or
-   drop bands rather than either crashing the stack together or leaving a biome permanently
-   unreachable — and vary _which_ band gets dropped across the map (not always the same one), so
-   every biome (vanilla and modded) still shows up somewhere, and terrain-driven headroom
-   differences (more room under a mountain than a valley, even within one "shallow" preset) are
-   respected rather than papered over.
-
-Explicitly **out of scope for this pass**: authoring genuinely new biome content (new block
-palettes, features, mob spawn tables) to give N distinct-_feeling_ bands. This pass only
-redistributes biomes that already exist in the world's registered biome catalog — vanilla's three,
-plus whatever a mod contributes. New distinct biome layers are a real, larger future option,
-deliberately deferred.
-
-## Why the root fix has to come first
-
-The root fix touches the **six climate input values** computed at a position. This plan touches
-**which biome wins given those values** — a different, downstream layer. Banding logic can only ever
-be as good as the values it's slicing. Concretely: before the root fix, RTF's own continentalness
-was saturated near `1.0` across ~91% of land samples — `dripstone_caves`' target window is
-continentalness `0.8..1.0`. Slicing the depth axis into more bands on top of that saturation would
-just produce more layers of near-universal dripstone, not more variety, because the other axis
-feeding the nearest-neighbor distance calculation would still be broken regardless of how the depth
-axis is partitioned. Same story for the pre-fix erosion field (flatlined at a near-constant value
-after river/climate overwrites) and the pre-fix depth offset (a 26-block miscalibration that would
-throw off every band boundary computed against it, not just the one boundary that existed before).
-The root fix is the reason the other five axes are trustworthy inputs; this plan assumes that and
-builds on top of it.
-
-## How biome placement actually works (verified against real source, not recalled from memory)
-
-There is no separate "cave placement" system. Every biome — surface or underground, vanilla or
-modded — is a `(Climate.ParameterPoint, Biome)` pair in a list, built once into a static R-tree
-(`Climate.ParameterList`/`Climate.RTree`, see `net.minecraft.world.level.biome.Climate`) at world
-load, searched at runtime by nearest-neighbor over 6 quantized values (temperature, humidity,
-continentalness, erosion, depth, weirdness) plus a fixed per-entry `offset` tiebreak. Confirmed the
-actual registered underground entries in `OverworldBiomeBuilder.addUndergroundBiomes()`:
+The usable dynamic depth ends at:
 
 ```text
-dripstone_caves: depth span 0.2..0.9, continentalness 0.8..1.0
-lush_caves:      depth span 0.2..0.9, humidity 0.7..1.0
-deep_dark:       depth POINT 1.1 (registered via a distinct addBottomBiome helper), erosion -1.0..-0.375
+(worldDepth + min(worldHeight, 256)) / 128
 ```
 
-Everything Regions Unexplored adds registers inside that _same_ `0.2..0.9` window, competing by
-humidity/erosion — not new depth territory. So today's real depth-axis richness is exactly 2 stages
-regardless of how many biome mods are installed; getting a 3rd/4th/Nth stage today requires either
-new content (out of scope, see above) or redistributing the existing 3 across more depth slots.
+Band count derives from candidate count, usable depth, and Biome Size using square-root scaling,
+with a maximum of 32. The layout compresses naturally in shallow terrain and expands in deep worlds.
 
-RTF's `PresetNoiseRouterData` never touches this list — it only supplies the 6 input values into
-whatever list vanilla (or a mod) already built. This plan is the first RTF work that would actually
-touch the registry/placement layer itself.
+Each candidate owns one non-overlapping weirdness regime. Candidate order rotates between regimes,
+so a column that cannot fit every band does not always omit the same biome. Full-climate fallback
+entries after the first transition band prevent one constrained candidate from winning every
+remaining depth.
 
-### The mechanism that generalizes to mods, and the one that doesn't
+Nearest-neighbor selection across continuous weirdness values supplies the horizontal transition;
+the parameter list does not need to be rebuilt per column.
 
-Decompiled the real TerraBlender API (`terrablender.api.Region`/`Regions`/`RegionType`,
-`terrablender.worldgen.IExtendedParameterList`, `DefaultOverworldRegion`) via `javap` against
-`TerraBlender-neoforge-1.21.1-4.1.0.0.jar` rather than assuming behavior from the mixin names RTF
-already has. Key finding: **TerraBlender regions are mutually exclusive per-position competitors,
-not merged contributions.** `Regions.register(Region)` adds one weighted entrant into a per-position
-lottery (`Regions.getCount`/`getIndex`, driven by a "uniqueness" density function — the same one
-RTF's existing `mixin/terrablender/MixinClimateSampler.java`/`MixinParameterList.java` already touch
-for an unrelated purpose). Exactly one region's _entire_ list wins at a given position.
+## Horizontal scale
 
-This rules out the "obvious" implementation: RTF registering its own TerraBlender region containing
-the new N-band entries. That would make RTF's banding and a mod's own cave biomes competitors for
-map territory — wherever RTF's region wins, players get more bands but only vanilla biomes in them
-(since the mod never registered anything into RTF's region); wherever the mod's region wins instead,
-players get that mod's biomes exactly as they work today, untouched by this plan. The map would
-fragment into patches that never combine both improvements. This is a real, verified failure mode,
-not a hypothetical one — found only by reading the actual bytecode, not by reasoning from the API
-surface RTF already touches.
-
-The mechanism that does generalize: hook `Climate.ParameterList`'s _construction_ itself — the one
-shared chokepoint every path funnels through (vanilla's plain list, `DefaultOverworldRegion`'s
-wrapper, any mod's own TerraBlender region, all end up building a `Climate.ParameterList` before
-becoming searchable). RTF already has working precedent for mixin-patching exactly this class
-(`mixin/terrablender/MixinParameterList.java`). A similar mixin can scan whatever entries are about
-to be built into a given list, find every entry whose depth parameter matches the known underground
-signature (span `0.2..0.9`, or point `1.1` — the convention TerraBlender's own API steers mods
-toward via `Region.addBiomeSimilar`/`RegionUtils.getVanillaParameterPoints`, which clone vanilla's
-exact parameter points rather than inventing new ones), and redistribute those specific entries
-across N depth bands computed from world settings. This applies uniformly to whichever list/region
-ends up being used, without per-mod compatibility code, and without creating a competing territory.
-
-**Caveat to carry forward**: this only recognizes entries following the vanilla depth-axis
-convention. A mod that registers underground biomes some other way wouldn't be picked up — a safe
-failure mode (that mod just keeps behaving as it does today, doesn't break), but not a guarantee of
-universal compatibility with every conceivable mod.
-
-## Sizing the bands: don't touch the shared depth function
-
-`PresetNoiseRouterData` registers RTF's own `NoiseRouterData.DEPTH`:
-
-```java
-ctx.register(NoiseRouterData.DEPTH, DensityFunctions.add(
-    DensityFunctions.yClampedGradient(-worldDepth, worldHeight, yGradientRange(-worldDepth), yGradientRange(worldHeight)),
-    offset
-));
-private static float yGradientRange(float range) { return 1.0F + (-range / SCALER); }  // SCALER = 128, fixed
-```
-
-Despite taking `worldDepth`/`worldHeight` as parameters, the actual rate works out to a constant
-`1/128` depth-units per block regardless of configured world size — the parameters only reposition
-where the gradient sits, not how fast it moves. That's the precise mechanical reason bands are a
-fixed absolute block count today.
-
-Critically, this exact `depth` value is **shared** with real terrain shaping —
-`initialDensity = NoiseRouterData.noiseGradientDensity(cache2d(factor), depth)` is literally the
-terrain-height formula. Rescaling `SCALER` to fix banding would also reshape actual generated
-terrain for every preset, a much bigger and riskier change than intended, requiring the same
-validation rigor as a terrain change, not a biome-selection change.
-
-The resolution: don't rescale the shared depth function at all. Choose N band thresholds as explicit
-`Climate.Parameter` values at the registry layer (the `ParameterList` hook above), computed at
-preset bootstrap time — which already has full access to `worldSettings`/`biomeSize` — positioned
-wherever they need to sit within whatever range the existing, unmodified depth function already
-produces for that preset. The terminal band's threshold must be included in this same treatment
-(positioned near the depth value corresponding to the configured world floor) rather than left as an
-implicit leftover — otherwise the disproportionate-stretch problem just resurfaces one level down,
-as N-1 well-sized bands plus one huge catch-all at the bottom.
-
-## The two mechanisms that still needed real design (not just "reuse existing patterns")
-
-Two problems were initially waved off as "handled by patterns that already exist" and then found not
-to actually be — worth recording precisely since the resolution ended up being the same insight for
-both:
-
-**Problem**: how do you smoothly blend a _discrete_ decision (which band/biome effectively isn't
-competing in this region) the way the existing coast-to-inland blend smoothly blends a _continuous_
-value? And separately: how does a `ParameterList`/R-tree, built once globally at world load with no
-per-region view, behave as if some entries are regionally unavailable, without literally rebuilding
-the list per region (not how the data structure works)?
-
-**Resolution (same for both)**: nearest-neighbor selection over a _continuous_ axis is already
-inherently smooth — that's why ordinary vanilla biome-to-biome boundaries never need explicit lerp
-logic; the coast blend only needed one because it was switching between two different
-_representations_ of the same axis, a genuine discontinuity, not a "which entry wins" choice. So:
-don't try to make the list spatially aware or explicitly blend a discrete choice. Instead, route the
-choice through the one climate axis every underground registration leaves unclaimed — **weirdness**,
-registered as `FULL_RANGE` by vanilla's dripstone/lush/deep_dark entries (and, per the same
-convention, presumably by well-behaved mods). Register several alternate "regimes" (e.g., one
-omitting dripstone, one omitting lush), each tagged with a distinct, exhaustive, non-overlapping
-weirdness sub-range. This is not a novel mechanism — `OverworldBiomeBuilder` already does exactly
-this for surface-biome regional variety (`MIDDLE_BIOMES_VARIANT`, `PLATEAU_BIOMES_VARIANT`,
-jagged_peaks-vs-frozen_peaks), gated by a weirdness-derived value, and it's already proven to blend
-without seams because that's what nearest-neighbor over a continuous input does everywhere in this
-system.
-
-**What must drive the weirdness value**: a continuous, low-frequency signal — explicitly **not**
-RTF's existing `cell.biomeRegionId` (a discrete Voronoi/cellular ID; feeding it directly would just
-relocate the hard edge to align with cell boundaries instead of removing it). Most likely a
-dedicated low-frequency 2D noise, optionally with frequency tied to `biomeSize` so regime-scale
-tracks biome-scale, or possibly a reuse of the existing `ridges` output if its native frequency
-proves coarse enough on inspection — an empirical question, not an architectural one.
-
-**Mod compatibility of this specific mechanism**: safe by construction, for the same reason as the
-list-hook above — narrowing an axis a mod explicitly left at `FULL_RANGE` can't violate an
-assumption that mod made, since `FULL_RANGE` is the mod stating it doesn't care what that axis is.
-
-**Performance of this specific mechanism**: negligible. No new per-block density-function cost if an
-existing cached signal is reused; at most one cheap new 2D noise sample if not, cacheable per column
-the same way every other climate field here already is. The R-tree/list only grows by a few dozen
-entries at world-load time — irrelevant against vanilla's own full parameter list, which already has
-hundreds.
-
-## Standalone live-source validation results
-
-These measurements use the server's live biome source and remain useful for scale/distribution
-comparisons, but they do not read finished chunk palettes. The later real-chunk section is the
-authoritative check that the behavior reaches generated worlds.
-
-All runs used seed `3216933670`, the real headless dev server, and 4,225 columns at 128-block
-horizontal spacing. The scanner followed each column from its RTF density surface to minimum Y in
-16-block steps (137,930 samples for the very-deep preset), recording climate values, selected
-biomes, horizontal neighbor agreement, and vertical run lengths.
-
-| Case                         | Candidates / bands | Result                                                                                                                                                                                                                         |
-| ---------------------------- | -----------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Very deep, size 225          |              3 / 6 | Deep Dark, Dripstone, and Lush average runs were `115.43`, `117.22`, and `107.49` blocks; maxima were `256`, `192`, and `256`, replacing the rejected prototype's `576`/`752`-block saturation.                                |
-| Goldilocks                   |              3 / 3 | Deep Dark remained reachable in 148 terrain-headroom runs (`31.78` average, `96` max) without appearing in ordinary shallow samples.                                                                                           |
-| `worldDepth=16` mountain     |              3 / 3 | Deep Dark remained reachable where mountains supplied headroom (42 runs, `28.57` average, `64` max), rather than being globally lost.                                                                                          |
-| Very deep, size 50           |             3 / 13 | Candidate run maxima were all `112` blocks; fine Biome Size produced measurably finer vertical and horizontal selection.                                                                                                       |
-| Very deep, size 900          |              3 / 3 | Candidate averages rose to `158..257` blocks and 128-block neighbor agreement at surface-minus-64 rose to `0.8897`, versus `0.8156` at size 225 and `0.6982` at size 50.                                                       |
-| Very deep + RU/Lithostitched |             5 / 10 | Vanilla plus RU's convention-following Prismachasm/Redstone candidates were discovered generically. Deep Dark, Dripstone, Lush, Bioshroom, Prismachasm, and Redstone maxima were `160`, `128`, `128`, `112`, `144`, and `144`. |
-| Very deep + TerraBlender 4.1 |              3 / 6 | The real NeoForge TerraBlender initialization and positional lookup path completed with the same distribution and no band-index fallback errors.                                                                               |
-
-The in-process control lookup compares the selected biome with the untouched original
-`ParameterList` at the exact same `Climate.TargetPoint`. The final very-deep run recorded zero
-mismatches at every sampled level below climate depth `1.1`: `0/4,225` at the physical surface,
-`0/4,184` at surface-minus-64, and `0/3,819` at surface-minus-128. Divergence begins at
-surface-minus-144 where measured climate depth first exceeds `1.1`, exactly as designed.
-
-Authoritative retained logs (paths relative to the QA worktree):
-
-| Artifact                                                       | SHA-256                                                            |
-| -------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `fabric/run/qa-dynamic-banding-verydeep-v5.log`                | `5ef668027ff324031ce28d7c737d19059488954ff2ecac2d7e8d36fe9237eaf5` |
-| `fabric/run/qa-dynamic-banding-goldilocks-v3.log`              | `73833cb86dcc9bccca47693766834b38d21aac49b3af1644b43e75972fdcfe0c` |
-| `fabric/run/qa-dynamic-banding-worlddepth16-v3.log`            | `450dc9d58c75989c13a4a3bc59802014115e10121aca3ccfddbd5efb564c2bc1` |
-| `fabric/run/qa-dynamic-banding-verydeep-biomesize50-v3.log`    | `c97ba74637c3b44fb5dba3d7b015ae30cc898e8ab6f9d52c5ef1b15866448387` |
-| `fabric/run/qa-dynamic-banding-verydeep-biomesize900-v4.log`   | `55beb402a60a26d3b44f0723da04f4755242e0e63673fac6748a9cd51b5a042a` |
-| `fabric/run/qa-dynamic-banding-verydeep-ru-v1.log`             | `489a233f903f6007bce06f2d0fbad7fc4427fdf45737cbcfb2fd4bec0f9db423` |
-| `neoforge/run/qa-dynamic-banding-verydeep-terrablender-v3.log` | `0aad321bef58358365176d4af78439dc5a409abe62b26d3340cecfbfdf14e912` |
-
-Biome Size test packs are retained at
-`fabric/run/qa-dynamic-banding-packs/verydeep-biomesize-{50,900}.zip`, with SHA-256
-`7ea1f5f3bb309ee258f7c66816baf3bc8dc89c0fda3117d7628ce6abf60cfaf0` and
-`3999babb69e7dc400a4f568bcfe4aee5bc5a523bba60b775b00888479797582f`.
-
-Compatibility-run setup is intentionally not committed to either code branch. RU and Lithostitched
-jars remain in `fabric/run/qa-staged-mods/`; their current builds require test-only Gradle overrides
-`ORG_GRADLE_PROJECT_fabric_loader_version=0.19.2` and
-`ORG_GRADLE_PROJECT_fabric_api_version=0.116.8+1.21.1`. TerraBlender 4.1 was copied from the Gradle
-cache into `neoforge/run/mods/` for the run, then removed. The QA and clean worktrees are left with
-no compatibility jars staged in their active `mods/` directories.
-
-## Multi-region compatibility — closed
-
-The gap noted in the original validation pass ("TerraBlender was only tested with its own default
-region active, not against a second mod that genuinely registers a competing region") is closed.
-YungsCaveBiomes
-(`com/yungnickyoung/minecraft/yungscavebiomes/world/CaveBiomeRegion extends terrablender.api.Region`,
-confirmed via `javap` against the real jar — a genuine, independently shipped mod, not a synthetic
-test double) was run alongside TerraBlender 4.1 and the fix, on the `very-deep` preset. Log
-confirmed two real, independently populated regions active simultaneously (`minecraft:overworld` at
-index 0, `yungscavebiomes:overworld` at index 1). Result: no crashes, no band-index fallback errors,
-both mods' underground biomes appeared in the redistributed deep bands together with comparable
-vertical run-length statistics across all five candidates from two independent mods (`deep_dark` avg
-97.5 blocks, `dripstone_caves` avg 96.9, `lush_caves` avg 89.3, `yungscavebiomes:frosted_caves` avg
-79.9, `yungscavebiomes:lost_caves` avg 83.9 — none disproportionate).
-
-That first pass also surfaced a real bug in the QA scanner itself, since fixed
-(`common/src/main/java/raccoonman/reterraforged/mixin/qa/MixinParameterListOriginalLookup.java`,
-QA-branch-only): the scanner's "original" comparison baseline,
-`MultiNoiseBiomeSource.getNoiseBiome(Climate.TargetPoint)`, has no x/y/z and therefore cannot
-perform TerraBlender region selection at all, so it silently disagreed with the real per-position
-winner whenever more than one populated region existed — hundreds of false "mismatches" per depth
-level, even at climate depths far below the `1.1` banding threshold where the design guarantees zero
-behavior change. Every prior validation run only ever had one effective region active, so this never
-showed up before. Fixed with a region-aware lookup that independently captures each region's
-original entry list at the same call site the production mixin observes, and replicates the
-production mixin's exact `TBTargetPoint`-preferring uniqueness derivation (a direct external call to
-`IExtendedParameterList.getUniqueness(x,y,z)` bypasses that redirect and can point at the wrong
-region). Re-verified with the same YungsCaveBiomes + TerraBlender setup: zero mismatches at every
-sampled depth from the surface through climate depth `1.0256`, divergence starting exactly at
-`1.1271` as designed.
-
-That fix (`0664f23`) initially applied unconditionally and crashed a plain RTF-only server outright
-at boot — every test of it so far had TerraBlender loaded (the whole point was testing multi-region
-compatibility), so a server with no TerraBlender at all, the ordinary case for most players, was
-never actually exercised. It `@Shadow`s members (`maxIndex`, `uniqueTrees`,
-`initializeForTerraBlender`) that only exist once TerraBlender's own mixin has applied, and
-`@Shadow` has no graceful-skip equivalent to an injector's `require=0`. Fixed in `ea784db` by adding
-it to `TBCompat.TERRABLENDER_COMPAT_MIXINS`, the same gating the production `terrablender.*` mixins
-already use. Verified both ways afterward: clean boot and scan with TerraBlender + YungsCaveBiomes
-both loaded, and clean boot and scan with neither loaded.
-
-## Real-chunk verification and screenshot coordinates
-
-The first visual-coordinate attempt failed for an important reason that should remain part of the
-history. `DivergenceCandidateScanner` performed a cold
-`biomeSource.getNoiseBiome(..., RandomState.sampler())` scan from a background thread. It reported
-70 candidates, but zero survived force-generation and RCON checks. That scanner remains marked
-`KNOWN BROKEN` and is no longer registered on the QA branch.
-
-QA commit `d2b50c3` replaces it with `RealChunkBiomeProfileScanner`. The new scanner:
-
-- waits until chunks `(80,100)..(95,115)` have been force-generated;
-- runs on the server thread, where `ServerChunkCache.getChunkNow()` is valid;
-- reads the biome actually stored in each `LevelChunk`, never a cold source prediction;
-- scans all 16 quart columns per chunk and every quart Y from the real surface to minimum Y;
-- compresses the result into vertical biome runs and records center-point air cells; and
-- measures the real block palette in a 12-block radius around shortlisted screenshot points.
-
-The scan itself is fast: 4,096 columns and approximately 792,000 stored biome cells took 170-190 ms.
-The slow operation is generating the 256 chunks. This is the useful large-scale workflow for future
-searches: choose a 16x16 region, forceload it once per jar, diff the compressed column lines, then
-RCON-check only the open divergent cells.
-
-### The real live-path defect it caught
-
-State 1 now exists as detached worktree `ReTerraForged-root-fix-only` at exact commit `bbd845c`. The
-first finished-chunk State 1 vs. State 2 comparison found zero underground biome differences in all
-4,096 columns. This disproved the earlier assumption that standalone-vs-standalone agreement was
-enough.
-
-Vanilla `NoiseBasedChunkGenerator.doCreateBiomes()` fills biome palettes with
-`noiseChunk.cachedClimateSampler(...)`, not `RandomState.sampler()`. Commit `ad491ab` attached the
-banding preset only to the latter. The standalone scanner therefore built and queried the banded
-list while real chunk generation never passed `UndergroundBiomeBanding`'s preset guard.
-
-Production follow-up `366caae` on `qa/biome-climate-mapping`, mirrored as `9a1ccdb` on
-`fix/biome-climate-mapping`, injects at `NoiseChunk.cachedClimateSampler()` return and propagates
-the RTF preset into that sampler. Repeating the same matrix afterward produced:
+Underground shifted-noise frequency is:
 
 ```text
-finished columns compared:               4,096
-columns with different vertical profile: 4,096
-columns with shared-air divergence:        165
-shared open biome cells differing:          240
+0.25 * 225 / biomeSize
 ```
 
-The pre-fix finished-chunk log is retained as
-`fabric/run/qa-real-chunk-profile-state2-pre-live-fix.log`, SHA-256
-`ff7bac7fc581e16980f43f7ec8440903fa91f05c4aa7c47d0526839e83b9347e`.
+The default `Biome Size=225` preserves the original `0.25` frequency exactly. Smaller settings
+produce finer regions and more vertical bands; larger settings produce broader regions and fewer,
+thicker bands.
 
-### Exact fixed-vs-unfixed screenshot points
+## Integration paths
 
-All final worlds used seed `3216933670` and the pre-lava-adjustment `very-deep.zip`, SHA-256
-`0342079254c535428e1c479769c0595e49207a285c06ba7300e802bf60eaf837`. On 2026-07-28 the canonical pack
-was changed only by explicitly setting `lavaLevel=-575`; its current SHA-256 is
-`58c875c2b2b93b8b7b997b9a666c4aad93afe94e8f55e66f93b0ad49e9a1b5ca`. Lava level does not feed biome
-climate selection, so the stored-biome results remain applicable, but the air/block-context
-measurements below describe the earlier default-`-54` run. State 0 was rebuilt from detached
-`c3e2c98`, which is exactly the current upstream 1.21.1 branch tip (`upstream/1.21.1`), not from an
-arbitrary older ancestor or a later feature branch. State 2 used the QA equivalent of production
-clean commit `9a1ccdb`. Each listed center was confirmed via RCON to be `minecraft:air` and to have
-the stated biome in both fresh worlds.
+### Plain biome source
 
-| Coordinate       | State 0, unfixed | State 2, fixed  | Real nearby feature difference                                               |
-| ---------------- | ---------------- | --------------- | ---------------------------------------------------------------------------- |
-| `1454 -50 1650`  | Savanna          | Dripstone Caves | fixed adds 5 dripstone blocks and 1 pointed dripstone in radius 12           |
-| `1362 -82 1662`  | Savanna          | Deep Dark       | open-cave biome/F3 difference                                                |
-| `1522 -376 1654` | Deep Dark        | Dripstone Caves | fixed adds 5 dripstone blocks and 2 pointed dripstone in radius 12           |
-| `1422 -394 1838` | Deep Dark        | Lush Caves      | fixed adds 224 clay, 16 moss, moss carpet, grasses, and azaleas in radius 12 |
+`MixinMultiNoiseBiomeSourceCache` lazily builds a banded list beside the original
+`MultiNoiseBiomeSource`. `MixinClimateSampler` selects the original list below depth `1.1` and the
+banded list at or beyond it.
 
-The last point is the strongest visual comparison. Its unfixed column becomes Deep Dark at `Y=-217`
-and stays Deep Dark uninterrupted through the world floor at `-624`. Its fixed profile is:
+### TerraBlender
 
-```text
-savanna          116..153
-dripstone caves    8..115
-savanna          -68..7
-deep dark       -256..-69
-dripstone caves -380..-257
-lush caves      -504..-381
-deep dark       -624..-505
-```
+`MixinParameterList` captures each populated TerraBlender region's original entries and builds a
+parallel banded list. The existing uniqueness/region lookup runs first; banding selects from the
+matching regional list rather than falling back to the default region.
 
-For paired screenshots, create both worlds fresh, switch to spectator, and run
-`/tp @s 1422 -394 1838`. Existing chunks will not be retrofitted; their stored biome palettes and
-already-placed features remain unchanged.
+### Chunk generation
 
-Authoritative final logs:
+Minecraft fills chunk biome palettes through `NoiseChunk.cachedClimateSampler()`. `MixinNoiseChunk`
+propagates the active RTF preset to that sampler. `MixinRandomState` covers direct and standalone
+sampling, but is not sufficient by itself.
 
-| State                            | Artifact                                                               | SHA-256                                                            |
-| -------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| State 0 (`c3e2c98`)              | unfixed worktree `fabric/run/qa-real-chunk-profile-state0-final.log`   | `b57f2e936af5e3f8d1e7584143680892ff197d03c2d245ccc252d5bfbd5d4138` |
-| State 1 (`bbd845c`)              | root-only worktree `fabric/run/qa-real-chunk-profile-state1-final.log` | `19a6450d0118e665f135fa5e5092b7e89337373312615aa41aad1e9662896e19` |
-| State 2 (`366caae` + QA scanner) | QA worktree `fabric/run/qa-real-chunk-profile-state2-final.log`        | `724dd3bad3cf7bc1cec1c95bcdb4d4136a553de5c45c3fb2a219880bd352626d` |
+## Safe compatibility boundary
 
-The State 0 vs. State 1 vanilla-only profiles were identical underground in this particular region;
-only three surface-height lines differed. That does not invalidate the root fix's prior RU 312/312
-finished-chunk parity test, but it means a dedicated visual coordinate for the root mapping alone
-still needs a broader or modded real-chunk search.
+The banding layer only narrows weirdness where a registration explicitly declared `FULL_RANGE`. It
+does not reinterpret entries that already use weirdness or a nonstandard depth signature. Such
+entries continue through their original biome-source/mod integration.
 
-## Remaining validation, not a blocker to the implementation candidate
-
-- A visual client pass is still the right way to judge whether weirdness-regime boundaries read as
-  natural in exposed caves. The headless run now proves real biome and feature differences, but it
-  does not make an aesthetic judgment.
-- Repeat the new finished-chunk profile matrix with Regions Unexplored on Fabric and with
-  TerraBlender + YungsCaveBiomes on NeoForge. Their standalone positional paths passed before the
-  cached-sampler fix, but that is no longer enough evidence for live chunk generation.
-- Repeat representative Goldilocks, `worldDepth=16`, and Biome Size 50/900 cases with the
-  finished-chunk scanner. Their band counts and reachability were measured by the old standalone
-  scanner; the default-size very-deep preset is the case now closed against real chunks.
-- Find a State 0 vs. State 1 open-cave screenshot coordinate for the root climate mapping alone. The
-  tested vanilla region was deliberately excellent for long-band detection but happened to select
-  identical underground biomes in those two states.
-- RU's `inferno` does not use the recognized vanilla depth signature and therefore keeps its
-  original behavior (including long vertical runs). This is the intended safe failure described
-  above, not a claim of compatibility with arbitrary custom registration schemes.
+This means compatibility is automatic for the vanilla convention, not universal for every possible
+custom biome-registration mechanism.

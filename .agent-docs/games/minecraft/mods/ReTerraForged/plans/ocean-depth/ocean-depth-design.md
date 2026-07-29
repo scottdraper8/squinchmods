@@ -47,9 +47,8 @@ The slider is a positive integer, range 0-256 (mirroring the World Depth slider)
 effective value to `seaLevel + worldDepth - 10` (`WorldSettingsPage.java`) so the floor can never
 exceed the world bottom, with a 10-block safety margin. That margin turned out to be too small to
 reliably guarantee room for underground biomes and structures near the floor in some presets — see
-`trial-chambers-and-ocean-structures.md` and
-`../biome-climate-banding/biome-climate-banding-investigation.md` for the investigation that
-followed from it and the fixes/open issues that came out of it.
+`trial-chambers-and-ocean-structures.md` and the underground-biome retrospective at
+`../biome-climate-banding/biome-climate-banding-investigation.md`.
 
 ## Backward compatibility
 

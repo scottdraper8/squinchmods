@@ -366,12 +366,12 @@ Two Trial Chambers generated with no correction needed at all (blind pick alread
 that then failed the (now correctly narrow) safety margin — none were blanket/unconditional skips.
 
 **Shallowest preset (`worldDepth=128`, `oceanDepth=10`)** — export was missing from the Modrinth
-profile (see `qa-presets.md`), reconstructed by hand-editing a copy of the very-deep datapack's
-`preset.json`/`noise_settings`/`dimension_type` to consistent `worldDepth=128`/`oceanDepth=10`
-values (internal consistency between RTF's own claimed `worldDepth` and the dimension's actual
-`min_y` double-checked before use, exactly the kind of mismatch this whole investigation is about).
-Zero corrections fired, matching the original v1 finding — confirms the fix doesn't touch
-already-healthy shallow-ocean generation.
+profile (see `../../qa/presets.md`), reconstructed by hand-editing a copy of the very-deep
+datapack's `preset.json`/`noise_settings`/`dimension_type` to consistent
+`worldDepth=128`/`oceanDepth=10` values (internal consistency between RTF's own claimed `worldDepth`
+and the dimension's actual `min_y` double-checked before use, exactly the kind of mismatch this
+whole investigation is about). Zero corrections fired, matching the original v1 finding — confirms
+the fix doesn't touch already-healthy shallow-ocean generation.
 
 Zero exceptions across all three presets and all test runs. (`dev-server` process-cleanup gaps hit
 repeatedly during this testing are tooling issues, not mixin issues — tracked in
@@ -839,7 +839,7 @@ they remain only on the local `qa/configurable-ocean-depth` branch, per the orig
 rather than promote them.
 
 The production port (no logging) was live-verified against a dev-server, seed `3216933670`, across
-all three reference presets (`test-presets/` — see `qa-presets.md`), using the same
+all three reference presets (`../../qa/presets/` — see `../../qa/presets.md`), using the same
 `MixinTrialChamberQA`/`MixinAncientCityQA` solidity scanners temporarily reinstated for observation
 only, then discarded before committing:
 
@@ -862,7 +862,7 @@ only, then discarded before committing:
   with a denser `ancient_city` `structure_set` override brought 11 real, healthy instances (`10-24%`
   solid) within a single ~200x200 forceload near spawn, all sitting at `Y=145..199` — nowhere close
   to the blind `Y=-53` anchor, so every one of them also required the window-rescue path. See
-  `qa-presets.md` for the saved preset and exact numbers.
+  `../../qa/presets.md` for the saved preset and exact numbers.
 - **Normal generation.** Goldilocks preset (vanilla `worldDepth=64`): 6/6 randomly sampled
   candidates (3 Trial Chambers, 3 Ancient Cities) generated with no correction needed — confirms no
   regression to ordinary generation.
@@ -905,7 +905,7 @@ only, then discarded before committing:
 ## Reproduction reference
 
 - Seed `3216933670`. Canonical test presets (very-deep, Goldilocks, `worldDepth=16` mountain) are
-  committed at `test-presets/` — see `qa-presets.md` for checksums and details.
+  committed at `../../qa/presets/` — see `../../qa/presets.md` for checksums and details.
 - Known coordinates: floating trial chamber `[-30768,~,-34080]`; healthy trial chambers
   `[1392,~,1408]`, near `(1998,~,720)`, near `(1264,~,784)`, near spawn `[816,~,992]` (`1.21.1`
   baseline branch); ocean ruins near `(1024,~,640)`, `(2048,~,720)`, and two in the same deep-water
