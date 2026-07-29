@@ -1,7 +1,64 @@
 # ReTerraForged resumption index
 
-The only unfinished worldgen implementation in this handoff is the archipelago/island-transition
-rewrite. The underground biome-climate and banding fix is complete and has its own retrospective.
+A dynamic cave-feature-placement investigation, production fix, and cross-loader QA suite are now
+complete alongside the existing archipelago/island-transition rewrite. The underground biome-climate
+and banding fix is complete and has its own retrospective.
+
+## Completed work: dynamic cave feature placement
+
+Issue #133 is not fixed by the underground biome-climate PR. Live NeoForge and Fabric runs with
+Biomes O' Plenty confirmed that valid Spider Nest cave cells exist above `Y=256` while the biome's
+placed features sample candidate origins only through absolute `Y=256`. Very-deep runs confirmed
+that the lower bound follows the configured bottom but fixed attempt counts are diluted across the
+enlarged vertical range.
+
+The production branch now contains the generic fix, while the QA branch contains instrumentation
+around the exact same shipping classes. The fix recognizes the exact
+`uniform(bottom, absolute(256))` placement signature and preserves density by retaining one sample
+in `-64..256`, then adding stratified/probabilistic samples at one expected origin per 321 extended
+Y levels. It does not use biome, feature, or mod ID allowlists. The implementation produced BOP
+Spider Nest decorations above 256 on both loaders and restored deep Deep Dark density.
+
+Read the completed investigation, implementation details, and evidence here:
+
+```text
+.agent-docs/games/minecraft/mods/ReTerraForged/plans/cave-feature-placement/cave-feature-placement-investigation.md
+.agent-docs/games/minecraft/mods/ReTerraForged/plans/cave-feature-placement/fixed-y-worldgen-follow-up-audit.md
+```
+
+The scaffolded branches/worktrees are:
+
+```text
+fix/dynamic-cave-feature-placement
+games/minecraft/mods/ReTerraForged-cave-feature-fix
+
+qa/dynamic-cave-feature-placement
+games/minecraft/mods/ReTerraForged-cave-feature-qa
+```
+
+Production commits:
+
+```text
+80d56a9 Scale canonical cave feature placement with world height
+e6b0964 Make extended height sampling position-deterministic
+```
+
+QA commits:
+
+```text
+5b2e7d2 Add dynamic cave placement QA prototype
+3a81e57 Scale canonical cave feature placement with world height
+f623a06 Make extended height sampling position-deterministic
+```
+
+Both production loaders build cleanly. Final 256-chunk live runs cover default, tall, and very-deep
+RTF presets; NeoForge and Fabric; BOP 21.1.0.14; high Spider Nest decoration; Deep Dark decoration
+down to Y -603; density ratios; and coarse generation cost.
+
+BOP has a separate upstream limitation: 29 configured-feature classes contain literal Y 255 checks,
+including four Glowing Grotto glowshroom features. Do not add BOP-specific workarounds to RTF. The
+distinct follow-up audit classifies those checks plus fixed carver ranges, ore distributions,
+surface thresholds, structure heights, and suspicious RTF-local height arithmetic.
 
 ## Active work: cellular archipelago rewrite
 
