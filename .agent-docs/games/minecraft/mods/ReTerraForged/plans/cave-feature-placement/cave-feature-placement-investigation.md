@@ -305,6 +305,46 @@ common code and both loader mixin paths executed.
 - Work necessarily grows in proportion to added vertical volume for affected features. Density
   within each 321-level band remains constant rather than becoming either diluted or amplified.
 
+## Screenshot reproduction
+
+Use two fresh Goldilocks worlds with the same mod set, changing only the RTF build:
+
+```text
+seed:   3216933670
+preset: qa/presets/goldilocks.zip
+mods:   Biomes O' Plenty 21.1.0.14, GlitchCore 2.1.0.0, TerraBlender 4.1.0.0
+before: upstream 1.21.1
+after:  fix/dynamic-cave-feature-placement
+```
+
+Generate the same tested chunk window in each world:
+
+```mcfunction
+/forceload add -54656 65152 -54401 65407
+```
+
+Then enter spectator mode and use this camera position:
+
+```mcfunction
+/gamemode spectator
+/tp @s -54534 270 65234 180 10
+```
+
+Keep F3 visible. This is a confirmed `biomesoplenty:spider_nest` cell above the old absolute-256
+origin cap. The before world has the cave biome but no locally originated Spider Nest decoration;
+the fixed world places several feature families nearby:
+
+| Feature         | Example fixed-world write |
+| --------------- | ------------------------- |
+| Corner cobwebs  | `-54529 272 65228`        |
+| Spider eggs     | `-54532 266 65219`        |
+| Stringy cobweb  | `-54530 266 65208`        |
+| Hanging cobwebs | `-54539 271..275 65194`   |
+
+The camera faces north toward the decorated pocket. Move a few blocks north in spectator mode if a
+wall obscures the eggs or hanging strands. A second dense cobweb pocket is around
+`-54567 285 65282`; a high webbing cluster is around `-54634 269 65310`.
+
 ### Known separate limitation
 
 All eight BOP Glowing Grotto placed-feature registrations received high candidates. Four of their
