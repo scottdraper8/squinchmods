@@ -20,6 +20,7 @@ Common QA seed:
 | Very deep, archipelago enabled                | `presets/very-deep-archipelago.zip`             | `558410784d1aee8813ce9bc2738a123a1092f5a8f32e6b0fb5586e89fbe0d3ac` |
 | Goldilocks, archipelago enabled               | `presets/goldilocks-archipelago.zip`            | `1729dbb6f2ecda0f2a7cb9d62989928acfd39d1768bac17dae204fbddaf82024` |
 | Mountain `worldDepth=16`, archipelago enabled | `presets/mountain-worldDepth16-archipelago.zip` | `c464b7de710bdd4ee15e14498ae8a8f4b9fb7fe70d35131591bfcfc94f087c84` |
+| Cave feature distribution stress              | `presets/cave-feature-distribution-stress.zip`  | `9d0b3782c0ac623bdd0927ba696eb848b313aba9a9b6821e51d0204efa3d530c` |
 
 Every archive contains the RTF preset at:
 
@@ -72,6 +73,38 @@ placement, and compressed underground-band behavior.
 This is the extreme shallow-world control (`min_y=-16`, dimension height `400`). Use it to verify
 that structure and biome systems respond to terrain-provided headroom below mountains rather than
 assuming a globally deep dimension.
+
+### Cave feature distribution stress
+
+This is the canonical preset for cave placement, decoration-density, and extended-height performance
+work:
+
+```text
+oceanDepth=900
+worldDepth=1024
+worldHeight=1024
+seaLevel=63
+lavaLevel=-975
+build range=-1024..1023
+```
+
+It retains the ordinary cave generators and uses amplified but legal terrain shaping:
+
+```text
+globalHorizontalScale=1.5
+globalVerticalScale=1.25
+mountains.baseScale=1.5
+mountains.horizontalScale=2.0
+mountains.verticalScale=3.0
+mountains.weight=5.0
+```
+
+With seed `3216933670`, the 256-chunk window from blocks `19872 -128` through `20127 127` contains a
+high Biomes O' Plenty Spider Nest. Verified decoration reaches Y 848, with feature biome-filter
+passes through Y 914. The screenshot cavern is around `19893 591 -126`.
+
+Use this preset by default for future cave-feature investigations. Retain Goldilocks and the exact
+`-64..319` control when a vanilla-height density baseline is required.
 
 ### Archipelago variants
 

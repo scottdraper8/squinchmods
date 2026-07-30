@@ -345,6 +345,66 @@ The camera faces north toward the decorated pocket. Move a few blocks north in s
 wall obscures the eggs or hanging strands. A second dense cobweb pocket is around
 `-54567 285 65282`; a high webbing cluster is around `-54634 269 65310`.
 
+## Stress-preset density and performance follow-up
+
+On 2026-07-30, a `worldDepth=1024`, `worldHeight=1024` stress preset exposed an enormous connected
+Spider Nest cavern around `19893 591 -126`. A matched screenshot showed an otherwise bare wall with
+only one hanging cobweb. This does not mean the original vertical dilution remained.
+
+### Average density
+
+The QA scanner counts final unique `minecraft:cobweb` and `biomesoplenty:spider_egg` blocks in
+quart-biome cells, in addition to placement attempts and writes.
+
+Equal 64-chunk samples produced:
+
+| Case                       | Build range   | Spider Nest enclosed-air samples | Surviving cobweb/egg blocks | Blocks per enclosed sample |
+| -------------------------- | ------------- | -------------------------------: | --------------------------: | -------------------------: |
+| Vanilla-height RTF control | `-64..319`    |                              775 |                         154 |                      0.199 |
+| Cave stress, production 1× | `-1024..1023` |                              304 |                          66 |                      0.217 |
+
+The stress average was about 9% higher, not lower. The broader 256-chunk telemetry reached the same
+conclusion from runtime placement events:
+
+- successful Spider Nest origins per sampled cave-air cell: control `0.741`, stress `0.761`;
+- configured-feature writes per enclosed-air sample: control `13.08`, stress `13.83`.
+
+The screenshot therefore exposes spatial variance and clumping across giant connected cave surfaces.
+Preserving vanilla candidate density per vertical block does not guarantee that every large visible
+wall receives decoration.
+
+### Controlled density multipliers
+
+QA-only multipliers sampled each extension band 2× and 4× while leaving the reference band
+unchanged. Seed, preset, loader, mod set, and 64-chunk window were identical. A one-chunk pre-run
+was subtracted from feature counters and CPU time.
+
+| Extension density | Wall time | Wall delta | Affected-feature CPU | Spider Nest CPU | Spider high passes | Spider high writes |
+| ----------------: | --------: | ---------: | -------------------: | --------------: | -----------------: | -----------------: |
+|                1× |   38.37 s |          — |           5.16 CPU-s |      0.31 CPU-s |              2,318 |             11,519 |
+|                2× |   40.44 s |      +5.4% |           8.28 CPU-s |      0.60 CPU-s |              4,551 |             23,658 |
+|                4× |   48.53 s |     +26.5% |          14.65 CPU-s |      1.11 CPU-s |              8,445 |             43,026 |
+
+These wall deltas isolate density: the stress preset and terrain cost were held constant. Summed
+feature CPU can overlap across worldgen workers and is therefore not expected to equal wall time.
+
+The generic cost is dominated by `minecraft:sculk_patch_deep_dark`, not BOP. Its scoped CPU rose
+from `4.46` to `7.03` to `12.39` CPU-seconds. Multiplying every canonical consumer therefore makes
+4× unattractive even in exchange for denser Spider Nests.
+
+A final-state 16-chunk scan around the screenshot found 30 surviving Spider Nest blocks at 1×, 29 at
+2×, and 43 at 4×. Extra attempts scaled nearly linearly, but local visible blocks did not because
+attempts missed usable surfaces or overlapped. A global multiplier is consequently an inefficient
+answer to the screenshot.
+
+### Design consequence
+
+Do not ship the QA multiplier as the production fix. The existing implementation correctly repairs
+reach and average vertical density. A further enhancement should target spatial coverage or exposed
+cave surface area without multiplying already-dense features such as Deep Dark sculk. Doing that
+generically requires a new semantic mechanism; it cannot be inferred safely from the shared
+`uniform(bottom, absolute(256))` modifier alone.
+
 ### Known separate limitation
 
 All eight BOP Glowing Grotto placed-feature registrations received high candidates. Four of their
