@@ -5,11 +5,14 @@ repos:
     -   id: check-added-large-files
         args: ['--maxkb=102400']
     -   id: trailing-whitespace
+        exclude: &rtf_fixture_data ^games/minecraft/investigations/reterraforged/fixtures/.*/data/
     -   id: end-of-file-fixer
+        exclude: *rtf_fixture_data
     -   id: check-merge-conflict
     -   id: check-case-conflict
     -   id: mixed-line-ending
         args: ['--fix=lf']
+        exclude: *rtf_fixture_data
     -   id: check-yaml
     -   id: check-toml
     -   id: check-json
