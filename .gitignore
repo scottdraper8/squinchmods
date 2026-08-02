@@ -15,6 +15,7 @@ Thumbs.db
 META-INF/
 games/minecraft/reference/
 games/minecraft/qa-state/
+games/minecraft/investigation-state/
 .qa-runs/
 .qa-incoming/
 .qa-staging/

@@ -1,0 +1,67 @@
+{
+  "type": "reterraforged:chance",
+  "config": {
+    "entries": [
+      {
+        "chance": 0.2,
+        "feature": "reterraforged:birch/large",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.25,
+            "to": 0.0
+          },
+          {
+            "type": "reterraforged:biome_edge",
+            "exclusive": false,
+            "from": 0.1,
+            "to": 0.3
+          }
+        ]
+      },
+      {
+        "chance": 0.2,
+        "feature": "reterraforged:birch/forest",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.3,
+            "to": 0.0
+          },
+          {
+            "type": "reterraforged:biome_edge",
+            "exclusive": false,
+            "from": 0.05,
+            "to": 0.2
+          }
+        ]
+      },
+      {
+        "chance": 0.1,
+        "feature": "reterraforged:birch/small",
+        "modifiers": [
+          {
+            "type": "reterraforged:biome_edge",
+            "exclusive": false,
+            "from": 0.25,
+            "to": 0.0
+          }
+        ]
+      },
+      {
+        "chance": 0.1,
+        "feature": "reterraforged:birch/small",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.25,
+            "to": 0.65
+          }
+        ]
+      }
+    ]
+  }
+}

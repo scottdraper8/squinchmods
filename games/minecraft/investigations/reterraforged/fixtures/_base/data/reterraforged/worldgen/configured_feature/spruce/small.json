@@ -1,0 +1,24 @@
+{
+  "type": "reterraforged:template",
+  "config": {
+    "decorator": {
+      "biome_decorators": {},
+      "default_decorator": []
+    },
+    "paste": {
+      "base_depth": 3,
+      "check_bounds": true
+    },
+    "placement": {
+      "type": "reterraforged:tree"
+    },
+    "templates": [
+      "reterraforged:structures/trees/spruce/small/spruce_small_1.nbt",
+      "reterraforged:structures/trees/spruce/small/spruce_small_2.nbt",
+      "reterraforged:structures/trees/spruce/small/spruce_small_3.nbt",
+      "reterraforged:structures/trees/spruce/small/spruce_small_4.nbt",
+      "reterraforged:structures/trees/spruce/bush/spruce_bush_1.nbt",
+      "reterraforged:structures/trees/spruce/bush/spruce_bush_2.nbt"
+    ]
+  }
+}

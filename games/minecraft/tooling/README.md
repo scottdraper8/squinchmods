@@ -46,46 +46,19 @@ common artifacts, reducing disk usage and build times:
 **Note:** These tools automatically source `env.sh`. Functionality is maintained even if `direnv` or
 manual shell initialization has not been performed.
 
-## Dev Server (Live Investigation)
+## Live Investigation
 
-`dev-server` starts/stops a headless mod dev server with RCON enabled, for ad hoc live investigation
-(reproducing worldgen bugs, poking at a running world) — distinct from `qa/`, which is CI/CD matrix
-testing. It's a standalone script (stdlib-only, no dependencies) rather than a managed package.
+Use the managed investigation package through the root dispatcher:
 
 ```sh
-dev-server start <mod> --loader <fabric|forge|neoforge|quilt> [--seed N] [--datapack path.zip] \
-  [--level-name name] [--fresh] [--server-properties key=value ...]
-dev-server rcon <mod> --loader <loader> -- <command> [<command> ...]
-dev-server stop <mod> --loader <loader>
+tooling/squinch mc-investigate --help
 ```
 
-`start` picks free server/RCON ports automatically (or accepts `--server-port`/`--rcon-port`),
-writes `eula.txt` and `server.properties`, stages a datapack into `world/datapacks/` if given, waits
-for the ready line, and records connection info in a state file (`.dev-server-state.json`) inside
-the loader's run directory. `stop` reads that state, sends an RCON `stop`, falls back to killing the
-process if needed, and checks whether the RCON/server ports are actually free afterward, warning
-explicitly if they aren't.
-
-Refuses to start over an existing world of the same `--level-name` unless `--fresh` is passed, so a
-new seed/datapack never silently mixes with stale state. A state file left behind by a process
-that's no longer running is detected and cleared automatically on the next `start`.
-
-### Known limitations
-
-- **`stop`'s port-still-bound warning does not mean the process actually got cleaned up — a manual
-  kill is currently required.** Confirmed repeatedly (2026-07-19): Architectury's transformer
-  wrapper spawns the real game process as a _child_, not the PID `dev-server` tracks, so `stop` can
-  warn about a port still being bound while that real, heavy (200%+ CPU observed) process keeps
-  running indefinitely. Workaround: `ss -ltnp | grep <port>` (the port `stop` warned about) to find
-  the actual PID, then `kill -TERM` it, falling back to `-KILL` if it doesn't exit within a few
-  seconds.
-- **A `start` that times out waiting for "ready" can leave an entirely untracked process tree
-  running, with no warning at all** — since no PID ever gets recorded for `stop` to later attempt
-  cleaning up. After any `start` that reports a timeout or failure, check
-  `ps aux | grep -i "KnotServer\|runServer"` explicitly before retrying or moving on — don't assume
-  a failed attempt cleaned itself up.
-- Neither is fixed yet; both require the workarounds above until `dev-server` itself is improved to
-  track and kill the actual child process in both cases.
+It accepts exact project/worktree paths, authenticates readiness through RCON, owns unique run
+artifacts and worlds, validates process identities and descendants during teardown, and emits a
+versioned JSON contract for agents. See [`investigate/README.md`](investigate/README.md) for
+command, state, retention, and cleanup details. This remains distinct from `qa/`, which owns release
+matrices and promotion.
 
 ## Manual Setup
 

@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://squinchmods.local/schemas/minecraft-investigate/cli-output-v1.json",
+  "title": "Squinch Minecraft investigation CLI envelope v1",
+  "description": "Every JSON response uses this envelope. starting/running/stopping are non-terminal; ready means an independently authenticated service is available; succeeded/failed/inconclusive/error are terminal run outcomes; inactive means no active service; degraded means owned cleanup or state requires attention; unknown means identity could not be established safely.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "command",
+    "state",
+    "run_id",
+    "timestamps",
+    "artifact_paths",
+    "error",
+    "data"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "command": {"type": "string", "minLength": 1},
+    "state": {
+      "enum": [
+        "starting",
+        "ready",
+        "running",
+        "stopping",
+        "succeeded",
+        "failed",
+        "inconclusive",
+        "error",
+        "inactive",
+        "degraded",
+        "unknown"
+      ]
+    },
+    "run_id": {"type": ["string", "null"], "minLength": 1},
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["emitted_at", "started_at", "finished_at"],
+      "properties": {
+        "emitted_at": {"type": "string", "format": "date-time"},
+        "started_at": {"type": ["string", "null"], "format": "date-time"},
+        "finished_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "artifact_paths": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message", "details"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1},
+            "details": {"type": "object"}
+          }
+        }
+      ]
+    },
+    "data": {"type": "object"}
+  },
+  "$defs": {
+    "ports": {
+      "type": "object",
+      "required": ["server", "rcon"],
+      "properties": {
+        "server": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "rcon": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "process": {
+      "type": "object",
+      "required": ["pid", "pgrp", "session", "start_ticks"],
+      "properties": {
+        "pid": {"type": "integer", "minimum": 1},
+        "pgrp": {"type": "integer", "minimum": 1},
+        "session": {"type": "integer", "minimum": 1},
+        "start_ticks": {"type": "integer", "minimum": 0}
+      }
+    },
+    "activeData": {
+      "type": "object",
+      "required": ["project", "loader", "lifecycle", "level_name", "ports", "process", "world_dir", "cleanup"],
+      "properties": {
+        "project": {"type": "string"},
+        "loader": {"type": "string"},
+        "lifecycle": {"type": "string"},
+        "level_name": {"type": "string"},
+        "ports": {"$ref": "#/$defs/ports"},
+        "process": {"$ref": "#/$defs/process"},
+        "world_dir": {"type": "string"},
+        "cleanup": {"type": "object"}
+      }
+    },
+    "responses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "response"],
+        "properties": {
+          "command": {"type": "string"},
+          "response": {"type": "string"}
+        }
+      }
+    },
+    "probeIdentity": {
+      "type": "object",
+      "required": ["protocol_version", "run_id", "request_id", "probe_id", "probe_version"],
+      "properties": {
+        "protocol_version": {"const": "1"},
+        "run_id": {"type": "string", "minLength": 1},
+        "request_id": {"type": "string", "minLength": 1},
+        "probe_id": {"type": "string", "minLength": 1},
+        "probe_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "probeRequest": {
+      "allOf": [
+        {"$ref": "#/$defs/probeIdentity"},
+        {
+          "type": "object",
+          "required": ["submitted_at", "config"],
+          "properties": {
+            "submitted_at": {"type": "string", "format": "date-time"},
+            "config": {"type": "object"}
+          }
+        }
+      ]
+    },
+    "probeCompleteness": {
+      "type": "object",
+      "required": ["inspected", "skipped", "complete"],
+      "properties": {
+        "inspected": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "complete": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"complete": {"const": false}}, "required": ["complete"]},
+          "then": {"required": ["reason"]}
+        }
+      ]
+    },
+    "probeTerminal": {
+      "allOf": [
+        {"$ref": "#/$defs/probeIdentity"},
+        {
+          "type": "object",
+          "required": ["type", "timestamp", "state", "phase", "completeness"],
+          "properties": {
+            "type": {"const": "terminal"},
+            "timestamp": {"type": "string", "format": "date-time"},
+            "state": {"enum": ["pass", "fail", "inconclusive", "error"]},
+            "phase": {"enum": ["prediction", "structure-start", "generation", "placement", "finished-chunk", "reload"]},
+            "completeness": {"$ref": "#/$defs/probeCompleteness"}
+          },
+          "allOf": [
+            {
+              "if": {"properties": {"state": {"enum": ["pass", "fail"]}}, "required": ["state"]},
+              "then": {"properties": {"completeness": {"properties": {"complete": {"const": true}}}}}
+            },
+            {
+              "if": {"properties": {"state": {"enum": ["inconclusive", "error"]}}, "required": ["state"]},
+              "then": {"properties": {"completeness": {"properties": {"complete": {"const": false}}}}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"command": {"enum": ["start", "stop"]}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"$ref": "#/$defs/activeData"}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "run"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {
+        "properties": {
+          "data": {
+            "allOf": [
+              {"$ref": "#/$defs/activeData"},
+              {"required": ["responses"], "properties": {"responses": {"$ref": "#/$defs/responses"}}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "scenario"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {
+        "properties": {
+          "data": {
+            "allOf": [
+              {"$ref": "#/$defs/activeData"},
+              {
+                "required": ["scenario", "steps", "provenance", "world_identity"],
+                "properties": {
+                  "scenario": {"type": "object", "required": ["name", "path", "sha256"]},
+                  "steps": {"type": "array"},
+                  "provenance": {"type": "object"},
+                  "world_identity": {"type": "object"}
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "command"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"required": ["responses"], "properties": {"responses": {"$ref": "#/$defs/responses"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "generate"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"required": ["unit", "input_bounds", "regions"], "properties": {"unit": {"enum": ["block", "chunk"]}, "input_bounds": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer"}}, "regions": {"type": "array"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "probe"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"required": ["request", "result"], "properties": {"request": {"$ref": "#/$defs/probeRequest"}, "result": {"$ref": "#/$defs/probeTerminal"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "compare"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"required": ["equal", "left", "right"], "properties": {"equal": {"type": "boolean"}, "left": {"type": "object"}, "right": {"type": "object"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "inspect-artifact"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["clean", "inspections"],
+            "properties": {
+              "clean": {"type": "boolean"},
+              "inspections": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["path", "sha256", "size_bytes", "entry_count", "clean", "findings"],
+                  "properties": {
+                    "path": {"type": "string"},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "size_bytes": {"type": "integer", "minimum": 0},
+                    "entry_count": {"type": "integer", "minimum": 0},
+                    "clean": {"type": "boolean"},
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["kind", "marker", "entry"],
+                        "properties": {
+                          "kind": {"type": "string", "minLength": 1},
+                          "marker": {"type": "string", "minLength": 1},
+                          "entry": {"type": "string", "minLength": 1}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "cell-scan"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["authority", "mode", "manifest", "result"],
+            "properties": {
+              "authority": {"enum": ["prediction", "rtf-horizontal-cell-model"]},
+              "mode": {"enum": ["preview", "tile", "adaptive"]},
+              "manifest": {"type": "object"},
+              "result": {
+                "type": "object",
+                "required": ["authority", "mode", "timings", "scan", "deterministic_sha256", "cold_warm_equal"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "clean"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"required": ["action", "targets"], "properties": {"action": {"enum": ["dry-run", "deleted"]}, "targets": {"type": "array"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "status"}, "state": {"const": "inactive"}, "error": {"type": "null"}}, "required": ["command", "state", "error"]},
+      "then": {"properties": {"data": {"required": ["project", "loader"], "properties": {"project": {"type": "string"}, "loader": {"type": "string"}}}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "status"}, "state": {"enum": ["ready", "degraded", "unknown"]}, "error": {"type": "null"}}, "required": ["command", "state", "error"]},
+      "then": {"properties": {"data": {"allOf": [{"$ref": "#/$defs/activeData"}, {"required": ["leader_identity_valid", "group_pids", "bound_ports"]}]}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "doctor"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "then": {"properties": {"data": {"anyOf": [{"required": ["action"]}, {"required": ["issues"]}]}}}
+    }
+  ]
+}

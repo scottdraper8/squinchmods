@@ -1,0 +1,36 @@
+def harnessProperty = gradle.startParameter.projectProperties.get("squinchCellScanHarness")
+def requestProperty = gradle.startParameter.projectProperties.get("squinchCellScanRequest")
+def resultProperty = gradle.startParameter.projectProperties.get("squinchCellScanResult")
+
+if (harnessProperty == null || requestProperty == null || resultProperty == null) {
+    throw new GradleException(
+        "cell scan overlay requires squinchCellScanHarness, squinchCellScanRequest, and squinchCellScanResult"
+    )
+}
+
+def harnessRoot = new File(harnessProperty).canonicalFile
+def sourceRoot = new File(harnessRoot, "src/main/java")
+if (!sourceRoot.isDirectory()) {
+    throw new GradleException("invalid Squinch cell scan harness: ${harnessRoot}")
+}
+
+gradle.beforeProject { project ->
+    if (project.path != ":fabric") {
+        return
+    }
+    project.pluginManager.withPlugin("java") {
+        project.sourceSets.main.java.srcDir(sourceRoot)
+        project.tasks.register("squinchCellScan", JavaExec) { task ->
+            task.group = "squinch investigation"
+            task.description = "Run the external standalone RTF cell scanner"
+            task.dependsOn(project.tasks.named("classes"))
+            task.inputs.dir(sourceRoot)
+            task.inputs.file(new File(requestProperty))
+            task.outputs.file(new File(resultProperty))
+            task.mainClass.set("org.squinchmods.investigate.rtf.CellScanMain")
+            task.classpath = project.sourceSets.main.output + project.sourceSets.main.runtimeClasspath
+            task.args(new File(requestProperty).canonicalPath, new File(resultProperty).canonicalPath)
+            task.systemProperty("java.awt.headless", "true")
+        }
+    }
+}

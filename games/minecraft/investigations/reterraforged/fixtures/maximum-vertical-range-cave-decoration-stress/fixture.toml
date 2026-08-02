@@ -1,0 +1,19 @@
+schema_version = 1
+id = "maximum-vertical-range-cave-decoration-stress"
+classification = "reusable-stress"
+purpose = "Maximum 2048-block build range with amplified legal terrain for cave decoration, density, and performance work."
+applicable_questions = [
+  "cave feature distribution across the full legal vertical range",
+  "high-altitude cave decoration and biome-filter behavior",
+  "extended-height generation performance",
+]
+known_limitations = [
+  "amplified terrain is intentionally not an ordinary gameplay control",
+  "known seed/coordinates are evidence windows, not universal feature guarantees",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "153ff741690c3c362c614565338a24a04e5f929c57851f55ebd01428c7bc5ece"
+historical_archive_sha256 = "9d0b3782c0ac623bdd0927ba696eb848b313aba9a9b6821e51d0204efa3d530c"

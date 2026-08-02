@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.rtf.cave.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinBiomeFilter",
+    "MixinCountPlacement",
+    "MixinHeightRangePlacement",
+    "MixinPlacedFeature",
+    "MixinWorldGenRegion"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

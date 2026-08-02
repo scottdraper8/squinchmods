@@ -1,0 +1,78 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+def runtimeProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntime")
+def loaderProperty = gradle.startParameter.projectProperties.get("squinchProbeLoader")
+def packsProperty = gradle.startParameter.projectProperties.get("squinchProbePacksJson")
+def mixinsProperty = gradle.startParameter.projectProperties.get("squinchProbeMixinsJson")
+
+if (runtimeProperty == null || loaderProperty == null || packsProperty == null || mixinsProperty == null) {
+    throw new GradleException("probe overlay requires runtime, loader, packs, and mixins")
+}
+
+def runtimeRoot = new File(runtimeProperty).canonicalFile
+def packs = new JsonSlurper().parseText(packsProperty)
+def mixinConfigs = new JsonSlurper().parseText(mixinsProperty)
+if (!(packs instanceof List) || packs.isEmpty() || !(mixinConfigs instanceof List)) {
+    throw new GradleException("invalid Squinch probe pack metadata")
+}
+def sourceRoots = packs.collectMany { pack -> pack.sources.collect { new File(it).canonicalFile } }
+def resourceRoots = packs.collectMany { pack -> pack.resources.collect { new File(it).canonicalFile } }
+def manifests = packs.collect { pack -> new File(pack.manifest).canonicalFile }
+
+gradle.beforeProject { project ->
+    if (project.path != ":${loaderProperty}") {
+        return
+    }
+    project.pluginManager.withPlugin("java") {
+        sourceRoots.each { project.sourceSets.main.java.srcDir(it) }
+        resourceRoots.each { project.sourceSets.main.resources.srcDir(it) }
+        project.tasks.named("processResources").configure { task ->
+            manifests.each { task.inputs.file(it) }
+            resourceRoots.each { task.inputs.dir(it) }
+            task.duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+            task.doLast {
+                def servicePath = "META-INF/services/org.squinchmods.investigate.ProbePack"
+                def providers = resourceRoots.collect { new File(it, servicePath) }
+                        .findAll { it.isFile() }
+                        .collectMany { it.readLines("UTF-8") }
+                        .collect { it.trim() }
+                        .findAll { !it.isEmpty() && !it.startsWith("#") }
+                        .unique()
+                if (!providers.isEmpty()) {
+                    def service = new File(task.destinationDir, servicePath)
+                    service.parentFile.mkdirs()
+                    service.text = providers.join("\n") + "\n"
+                }
+                if (loaderProperty == "fabric") {
+                    def metadata = new File(task.destinationDir, "fabric.mod.json")
+                    if (!metadata.isFile()) {
+                        throw new GradleException("generated Fabric metadata is missing: ${metadata}")
+                    }
+                    def parsed = new JsonSlurper().parse(metadata)
+                    def mixins = parsed.mixins instanceof List ? parsed.mixins : []
+                    mixinConfigs.each { config ->
+                        if (!mixins.contains(config)) {
+                            mixins.add(config)
+                        }
+                    }
+                    parsed.mixins = mixins
+                    metadata.text = JsonOutput.prettyPrint(JsonOutput.toJson(parsed)) + "\n"
+                } else if (loaderProperty == "neoforge") {
+                    def metadata = new File(task.destinationDir, "META-INF/neoforge.mods.toml")
+                    if (!metadata.isFile()) {
+                        throw new GradleException("generated NeoForge metadata is missing: ${metadata}")
+                    }
+                    mixinConfigs.each { config ->
+                        def marker = "config = \"${config}\""
+                        if (!metadata.text.contains(marker)) {
+                            metadata << "\n[[mixins]]\n    ${marker}\n"
+                        }
+                    }
+                } else {
+                    throw new GradleException("probe overlay does not support loader ${loaderProperty}")
+                }
+            }
+        }
+    }
+}

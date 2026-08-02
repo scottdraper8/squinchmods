@@ -1,0 +1,15 @@
+schema_version = 1
+id = "archipelago-shallow-depth-mountain-control"
+classification = "feature-specific"
+purpose = "Shallow worldDepth 16 boundary input for the active cellular archipelago rewrite."
+applicable_questions = ["archipelago behavior under the shallowest retained world-depth control"]
+known_limitations = [
+  "feature-specific; do not include in unrelated default matrices",
+  "exact island coordinates may change during the planned placement rewrite",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "7c2808a58a82008aca0a998d2102c12237cc7edb29d37cb417393e9ff2e8fbf7"
+historical_archive_sha256 = "c464b7de710bdd4ee15e14498ae8a8f4b9fb7fe70d35131591bfcfc94f087c84"

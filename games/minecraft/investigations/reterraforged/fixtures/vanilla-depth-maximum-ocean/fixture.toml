@@ -1,0 +1,18 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean"
+classification = "reusable-control"
+purpose = "Maximum legal ocean depth at vanilla/default world depth for ocean, structure, and compressed-underground controls."
+applicable_questions = [
+  "maximum ocean depth without extending the ordinary world bottom",
+  "low-ocean-floor structure placement",
+  "compressed underground biome-band behavior",
+]
+known_limitations = [
+  "worldDepth is omitted and therefore relies on RTF's 64-block default",
+  "generation evidence does not substitute for finished-chunk or visual confirmation",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+resolved_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+historical_archive_sha256 = "b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878"

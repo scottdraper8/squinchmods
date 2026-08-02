@@ -1,0 +1,67 @@
+{
+  "type": "reterraforged:chance",
+  "config": {
+    "entries": [
+      {
+        "chance": 0.4,
+        "feature": "reterraforged:redwood/huge",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.15,
+            "to": 0.0
+          },
+          {
+            "type": "reterraforged:biome_edge",
+            "exclusive": false,
+            "from": 0.1,
+            "to": 0.3
+          }
+        ]
+      },
+      {
+        "chance": 0.2,
+        "feature": "reterraforged:redwood/large",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.25,
+            "to": 0.0
+          },
+          {
+            "type": "reterraforged:biome_edge",
+            "exclusive": false,
+            "from": 0.05,
+            "to": 0.25
+          }
+        ]
+      },
+      {
+        "chance": 0.4,
+        "feature": "reterraforged:spruce/large",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.35,
+            "to": 0.15
+          }
+        ]
+      },
+      {
+        "chance": 0.2,
+        "feature": "reterraforged:spruce/small",
+        "modifiers": [
+          {
+            "type": "reterraforged:elevation",
+            "exclusive": false,
+            "from": 0.5,
+            "to": 0.2
+          }
+        ]
+      }
+    ]
+  }
+}

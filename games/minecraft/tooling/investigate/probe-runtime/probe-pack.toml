@@ -1,0 +1,15 @@
+schema_version = 1
+id = "squinch-runtime"
+version = "1"
+target_adapter = "architectury-loom"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-investigate.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = [
+  "server-thread",
+  "async-job",
+  "generation-collector",
+  "stop-flush",
+  "finished-chunk",
+]

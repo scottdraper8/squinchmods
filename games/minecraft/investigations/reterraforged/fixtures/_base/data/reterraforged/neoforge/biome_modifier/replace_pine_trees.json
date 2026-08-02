@@ -1,0 +1,12 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": [
+    "minecraft:taiga",
+    "minecraft:old_growth_spruce_taiga"
+  ],
+  "replacements": {
+    "minecraft:trees_old_growth_spruce_taiga": "reterraforged:pine_trees",
+    "minecraft:trees_taiga": "reterraforged:pine_trees"
+  },
+  "step": "vegetal_decoration"
+}

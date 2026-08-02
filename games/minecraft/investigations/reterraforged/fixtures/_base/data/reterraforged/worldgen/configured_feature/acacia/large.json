@@ -1,0 +1,20 @@
+{
+  "type": "reterraforged:template",
+  "config": {
+    "decorator": {
+      "biome_decorators": {},
+      "default_decorator": []
+    },
+    "paste": {
+      "base_depth": 3,
+      "check_bounds": true
+    },
+    "placement": {
+      "type": "reterraforged:tree"
+    },
+    "templates": [
+      "reterraforged:structures/trees/acacia/large/acacia_1.nbt",
+      "reterraforged:structures/trees/acacia/large/acacia_2.nbt"
+    ]
+  }
+}

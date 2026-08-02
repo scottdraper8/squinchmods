@@ -1,0 +1,8 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": "minecraft:meadow",
+  "replacements": {
+    "minecraft:trees_meadow": "reterraforged:meadow_trees"
+  },
+  "step": "vegetal_decoration"
+}

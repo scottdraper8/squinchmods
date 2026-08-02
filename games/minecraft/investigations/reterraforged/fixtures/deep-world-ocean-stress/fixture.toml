@@ -1,0 +1,19 @@
+schema_version = 1
+id = "deep-world-ocean-stress"
+classification = "reusable-stress"
+purpose = "Deep-world and deep-ocean stress input for vertical biome, structure, cave, and performance investigations."
+applicable_questions = [
+  "ocean floor behavior with worldDepth 624 and oceanDepth 677",
+  "long vertical biome and structure search ranges",
+  "deep-world generation cost",
+]
+known_limitations = [
+  "not a maximum legal vertical-boundary fixture",
+  "historical biome screenshots used an earlier lavaLevel variant",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "eeb267db2f56d4cad8a7f44196b2fdf51f1e281d0ec208bd7308eca62f4124fb"
+historical_archive_sha256 = "58c875c2b2b93b8b7b997b9a666c4aad93afe94e8f55e66f93b0ad49e9a1b5ca"

@@ -1,0 +1,19 @@
+schema_version = 1
+id = "shallow-depth-mountain-control"
+classification = "reusable-control"
+purpose = "Shallow worldDepth 16 control with ordinary/tall terrain headroom for structure and biome assumptions."
+applicable_questions = [
+  "whether consumers use terrain-provided headroom instead of a globally deep dimension",
+  "shallow-world structure placement",
+  "shallow-world biome behavior beneath mountains",
+]
+known_limitations = [
+  "not representative of ordinary/default world depth",
+  "contains the exported shallow-world trial-chambers structure-set override",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "d530eb00ec2b475872943f8c9713c21b78a67ac628fdccc1f6b9f2d5f4d95442"
+historical_archive_sha256 = "546aeab25e0d61b59638ff1da81d661f2817c50c5886e54b0297523d31ce1c68"

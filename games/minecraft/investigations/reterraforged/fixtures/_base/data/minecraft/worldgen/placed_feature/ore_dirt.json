@@ -1,0 +1,11 @@
+{
+  "feature": "minecraft:ore_dirt",
+  "placement": [
+    {
+      "type": "reterraforged:blacklist_dimension",
+      "blacklist": [
+        "minecraft:overworld"
+      ]
+    }
+  ]
+}

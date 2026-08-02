@@ -1,0 +1,8 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": "minecraft:snowy_taiga",
+  "replacements": {
+    "minecraft:trees_taiga": "reterraforged:spruce_trees"
+  },
+  "step": "vegetal_decoration"
+}

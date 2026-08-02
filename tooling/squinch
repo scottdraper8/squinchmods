@@ -7,6 +7,7 @@
 #
 # Tools:
 #   qa    QA planner (uv-managed Python package)
+#   mc-investigate  Minecraft development investigation runner
 #
 set -euo pipefail
 
@@ -17,6 +18,7 @@ if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     echo ""
     echo "Tools:"
     echo "  qa    QA planner — run 'squinch qa --help' for details"
+    echo "  mc-investigate  Minecraft investigation tooling"
     exit 0
 fi
 
@@ -31,6 +33,14 @@ case "${tool}" in
         fi
         exec uv run --project "${script_dir}/../games/minecraft/tooling/qa" \
             python -m squinch_qa "$@"
+        ;;
+    mc-investigate)
+        if ! command -v uv &>/dev/null; then
+            echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
+            exit 127
+        fi
+        exec uv run --project "${script_dir}/../games/minecraft/tooling/investigate" \
+            python -m squinch_minecraft_investigate "$@"
         ;;
     *)
         echo "error: unknown tool '${tool}'" >&2

@@ -1,0 +1,45 @@
+schema_version = 1
+name = "RTF finished-chunk heightmap delta"
+project = "../../../../../../games/minecraft/mods/ReTerraForged"
+loader = "fabric"
+seed = 12345
+rtf_fixture = "../../../../../../games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["../../../../../../games/minecraft/investigations/reterraforged/probes/heightmap-delta"]
+retention = "discard"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-heightmap-delta"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 1200, left_heightmap = "WORLD_SURFACE_WG", right_heightmap = "OCEAN_FLOOR_WG", sample_step = 4, absolute_threshold = 1, example_limit = 12 }
+
+[[probes]]
+id = "squinch:finished-chunk-palette"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 1200, sample_heightmap = "WORLD_SURFACE_WG", sample_step = 4, top_k = 10, example_limit = 12, predicates = { block_ids = ["minecraft:water"], biome_ids = ["minecraft:deep_ocean"], min_height = -64, max_height = 320 } }
+
+[[steps]]
+id = "generate-heightmap-window"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 0, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-heightmap-delta"
+expect = { region_count = 1, terminal_state = "pass" }
+
+[[steps]]
+id = "scan-generic-finished-chunk"
+type = "probe"
+probe = "squinch:finished-chunk-palette"
+expect = { terminal_state = "pass" }

@@ -1,0 +1,12 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": [
+    "minecraft:river",
+    "minecraft:plains",
+    "minecraft:sunflower_plains"
+  ],
+  "replacements": {
+    "minecraft:trees_plains": "reterraforged:plains_trees"
+  },
+  "step": "vegetal_decoration"
+}

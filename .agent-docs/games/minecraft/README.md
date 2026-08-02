@@ -1,8 +1,14 @@
 # Minecraft
 
 Architecture reference for how Minecraft modding is organized in squinchmods. For QA CLI usage, see
-`games/minecraft/tooling/qa/README.md` (the operational reference); this doc is the conceptual one,
-and shouldn't need to change every time a flag or field gets added.
+`games/minecraft/tooling/qa/README.md` (the operational reference); for the tight
+development/investigation loop, see [`agentic-development-guide.md`](agentic-development-guide.md)
+(`mc-investigate`'s operational entry point) and `games/minecraft/tooling/investigate/README.md` for
+exact command/flag reference. This doc is the conceptual one, and shouldn't need to change every
+time a flag or field gets added.
+
+General tooling friction discovered while using the investigation workflow is logged in
+[`agentic-development-findings.md`](agentic-development-findings.md).
 
 ## Layout
 
@@ -14,7 +20,7 @@ games/minecraft/
     build-mod            `./gradlew build` for one mod, with env.sh bootstrapped
     mc-source             source-extraction script
     source-worker/        its own minimal Gradle wrapper, independent of any mod
-    dev-server            start/stop a headless dev server with RCON, for ad hoc live investigation
+    investigate/          mc-investigate: managed dev-server lifecycle/probes, for live investigation
     qa/                  the QA planner/runner (squinch-qa)
   reference/             gitignored: decompiled source, curated reference worlds
   qa-state/              gitignored: QA runtime state (generated per run)
@@ -137,6 +143,10 @@ deliberate choice: dispatch-and-poll over `gh`, not a local daemon receiving upl
 
 ## Reference material
 
+The forward-looking general Minecraft world-generation reference lives at
+[`wiki/README.md`](wiki/README.md). It contains reusable engine concepts; mod-specific mechanisms
+remain with that mod's agent docs.
+
 `games/minecraft/reference/` is gitignored, local-only, and split by content type:
 
 ```text
@@ -178,5 +188,8 @@ actual QA (builds, server launches, pregen); that stays a manual or CI concern.
 
 ## Where mod-specific docs live
 
-Per-mod investigation/design docs live under `.agent-docs/games/minecraft/mods/<mod>/`, not in this
-file and not in the mod's own repo (see the root `.agent-docs/README.md` for why).
+Per-mod engineering references, active plans, and local branch references live under
+`.agent-docs/games/minecraft/mods/<mod>/`, not in this file and not in the mod's own repo (see the
+root `.agent-docs/README.md` for why). Durable concepts extracted from completed investigations live
+in the general Minecraft reference or the mod's engineering reference; historical narratives are
+outside those references.
