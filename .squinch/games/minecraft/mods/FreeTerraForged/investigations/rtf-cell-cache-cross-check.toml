@@ -1,6 +1,6 @@
 schema_version = 1
 name = "RTF standalone tile and runtime cache cross-check"
-project = "../../../../../../games/minecraft/mods/ReTerraForged"
+project = "../../../../../../games/minecraft/mods/FreeTerraForged"
 loader = "fabric"
 seed = 12345
 rtf_fixture = "../../../../../../games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"

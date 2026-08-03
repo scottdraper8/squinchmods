@@ -7,7 +7,7 @@ Use the repository dispatcher from any working directory and always name the exa
 
 ```bash
 tooling/squinch mc-investigate run \
-  --project games/minecraft/mods/ReTerraForged \
+  --project games/minecraft/mods/FreeTerraForged \
   --loader fabric \
   --seed 12345 \
   --command list
@@ -45,7 +45,7 @@ manifest. Lifecycle timing separately records startup, verified world-open, save
 cleanup rather than folding those costs into generation.
 
 The retained RTF benchmark is
-`.squinch/games/minecraft/mods/ReTerraForged/investigations/rtf-biome-palette-benchmark.toml`. Use
+`.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml`. Use
 it directly with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a
 global lock and run the two sides sequentially, preventing before/after benchmark overlap by
 default. Timing and profile metadata remain evidence but are excluded from behavioral equality.
@@ -54,10 +54,10 @@ Run an exact before/after comparison with full 40-character commit SHAs and one 
 
 ```bash
 tooling/squinch mc-investigate compare \
-  --project games/minecraft/mods/ReTerraForged \
+  --project games/minecraft/mods/FreeTerraForged \
   --before 9099214b0a92e702bd2de9e1d9e61c5d645fb5b0 \
   --after a05560848cf7bec7ad56ba5832d247d08a1c7da0 \
-  --scenario .squinch/games/minecraft/mods/ReTerraForged/investigations/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml \
   --expect different --json
 ```
 
@@ -93,7 +93,7 @@ Use preview mode for inexpensive discovery. This calls RTF's exact
 
 ```bash
 tooling/squinch mc-investigate cell-scan \
-  --project games/minecraft/mods/ReTerraForged \
+  --project games/minecraft/mods/FreeTerraForged \
   --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
   --seed 12345 --mode adaptive --bounds -4096 -4096 4096 4096 \
   --sample-step 16 --predicate 'height:>=:0.15' \
@@ -116,7 +116,7 @@ status, harness hashes, standalone bootstrap boundary, Minecraft/RTF/Java versio
 fingerprinted classpath, cold/warm/Gradle wall timings, and a deterministic result hash.
 
 The canonical live parity gate is
-`.squinch/games/minecraft/mods/ReTerraForged/investigations/rtf-cell-cache-cross-check.toml`. It
+`.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-cell-cache-cross-check.toml`. It
 selects the external `probes/cell-cache` pack, loads the same seed and preset, and compares
 standalone factor-3 samples with RTF's live runtime tile cache at exact block coordinates. Direct
 development starts can select reusable packs with repeatable `--probe-pack PATH`; scenarios use a
@@ -165,7 +165,7 @@ configuration, or generated loader-metadata references to that configuration:
 
 ```bash
 tooling/squinch mc-investigate inspect-artifact \
-  games/minecraft/mods/ReTerraForged/fabric/build/libs/reterraforged-fabric-*.jar \
+  games/minecraft/mods/FreeTerraForged/fabric/build/libs/reterraforged-fabric-*.jar \
   --json
 ```
 

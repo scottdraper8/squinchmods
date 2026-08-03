@@ -1,6 +1,6 @@
 # ReTerraForged Documentation
 
-Documentation for the `games/minecraft/mods/ReTerraForged` submodule lives here so engineering
+Documentation for the `games/minecraft/mods/FreeTerraForged` submodule lives here so engineering
 reference, active planning, and local branch state do not need to be committed to an upstream-facing
 code branch.
 

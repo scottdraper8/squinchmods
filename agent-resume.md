@@ -8,14 +8,14 @@ entered implementation.
 Read the active plan fully before changing code:
 
 ```text
-.agent-docs/games/minecraft/mods/ReTerraForged/plans/archipelago-redesign.md
+.agent-docs/games/minecraft/mods/FreeTerraForged/plans/archipelago-redesign.md
 ```
 
 No implementation branch has been created.
 
 For the reusable terrain-region and shoreline-distance models, see
-`.agent-docs/games/minecraft/mods/ReTerraForged/wiki/concepts/terrain-shaping-and-regions.md` and
-`.agent-docs/games/minecraft/mods/ReTerraForged/wiki/concepts/hydrology-and-shore-geometry.md`.
+`.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/concepts/terrain-shaping-and-regions.md` and
+`.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/concepts/hydrology-and-shore-geometry.md`.
 
 ### Problem
 

@@ -87,8 +87,8 @@ This is the structural relationship only; the QA plan/run/promote pipeline itsel
 ```
 
 `games/minecraft/README.md` is the entry point for the Minecraft QA system's architecture.
-`games/minecraft/mods/ReTerraForged/` holds that fork's own investigation history (worldgen tuning,
-branch tracking, etc.), unrelated to the QA tooling docs.
+`games/minecraft/mods/FreeTerraForged/` holds that fork's own investigation history (worldgen
+tuning, branch tracking, etc.), unrelated to the QA tooling docs.
 
 ## Maintenance
 

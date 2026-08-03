@@ -58,7 +58,7 @@ be established:
 
 ```bash
 tooling/squinch mc-investigate cell-scan \
-  --project games/minecraft/mods/ReTerraForged \
+  --project games/minecraft/mods/FreeTerraForged \
   --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
   --seed 12345 --mode adaptive --bounds -4096 -4096 4096 4096 \
   --sample-step 16 --predicate 'height:>=:0.15' \
@@ -89,7 +89,7 @@ standalone factor-3 samples against RTF's live runtime tile cache at identical c
 
 ```bash
 tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/ReTerraForged/investigations/rtf-cell-cache-cross-check.toml --json
+  .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-cell-cache-cross-check.toml --json
 ```
 
 To turn discovery into finished-world evidence, point a scenario generation step at the scanner's
@@ -444,9 +444,9 @@ into it, check out an exact commit, build, and remember to clean it up. Run a co
 
 ```bash
 tooling/squinch mc-investigate compare \
-  --project games/minecraft/mods/ReTerraForged \
+  --project games/minecraft/mods/FreeTerraForged \
   --before <parent-sha> --after <fix-sha> \
-  --scenario .squinch/games/minecraft/mods/ReTerraForged/investigations/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml \
   --expect different --json
 ```
 
