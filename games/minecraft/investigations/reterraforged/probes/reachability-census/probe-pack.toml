@@ -1,0 +1,9 @@
+schema_version = 1
+id = "rtf-reachability-census"
+version = "1"
+target_adapter = "minecraft-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-rtf-reachability-census.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["server-thread", "finished-chunk", "reachability-census", "parameter-fitness", "competitive-strength", "classification", "composition-audit", "namespace-analysis", "banding-health", "duplicate-detection"]

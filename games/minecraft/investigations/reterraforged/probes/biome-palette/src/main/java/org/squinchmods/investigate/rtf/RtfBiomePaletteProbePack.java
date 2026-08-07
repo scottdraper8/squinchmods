@@ -12,6 +12,7 @@ import com.google.gson.JsonObject;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.QuartPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.biome.Climate;
 import org.squinchmods.investigate.FinishedChunkSelection;
 import org.squinchmods.investigate.MinecraftProbeHelpers;
 import org.squinchmods.investigate.ProbeExecution;
@@ -36,6 +37,7 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
         private final int topK;
         private final int exampleLimit;
         private final List<Band> bands;
+        private final boolean includeClimateAxes;
 
         private BiomePalette(ProbeRequest request) {
             JsonObject config = request.config();
@@ -52,6 +54,8 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             this.exampleLimit = config.has("example_limit")
                 ? config.get("example_limit").getAsInt()
                 : 20;
+            this.includeClimateAxes = config.has("include_climate_axes")
+                && config.get("include_climate_axes").getAsBoolean();
             if (
                 this.horizontalQuartStep < 1 || this.horizontalQuartStep > 4
                 || 4 % this.horizontalQuartStep != 0
@@ -85,7 +89,13 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             }
             int minQuartY = QuartPos.fromBlock(minY);
             int maxQuartY = QuartPos.fromBlock(maxY);
+            Climate.Sampler climateSampler = this.includeClimateAxes
+                ? level.getChunkSource().randomState().sampler()
+                : null;
             Map<String, BiomeStats> stats = new LinkedHashMap<>();
+            Map<String, ClimateAxisStats> bandClimateStats = this.includeClimateAxes
+                ? new LinkedHashMap<>()
+                : null;
             JsonArray airExamples = new JsonArray();
             long sampled = 0;
             long air = 0;
@@ -110,6 +120,17 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
                             biomeStats.samples++;
                             biomeStats.minY = Math.min(biomeStats.minY, blockY);
                             biomeStats.maxY = Math.max(biomeStats.maxY, blockY);
+                            if (climateSampler != null) {
+                                Climate.TargetPoint target = climateSampler.sample(quartX, quartY, quartZ);
+                                biomeStats.climateAxes().observe(target);
+                                for (Band band : this.bands) {
+                                    if (band.includes(blockY)) {
+                                        bandClimateStats
+                                            .computeIfAbsent(band.id(), ignored -> new ClimateAxisStats())
+                                            .observe(target);
+                                    }
+                                }
+                            }
                             for (Band band : this.bands) {
                                 if (band.includes(blockY)) {
                                     biomeStats.bands.merge(band.id(), 1L, Long::sum);
@@ -136,10 +157,13 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             stats.forEach((id, value) -> totals.put(id, value.samples));
             JsonObject details = new JsonObject();
             for (String id : MinecraftProbeHelpers.topK(totals, this.topK).keySet()) {
-                details.add(id, stats.get(id).toJson());
+                details.add(id, stats.get(id).toJson(this.includeClimateAxes));
             }
             JsonObject data = new JsonObject();
             data.addProperty("authority", "finished-chunk-biome-palette");
+            if (this.includeClimateAxes) {
+                data.addProperty("climate_axes_authority", "re-sampled-climate-sampler");
+            }
             data.addProperty("min_y", minY);
             data.addProperty("max_y", maxY);
             data.addProperty("columns", columns);
@@ -147,9 +171,17 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             data.addProperty("air_quart_centers", air);
             data.addProperty("horizontal_quart_step", this.horizontalQuartStep);
             data.addProperty("vertical_quart_step", this.verticalQuartStep);
+            data.addProperty("include_climate_axes", this.includeClimateAxes);
             data.add("biomes", details);
             data.add("air_examples", airExamples);
             data.add("bands", bandsJson(this.bands));
+            if (bandClimateStats != null) {
+                JsonObject bandClimate = new JsonObject();
+                for (var entry : bandClimateStats.entrySet()) {
+                    bandClimate.add(entry.getKey(), entry.getValue().toJson());
+                }
+                data.add("band_climate_axes", bandClimate);
+            }
             return this.selection.result(snapshot, data);
         }
     }
@@ -196,8 +228,16 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
         private int minY = Integer.MAX_VALUE;
         private int maxY = Integer.MIN_VALUE;
         private final Map<String, Long> bands = new LinkedHashMap<>();
+        private ClimateAxisStats climateAxes;
 
-        private JsonObject toJson() {
+        private ClimateAxisStats climateAxes() {
+            if (this.climateAxes == null) {
+                this.climateAxes = new ClimateAxisStats();
+            }
+            return this.climateAxes;
+        }
+
+        private JsonObject toJson(boolean includeClimate) {
             JsonObject result = new JsonObject();
             result.addProperty("samples", this.samples);
             result.addProperty("air_samples", this.airSamples);
@@ -206,6 +246,61 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             JsonObject bandCounts = new JsonObject();
             this.bands.forEach(bandCounts::addProperty);
             result.add("bands", bandCounts);
+            if (includeClimate && this.climateAxes != null) {
+                result.add("climate_axes", this.climateAxes.toJson());
+            }
+            return result;
+        }
+    }
+
+    private static final class ClimateAxisStats {
+        private long count;
+        private final AxisAccumulator temperature = new AxisAccumulator();
+        private final AxisAccumulator humidity = new AxisAccumulator();
+        private final AxisAccumulator continentalness = new AxisAccumulator();
+        private final AxisAccumulator erosion = new AxisAccumulator();
+        private final AxisAccumulator depth = new AxisAccumulator();
+        private final AxisAccumulator weirdness = new AxisAccumulator();
+
+        private void observe(Climate.TargetPoint target) {
+            this.count++;
+            this.temperature.observe(Climate.unquantizeCoord(target.temperature()));
+            this.humidity.observe(Climate.unquantizeCoord(target.humidity()));
+            this.continentalness.observe(Climate.unquantizeCoord(target.continentalness()));
+            this.erosion.observe(Climate.unquantizeCoord(target.erosion()));
+            this.depth.observe(Climate.unquantizeCoord(target.depth()));
+            this.weirdness.observe(Climate.unquantizeCoord(target.weirdness()));
+        }
+
+        private JsonObject toJson() {
+            JsonObject result = new JsonObject();
+            result.addProperty("count", this.count);
+            result.add("temperature", this.temperature.toJson());
+            result.add("humidity", this.humidity.toJson());
+            result.add("continentalness", this.continentalness.toJson());
+            result.add("erosion", this.erosion.toJson());
+            result.add("depth", this.depth.toJson());
+            result.add("weirdness", this.weirdness.toJson());
+            return result;
+        }
+    }
+
+    private static final class AxisAccumulator {
+        private float min = Float.MAX_VALUE;
+        private float max = -Float.MAX_VALUE;
+        private double sum;
+
+        private void observe(float value) {
+            this.min = Math.min(this.min, value);
+            this.max = Math.max(this.max, value);
+            this.sum += value;
+        }
+
+        private JsonObject toJson() {
+            JsonObject result = new JsonObject();
+            result.addProperty("min", this.min);
+            result.addProperty("max", this.max);
+            result.addProperty("sum", this.sum);
             return result;
         }
     }

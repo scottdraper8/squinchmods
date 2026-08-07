@@ -1,0 +1,33 @@
+schema_version = 1
+name = "Vanilla composition audit — control (no FTF)"
+project = "../../../../../../games/minecraft/investigations/vanilla-control"
+loader = "fabric"
+seed = 3216933670
+probe_packs = ["../../../../../../games/minecraft/investigations/reterraforged/probes/reachability-census"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft"]
+
+[[probes]]
+id = "squinch:rtf-composition-audit"
+version = "1"
+config = { bounds = [-30, -30, 30, 30], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 2, surface_threshold_y = 62 }
+
+[[steps]]
+id = "generate-audit-area"
+type = "generate"
+unit = "chunk"
+bounds = [-30, -30, 30, 30]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-composition-audit"
+expect = { terminal_state = "pass" }

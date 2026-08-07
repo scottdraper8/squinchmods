@@ -1,0 +1,39 @@
+schema_version = 1
+name = "FTF + Regions Unexplored 0.5.9 composition audit (TerraBlender path)"
+project = "../../../../../../games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "../../../../../../games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["../../../../../../games/minecraft/investigations/reterraforged/probes/reachability-census"]
+companion_mods = [
+    "~/.cache/squinchmods/investigate/companion-mods/1.21.1/TerraBlender-fabric-1.21.1-4.1.0.8.jar",
+    "~/.cache/squinchmods/investigate/companion-mods/1.21.1/ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar",
+    "~/.cache/squinchmods/investigate/companion-mods/1.21.1/regions_unexplored-fabric-1.21.1-0.5.9.jar",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-composition-audit"
+version = "1"
+config = { bounds = [-30, -30, 30, 30], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 2, surface_threshold_y = 62 }
+
+[[steps]]
+id = "generate-audit-area"
+type = "generate"
+unit = "chunk"
+bounds = [-30, -30, 30, 30]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-composition-audit"
+expect = { terminal_state = "pass" }

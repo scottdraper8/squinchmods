@@ -33,6 +33,15 @@ Continuous overlays have no cell identity. A seeded spatial selector supplies sp
 coordinate offset derived from region scale shifts the sample away from structural noise zeros at
 the origin.
 
+A continuous overlay (e.g. a mountain chain) is typically blended into the mosaic separately from
+`RegionSelector`/`RegionLerper`, keyed on its own shape mask rather than `terrainRegionEdge`. It
+therefore receives none of `RegionLerper`'s automatic edge continuity. Adding per-instance selection
+(a variant, a personality) to such an overlay needs its own edge blend inside the populator: fade
+the selected value toward a shared reference value as the edge signal approaches a boundary, the
+same technique `RegionLerper` uses, applied locally. A hard switch between values with no such blend
+produces a sharp discontinuity wherever the selector's zero-crossing falls, independent of and
+unrelated to any terrain-region boundary.
+
 ## Seed ownership
 
 Construction order and `Seed.next()` calls are world layout. Adding a new noise draw in the middle

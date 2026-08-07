@@ -124,11 +124,11 @@ top-level `probe_packs = [PATH, ...]` array. Pack manifests, source/resource roo
 mixins, and hashes are recorded in the run manifest.
 
 Reusable RTF packs live under `games/minecraft/investigations/reterraforged/probes/`. The
-`biome-palette` and `cave-placement` packs use the same runtime, scenario trigger, result model, and
-finished-chunk selector while retaining their distinct measurements. `heightmap-delta` is the first
-new probe authored through the external pack template; `cave-placement` is the only one of these
-three that needs Mixins. See that directory's README and `probe-pack-template/README.md` for
-configuration, historical disposition, and authoring rules.
+`biome-palette` and `placement-telemetry` packs use the same runtime, scenario trigger, result
+model, and finished-chunk selector while retaining their distinct measurements. `heightmap-delta` is
+the first new probe authored through the external pack template; `placement-telemetry` is the only
+one of these three that needs Mixins. See that directory's README and
+`probe-pack-template/README.md` for configuration, historical disposition, and authoring rules.
 
 To turn discovery into finished-world evidence, point a scenario generation step at the scanner's
 retained `cell-scan-result.json` instead of writing fixed bounds:

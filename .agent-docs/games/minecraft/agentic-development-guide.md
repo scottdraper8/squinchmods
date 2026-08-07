@@ -295,8 +295,8 @@ Built-in probes, registered in
   not investigation probes.
 
 Reusable RTF investigation packs live under `games/minecraft/investigations/reterraforged/probes/`
-(`biome-palette`, `cave-placement`, `cell-cache`, `heightmap-delta`) — see that directory's README
-for their historical disposition, and
+(`biome-palette`, `placement-telemetry`, `cell-cache`, `heightmap-delta`) — see that directory's
+README for their historical disposition, and
 `games/minecraft/tooling/investigate/probe-pack-template/README.md` for authoring a new one. **Most
 real findings in this codebase's history came from a purpose-built probe at the exact consumer, not
 a generic scanner, and that stays true here.** The system makes a new probe cheaper and safer to
@@ -520,19 +520,36 @@ If driving this from an agent session with background task tracking, background 
 wakeups don't automatically clean themselves up just because the underlying process died — verify
 and explicitly stop/cancel anything still shown as "running" that shouldn't be.
 
-## 8. Reading vanilla Minecraft source for comparison
+## 8. Reading vanilla Minecraft and mod source for comparison
 
 A full decompiled/mapped vanilla source tree already exists on this machine — do not reconstruct
 vanilla behavior from memory or guess at it; read it directly:
 
 ```text
-games/minecraft/reference/sources/1.21.1/official/src/net/minecraft/...
+games/minecraft/reference/sources/<minecraft-version>/official/src/net/minecraft/...
 ```
 
-`1.20.1/official` and `1.20.4/official` siblings also exist under the same `reference/sources/` root
-for older-version comparisons. This is genuine decompiled source (confirmed present, not a guess) —
+Other Minecraft-version siblings may also exist under the same `reference/sources/` root for
+older-version comparisons. This is genuine decompiled source (confirmed present, not a guess) —
 prefer it over web search or training-data recall whenever comparing a mod's worldgen/mixin behavior
 against vanilla's actual implementation.
+
+The same root has a `mods/` sibling per version —
+`reference/sources/<minecraft-version>/mods/<mod-name>/` — for third-party mod source, checked out
+from that mod's own public repository at whichever branch/tag targets the version in the path. It is
+populated on demand (there is no `mc-source` equivalent for mods; clone directly with `git`) and
+exists for exactly the same reason as `official/`: read a mod's real, current source when
+investigating compatibility rather than trusting a linked commit that may already be stale or a
+memory of how the mod used to work.
+
+Always clone shallow and sparse — `--depth 1 --filter=blob:none`, then `git sparse-checkout set` to
+only the directories actually needed. `--depth 1` is not optional: a non-shallow `blob:none` clone
+still pulls the branch's entire commit history, which for an actively developed mod can be tens of
+megabytes even with no blob content. To update to whatever the mod has since published, delete the
+directory and re-clone with the same recipe rather than `git fetch`/`git pull` in place — re-cloning
+is cheap at this scale and is the only way to guarantee the old commit doesn't linger alongside the
+new one. See `.agent-docs/games/minecraft/README.md` for the exact command sequence. Neither
+`official/` nor `mods/` is committed — treat any given checkout as disposable.
 
 ## Recording new friction
 

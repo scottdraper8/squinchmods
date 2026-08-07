@@ -1,6 +1,6 @@
 schema_version = 1
 name = "RTF finished-chunk biome palette"
-project = "../../../../../../games/minecraft/mods/ReTerraForged-biome-climate-fix"
+project = "../../../../../../games/minecraft/mods/FreeTerraForged"
 loader = "fabric"
 seed = 3216933670
 rtf_fixture = "../../../../../../games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"

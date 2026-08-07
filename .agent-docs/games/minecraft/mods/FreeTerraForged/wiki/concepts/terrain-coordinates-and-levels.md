@@ -22,6 +22,18 @@ values, and previews. It is not a terrain ceiling.
 remains 256. Replacing the model scale with full `worldHeight` changes every consumer of the
 normalized model and moves horizontal layout as well as height.
 
+## Height headroom
+
+A source control that increases terrain height (added variance, a taller variant, amplified relief)
+can push generated height past a preset's actual configured ceiling (`worldHeight`), independent of
+the terrain model's compatibility scale — the raw model can predict a peak higher than the dimension
+allows even though the model itself was never clamped. A hard clamp at that ceiling produces a
+visible flat cut across every affected column. A continuous, headroom-aware compression — starting
+some margin below the ceiling and asymptoting toward it rather than stopping dead — preserves relief
+and avoids introducing a new discontinuity at the point compression begins. Deriving the
+compression's limits from the preset's real `worldHeight` keeps taller presets from being normalized
+toward a shorter default.
+
 ## `Levels`
 
 `Levels` is the conversion boundary between preset/dimension properties and normalized terrain.

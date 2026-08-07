@@ -28,13 +28,33 @@ friction point raised by the original `dev-server`-era investigations:
 
 ## Active
 
-Only two items remain, and neither is a "not built yet" gap in the completed tooling:
+Three items remain, and none is a "not built yet" gap in the completed tooling:
 
-1. **`squinch-qa`'s `command-script` executor cannot pin an exact `level-seed`.** This matters for
+1. **An `rtf_ephemeral` merge patch that changes `world.properties.worldHeight`/`worldDepth`
+   produces a datapack whose `preset.json` reflects the patch but whose `minecraft:dimension_type`
+   stays at the _base fixture's_ original height/depth.** Materializing an ephemeral preset against
+   `vanilla-depth-maximum-ocean` (base `worldHeight = 384`) with a patch setting
+   `worldHeight = 1024` produced a real, `lifecycle: succeeded` scenario run whose finished chunks
+   were uniformly flat at Y383 with `deep_dark`/`dripstone_caves` biomes at the surface — the
+   patched preset's density functions were trying to place terrain above Y900, but the actual
+   dimension (`height: 448`, `min_y: -64` in the materialized `dimension_type/overworld.json`, i.e.
+   exactly the base fixture's own 384+64) silently capped and misclassified it. Cost about 15
+   minutes and two extra full start/generate/stop cycles to diagnose (extracting the materialized
+   datapack ZIP and comparing `preset.json` against `dimension_type/overworld.json` was what
+   actually found it). **Workaround that works today:** build the merge patch to omit
+   `world.properties` entirely (patch every other top-level section, but delete/omit `properties`
+   under `world` so it falls through to the base fixture's own value) — pick a base fixture whose
+   own `worldHeight`/`worldDepth` already fits the case, rather than trying to override them through
+   the patch. **Resolution path:** either document this as a hard constraint on `rtf_ephemeral`
+   (`world.properties` height/depth cannot be safely patched, choose your base fixture accordingly),
+   or fix `materialize_ephemeral_fixture` to regenerate `dimension_type`/`noise_settings` from the
+   fully patched preset instead of carrying them forward unchanged from the base fixture's own
+   archived datapack.
+2. **`squinch-qa`'s `command-script` executor cannot pin an exact `level-seed`.** This matters for
    reproducing a specific real-world case found worth re-testing under the release-QA matrix. Out of
    scope for `mc-investigate` by design (the "Release QA boundary" in the implementation plan) —
    this belongs to `games/minecraft/tooling/qa/` if it's ever addressed.
-2. **Losing sight of _why_ mid-investigation, once live-testing tooling exists and works, is a
+3. **Losing sight of _why_ mid-investigation, once live-testing tooling exists and works, is a
    discipline risk, not a tooling gap.** More than once, a proposed measurement would not have
    actually distinguished between the competing hypotheses it was meant to distinguish. No amount of
    tooling prevents this — it needs direct pushback toward "what does this specific result actually

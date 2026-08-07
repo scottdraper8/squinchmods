@@ -6,4 +6,4 @@ sources = ["src/main/java"]
 resources = ["src/main/resources"]
 mixins = []
 configuration_schema = "probe-config-v1.json"
-capabilities = ["server-thread", "finished-chunk", "biome-palette", "vertical-profile"]
+capabilities = ["server-thread", "finished-chunk", "biome-palette", "vertical-profile", "climate-axes"]

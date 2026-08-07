@@ -154,6 +154,7 @@ reference/
   sources/<version>/<mappings-type>/   decompiled vanilla source, e.g. sources/1.21.1/official/
     manifest.json                      schema, mappings type/version, tool, source jar sha256, generated_at
     src/                               extracted source tree (com/, net/, META-INF/)
+  sources/<version>/mods/<mod-name>/   third-party mod source, checked out at whatever branch/tag targets that Minecraft version
   worlds/<name>/                       curated, durable reference worlds (not yet populated)
 ```
 
@@ -164,6 +165,32 @@ a dedicated minimal Gradle wrapper (`tooling/source-worker/`) rather than depend
 particular mod's build, and always writes a checksummed `manifest.json` alongside the extracted
 `src/`. This is for local source inspection (understanding vanilla behavior to backport or reference
 against); extracted sources are never committed.
+
+`sources/<version>/mods/<mod-name>/` is the same idea extended to third-party mods: a working-tree
+checkout of that mod's own public repository, at whichever branch/tag targets the Minecraft version
+in that path segment. There is no dedicated tool for this yet — clone directly with `git`, and keep
+the clone deliberately minimal:
+
+```bash
+git clone --depth 1 --branch <branch> --filter=blob:none --no-checkout <repo-url> <mod-name>
+cd <mod-name>
+git sparse-checkout init --cone
+git sparse-checkout set <path> [<path> ...]   # only the directories actually needed
+git checkout <branch>
+```
+
+`--depth 1` matters here specifically: a full (non-shallow) `--filter=blob:none` clone still fetches
+the _entire commit/tree history_ of the branch, which for an active mod with thousands of commits
+can be tens of megabytes in `.git` alone even though almost no blob content is fetched. `--depth 1`
+keeps exactly one commit — the current tip — so `.git` stays a few hundred KB to a couple of MB
+regardless of the mod's real history length.
+
+**To update to whatever the mod has published since:** delete the mod's directory and re-run the
+clone recipe above against the same (or a new) branch — do not `git fetch`/`git pull` an existing
+shallow clone to "update" it in place. Re-cloning from scratch is just as fast (the recipe is
+already minimal) and is the only way to guarantee the old commit is fully gone rather than retained
+alongside the new one. Like `official/`, nothing under `mods/` is committed, so there is nothing to
+reconcile — delete and re-clone rather than trying to preserve or merge a local copy.
 
 `worlds/<name>/` is for curated, durable reference worlds kept around deliberately (e.g. a
 hand-verified world worth comparing future runs against) — distinct from

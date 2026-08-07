@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import math
 import re
 import shutil
 import statistics
+import struct
 import subprocess
 import time
 import tomllib
@@ -79,6 +81,7 @@ class Scenario:
     rtf_fixture: Path | None
     rtf_ephemeral: RTFEphemeralPreset | None
     datapacks: tuple[Path, ...]
+    companion_mods: tuple[Path, ...]
     probe_packs: tuple[Path, ...]
     server_properties: dict[str, str]
     retention: str
@@ -151,6 +154,7 @@ def load_scenario(path: str | Path) -> Scenario:
             "rtf_fixture",
             "rtf_ephemeral",
             "datapacks",
+            "companion_mods",
             "probe_packs",
             "retention",
             "server_properties",
@@ -230,6 +234,13 @@ def load_scenario(path: str | Path) -> Scenario:
     datapacks = tuple(
         _relative_path(base, value, f"datapacks[{index}]")
         for index, value in enumerate(datapack_values)
+    )
+    companion_mod_values = raw.get("companion_mods", [])
+    if not isinstance(companion_mod_values, list):
+        raise _error("companion_mods must be an array of paths")
+    companion_mods = tuple(
+        _relative_path(base, value, f"companion_mods[{index}]")
+        for index, value in enumerate(companion_mod_values)
     )
     probe_pack_values = raw.get("probe_packs", [])
     if not isinstance(probe_pack_values, list):
@@ -429,6 +440,7 @@ def load_scenario(path: str | Path) -> Scenario:
         rtf_fixture,
         rtf_ephemeral,
         datapacks,
+        companion_mods,
         probe_packs,
         server_properties,
         retention,
@@ -673,6 +685,66 @@ def _java_seed(value: str) -> int:
     return result - 2**32 if result >= 2**31 else result
 
 
+def _read_level_dat_seed(level_dat: Path) -> int | None:
+    """Read the world seed from a Minecraft level.dat (gzipped NBT)."""
+    try:
+        with gzip.open(level_dat, "rb") as f:
+            return _nbt_find_long(f, ("Data", "WorldGenSettings", "seed"))
+    except (OSError, struct.error, UnicodeDecodeError):
+        return None
+
+
+def _nbt_find_long(f, path: tuple[str, ...]) -> int | None:
+    """Navigate gzipped NBT compound tags to read a TAG_Long at the given path."""
+
+    def skip(tag_id: int) -> None:
+        if tag_id == 1:
+            f.read(1)
+        elif tag_id == 2:
+            f.read(2)
+        elif tag_id in (3, 5):
+            f.read(4)
+        elif tag_id in (4, 6):
+            f.read(8)
+        elif tag_id == 7:
+            f.read(struct.unpack(">i", f.read(4))[0])
+        elif tag_id == 8:
+            f.read(struct.unpack(">H", f.read(2))[0])
+        elif tag_id == 9:
+            elem = struct.unpack(">b", f.read(1))[0]
+            for _ in range(struct.unpack(">i", f.read(4))[0]):
+                skip(elem)
+        elif tag_id == 10:
+            while child := struct.unpack(">b", f.read(1))[0]:
+                f.read(struct.unpack(">H", f.read(2))[0])
+                skip(child)
+        elif tag_id == 11:
+            f.read(struct.unpack(">i", f.read(4))[0] * 4)
+        elif tag_id == 12:
+            f.read(struct.unpack(">i", f.read(4))[0] * 8)
+
+    def read_name() -> str:
+        return f.read(struct.unpack(">H", f.read(2))[0]).decode("utf-8")
+
+    if struct.unpack(">b", f.read(1))[0] != 10:
+        return None
+    read_name()
+    for depth, segment in enumerate(path):
+        while True:
+            child_type = struct.unpack(">b", f.read(1))[0]
+            if child_type == 0:
+                return None
+            name = read_name()
+            if name == segment:
+                if depth == len(path) - 1:
+                    return struct.unpack(">q", f.read(8))[0] if child_type == 4 else None
+                if child_type != 10:
+                    return None
+                break
+            skip(child_type)
+    return None
+
+
 def parse_mod_list(log_text: str, loader: str) -> list[dict[str, str]]:
     mods: list[dict[str, str]] = []
     if loader == "fabric":
@@ -705,24 +777,28 @@ def parse_mod_list(log_text: str, loader: str) -> list[dict[str, str]]:
 
 
 def verify_world_identity(state: dict, requested_seed: str, timeout: float) -> dict[str, Any]:
-    response = run_commands(state, ["seed"], timeout)[0]["response"]
-    match = re.search(r"Seed:\s*\[(-?\d+)\]", response)
-    if not match:
-        raise InvestigationError(
-            "world_identity_failed", f"could not parse actual seed from response: {response!r}"
-        )
-    actual_seed = int(match.group(1))
-    expected_seed = _java_seed(requested_seed)
-    if actual_seed != expected_seed:
-        raise InvestigationError(
-            "seed_mismatch",
-            f"world seed is {actual_seed}, expected {expected_seed} from {requested_seed!r}",
-        )
     world = Path(state["world_dir"])
     level_dat = world / "level.dat"
     if not world.is_dir() or not level_dat.is_file():
         raise InvestigationError(
             "world_identity_failed", f"owned world level.dat is missing: {level_dat}"
+        )
+    expected_seed = _java_seed(requested_seed)
+    response = run_commands(state, ["seed"], timeout)[0]["response"]
+    match = re.search(r"Seed:\s*\[(-?\d+)\]", response)
+    if match:
+        actual_seed = int(match.group(1))
+    else:
+        actual_seed = _read_level_dat_seed(level_dat)
+        if actual_seed is None:
+            raise InvestigationError(
+                "world_identity_failed",
+                f"could not parse seed from RCON response {response!r} or level.dat",
+            )
+    if actual_seed != expected_seed:
+        raise InvestigationError(
+            "seed_mismatch",
+            f"world seed is {actual_seed}, expected {expected_seed} from {requested_seed!r}",
         )
     return {
         "requested_seed": requested_seed,
@@ -949,6 +1025,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             scenario.loader,
             seed=scenario.seed,
             datapacks=list(effective_scenario.datapacks),
+            companion_mods=list(scenario.companion_mods),
             properties=server_properties,
             timeout=scenario.startup_timeout,
             retention=scenario.retention,

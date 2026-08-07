@@ -1,0 +1,40 @@
+schema_version = 1
+name = "RTF finished-chunk biome palette with climate axes"
+project = "../../../../../../games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "../../../../../../games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
+probe_packs = ["../../../../../../games/minecraft/investigations/reterraforged/probes/biome-palette"]
+retention = "discard"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-biome-palette"
+version = "1"
+config = { bounds = [80, 100, 80, 100], unit = "chunk", max_wait_ticks = 1200, min_y = -600, max_y = 319, horizontal_quart_step = 1, vertical_quart_step = 1, top_k = 40, example_limit = 12, include_climate_axes = true, bands = [
+  { id = "deep", min_y = -600, max_y = -65 },
+  { id = "cave-surface-buffer", min_y = -64, max_y = -41 },
+  { id = "shallow-underground", min_y = -40, max_y = 48 },
+  { id = "surface", min_y = 49, max_y = 200 },
+  { id = "high", min_y = 201, max_y = 319 },
+] }
+
+[[steps]]
+id = "generate-biome-window"
+type = "generate"
+unit = "chunk"
+bounds = [80, 100, 80, 100]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-palette"
+expect = { region_count = 1, terminal_state = "pass" }

@@ -1,5 +1,34 @@
 # ReTerraForged resumption index
 
+## Active work: biome-fixing-plan Phase 4 — reachability audit
+
+Read the plan and initial findings before continuing:
+
+```text
+.agent-docs/games/minecraft/mods/FreeTerraForged/plans/biome-fixing-plan.md  (Phase 4 section)
+```
+
+**Status (2026-08-06):** 5 censuses completed and classified (ocean, cold inland, warm inland,
+mountain, warm humid). 29/53 biomes `REACHABLE`, 24 classified as `SHADOWED_IN_SAMPLED_DOMAIN` or
+`SPECIAL_CASE_ONLY` across 6 mechanism groups (offset penalty, humidity discretization,
+continentalness×erosion range, temperature×humidity range, ocean temperature range, mushroom
+override). Aggregate in `investigation-state/census-aggregate-phase4-initial.json`.
+
+**Next steps:** Expand coverage per remaining test matrix (deep-world/max-vertical fixtures, biome
+sizes 50/900, TerraBlender integration, Regions Unexplored). TerraBlender/RU testing requires
+additional mod JARs — the scenario system does not support this natively; needs build change or
+manual mod placement.
+
+Key files:
+
+- Probe: `games/minecraft/investigations/reterraforged/probes/reachability-census/`
+- Scenarios:
+  `.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-reachability-census*.toml`
+- FTF submodule: `games/minecraft/mods/FreeTerraForged/` branch `fix/various-biome-issues` at
+  `c435960`
+
+---
+
 The cellular archipelago/island-transition rewrite remains a scoped investigation and has not yet
 entered implementation.
 
@@ -78,9 +107,11 @@ acceptance criteria are in `plans/archipelago-redesign.md`.
 
 ## Shared references
 
-- Canonical RTF fixtures (source-form, semantic names, resolved-preset/archive hashes recorded per
+- Canonical FTF fixtures (source-form, semantic names, resolved-preset/archive hashes recorded per
   run): `games/minecraft/investigations/reterraforged/fixtures/`.
 - Headless server workflow: `.agent-docs/games/minecraft/agentic-development-guide.md`
 - Mapped vanilla 1.21.1 source: `games/minecraft/reference/sources/1.21.1/official/src/`
+- Third-party mod source (fetched on demand, not committed):
+  `games/minecraft/reference/sources/<version>/mods/<mod-name>/`
 - Investigation tooling: `tooling/squinch mc-investigate --help`
   (`games/minecraft/tooling/investigate/`)
