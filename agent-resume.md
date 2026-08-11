@@ -22,8 +22,7 @@ manual mod placement.
 Key files:
 
 - Probe: `games/minecraft/investigations/reterraforged/probes/reachability-census/`
-- Scenarios:
-  `.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-reachability-census*.toml`
+- Scenarios: `.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-reachability-census*.toml`
 - FTF submodule: `games/minecraft/mods/FreeTerraForged/` branch `fix/various-biome-issues` at
   `c435960`
 

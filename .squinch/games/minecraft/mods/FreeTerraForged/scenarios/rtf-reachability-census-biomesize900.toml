@@ -1,0 +1,41 @@
+schema_version = 1
+name = "RTF biome reachability census — biomeSize 900 warm inland"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 12345
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
+retention = "keep"
+
+[rtf_ephemeral]
+id = "shallow-depth-biomesize-900"
+purpose = "Biome size 900 variant of shallow-depth-mountain-control for reachability census coverage"
+base_fixture = "games/minecraft/investigations/reterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"
+base_preset_sha256 = "d530eb00ec2b475872943f8c9713c21b78a67ac628fdccc1f6b9f2d5f4d95442"
+patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900.json"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-reachability-census"
+version = "1"
+config = { bounds = [226, -414, 286, -354], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 2, surface_threshold_y = 62 }
+
+[[steps]]
+id = "generate-census-biomesize900"
+type = "generate"
+unit = "chunk"
+bounds = [226, -414, 286, -354]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-reachability-census"
+expect = { terminal_state = "pass" }

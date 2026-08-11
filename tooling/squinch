@@ -8,6 +8,7 @@
 # Tools:
 #   qa    QA planner (uv-managed Python package)
 #   mc-investigate  Minecraft development investigation runner
+#   third-party  Minecraft third-party source and Modrinth acquisition
 #
 set -euo pipefail
 
@@ -19,6 +20,7 @@ if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     echo "Tools:"
     echo "  qa    QA planner — run 'squinch qa --help' for details"
     echo "  mc-investigate  Minecraft investigation tooling"
+    echo "  third-party  Minecraft third-party source and Modrinth acquisition"
     exit 0
 fi
 
@@ -41,6 +43,9 @@ case "${tool}" in
         fi
         exec uv run --project "${script_dir}/../games/minecraft/tooling/investigate" \
             python -m squinch_minecraft_investigate "$@"
+        ;;
+    third-party)
+        exec "${script_dir}/third-party" "$@"
         ;;
     *)
         echo "error: unknown tool '${tool}'" >&2

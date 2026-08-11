@@ -21,9 +21,16 @@ games/minecraft/
     mc-source             source-extraction script
     source-worker/        its own minimal Gradle wrapper, independent of any mod
     investigate/          mc-investigate: managed dev-server lifecycle/probes, for live investigation
+    third-party/          catalog-backed Modrinth acquisition and source checkout tooling
     qa/                  the QA planner/runner (squinch-qa)
+  investigations/         source-controlled probes, fixtures, patches, and control projects
+  investigation-state/    gitignored generated runs, worktrees, reports, and worlds
   reference/             gitignored: decompiled source, curated reference worlds
   qa-state/              gitignored: QA runtime state (generated per run)
+
+.squinch/games/minecraft/
+  mods/<mod>/scenarios/    repository-root-relative scenario definitions
+  third-party/artifacts.toml  committed runtime/source ownership catalog
 ```
 
 Dispatched from the repo root via `tooling/squinch <tool>` (e.g. `tooling/squinch qa plan ...`), a
@@ -168,8 +175,8 @@ against); extracted sources are never committed.
 
 `sources/<version>/mods/<mod-name>/` is the same idea extended to third-party mods: a working-tree
 checkout of that mod's own public repository, at whichever branch/tag targets the Minecraft version
-in that path segment. There is no dedicated tool for this yet — clone directly with `git`, and keep
-the clone deliberately minimal:
+in that path segment. Use `tooling/squinch third-party source` so the checkout is shallow, sparse,
+and records its resolved commit in `source-acquisition.json`:
 
 ```bash
 git clone --depth 1 --branch <branch> --filter=blob:none --no-checkout <repo-url> <mod-name>
@@ -178,6 +185,30 @@ git sparse-checkout init --cone
 git sparse-checkout set <path> [<path> ...]   # only the directories actually needed
 git checkout <branch>
 ```
+
+The command is equivalent to this recipe and additionally records the requested Minecraft version,
+repository, ref, resolved commit, and sparse paths. It rejects an existing destination unless
+`--replace` is explicitly supplied. This is source-review provenance, not a runtime dependency
+resolver.
+
+For runtime companion mods, use the same dispatcher to acquire a release from Modrinth rather than
+placing an untracked JAR by hand:
+
+```bash
+tooling/squinch third-party acquire \
+  --artifact-id <catalog-artifact-id>
+```
+
+The resolver reads the committed catalog, checks the exact Minecraft version and loader, verifies
+the published SHA-256 and loader metadata, and stores the JAR plus `acquisition.json` under the
+local
+`${SQINCHMODS_CACHE_HOME:-$XDG_CACHE_HOME/squinchmods}/third-party/modrinth/<version>/<loader>/`
+cache. Investigation scenarios reference catalog IDs; the runner resolves and verifies the cache
+manifest before materialization. Acquisition does not install companion mods globally or silently
+acquire required dependencies. Use `tooling/squinch third-party remove` to dry-run and then remove a
+specific cached release and any explicit source checkout when a candidate is no longer part of the
+matrix. The complete command contract is in
+[`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md).
 
 `--depth 1` matters here specifically: a full (non-shallow) `--filter=blob:none` clone still fetches
 the _entire commit/tree history_ of the branch, which for an active mod with thousands of commits

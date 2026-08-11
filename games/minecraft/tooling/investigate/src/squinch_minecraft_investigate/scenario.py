@@ -18,11 +18,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .catalog import resolve_artifacts
 from .errors import CleanupError, InvestigationError
 from .generation import generate_regions
 from .fixtures import load_fixture, materialize_ephemeral_fixture, materialize_fixture
 from .output import timestamp
-from .paths import STATE_ROOT
+from .paths import REPOSITORY_ROOT, STATE_ROOT
 from .probe_requests import submit_probe
 from .profiling import start_jfr, stop_jfr
 from .processes import identity_matches
@@ -81,7 +82,7 @@ class Scenario:
     rtf_fixture: Path | None
     rtf_ephemeral: RTFEphemeralPreset | None
     datapacks: tuple[Path, ...]
-    companion_mods: tuple[Path, ...]
+    companion_artifacts: tuple[str, ...]
     probe_packs: tuple[Path, ...]
     server_properties: dict[str, str]
     retention: str
@@ -112,11 +113,20 @@ def _number(value: Any, context: str, *, positive: bool = True) -> float:
     return result
 
 
-def _relative_path(base: Path, value: Any, context: str) -> Path:
+def _repository_path(value: Any, context: str) -> Path:
     if not isinstance(value, str) or not value:
-        raise _error(f"{context} must be a nonempty path string")
-    path = Path(value).expanduser()
-    return (base / path).resolve() if not path.is_absolute() else path.resolve()
+        raise _error(f"{context} must be a nonempty repository-relative path")
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts or path.parts[:1] != ("games",):
+        raise _error(f"{context} must use a repository-root-relative path")
+    resolved = (REPOSITORY_ROOT / path).resolve()
+    if not resolved.is_relative_to(REPOSITORY_ROOT):
+        raise _error(f"{context} escapes the repository root")
+    return resolved
+
+
+def _scenario_path(_scenario_file: Path, value: Any, context: str) -> Path:
+    return _repository_path(value, context)
 
 
 def _json_object(value: Any, context: str) -> dict[str, Any]:
@@ -154,7 +164,7 @@ def load_scenario(path: str | Path) -> Scenario:
             "rtf_fixture",
             "rtf_ephemeral",
             "datapacks",
-            "companion_mods",
+            "companion_artifacts",
             "probe_packs",
             "retention",
             "server_properties",
@@ -170,8 +180,7 @@ def load_scenario(path: str | Path) -> Scenario:
     name = raw.get("name")
     if not isinstance(name, str) or not name.strip():
         raise _error("name must be a nonempty string")
-    base = scenario_path.parent
-    project = _relative_path(base, raw.get("project"), "project")
+    project = _scenario_path(scenario_path, raw.get("project"), "project")
     loader = raw.get("loader")
     if loader not in {"fabric", "forge", "neoforge", "quilt"}:
         raise _error(f"unsupported loader: {loader!r}")
@@ -184,7 +193,7 @@ def load_scenario(path: str | Path) -> Scenario:
 
     rtf_fixture = None
     if "rtf_fixture" in raw:
-        rtf_fixture = _relative_path(base, raw["rtf_fixture"], "rtf_fixture")
+        rtf_fixture = _scenario_path(scenario_path, raw["rtf_fixture"], "rtf_fixture")
     rtf_ephemeral = None
     if "rtf_ephemeral" in raw:
         if rtf_fixture is not None:
@@ -223,30 +232,30 @@ def load_scenario(path: str | Path) -> Scenario:
         rtf_ephemeral = RTFEphemeralPreset(
             fixture_id,
             purpose,
-            _relative_path(base, value["base_fixture"], "rtf_ephemeral.base_fixture"),
+            _scenario_path(scenario_path, value["base_fixture"], "rtf_ephemeral.base_fixture"),
             base_hash,
-            _relative_path(base, value["patch_file"], "rtf_ephemeral.patch_file"),
+            _scenario_path(scenario_path, value["patch_file"], "rtf_ephemeral.patch_file"),
         )
 
     datapack_values = raw.get("datapacks", [])
     if not isinstance(datapack_values, list):
         raise _error("datapacks must be an array of paths")
     datapacks = tuple(
-        _relative_path(base, value, f"datapacks[{index}]")
+        _scenario_path(scenario_path, value, f"datapacks[{index}]")
         for index, value in enumerate(datapack_values)
     )
-    companion_mod_values = raw.get("companion_mods", [])
-    if not isinstance(companion_mod_values, list):
-        raise _error("companion_mods must be an array of paths")
-    companion_mods = tuple(
-        _relative_path(base, value, f"companion_mods[{index}]")
-        for index, value in enumerate(companion_mod_values)
-    )
+    companion_artifact_values = raw.get("companion_artifacts", [])
+    if not isinstance(companion_artifact_values, list) or any(
+        not isinstance(value, str) or not value or Path(value).name != value
+        for value in companion_artifact_values
+    ):
+        raise _error("companion_artifacts must be an array of catalog artifact IDs")
+    companion_artifacts = tuple(companion_artifact_values)
     probe_pack_values = raw.get("probe_packs", [])
     if not isinstance(probe_pack_values, list):
         raise _error("probe_packs must be an array of paths")
     probe_packs = tuple(
-        _relative_path(base, value, f"probe_packs[{index}]")
+        _scenario_path(scenario_path, value, f"probe_packs[{index}]")
         for index, value in enumerate(probe_pack_values)
     )
     server_properties_raw = raw.get("server_properties", {})
@@ -290,7 +299,7 @@ def load_scenario(path: str | Path) -> Scenario:
         if "config" in probe and "config_file" in probe:
             raise _error(f"probes[{index}] cannot set both config and config_file")
         if "config_file" in probe:
-            config_path = _relative_path(base, probe["config_file"], "probe config_file")
+            config_path = _scenario_path(scenario_path, probe["config_file"], "probe config_file")
             try:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
@@ -365,8 +374,8 @@ def load_scenario(path: str | Path) -> Scenario:
             else:
                 if values["unit"] != "block":
                     raise _error(f"steps[{index}] candidate_file generation uses block coordinates")
-                candidate_file = _relative_path(
-                    base, values["candidate_file"], f"steps[{index}].candidate_file"
+                candidate_file = _scenario_path(
+                    scenario_path, values["candidate_file"], f"steps[{index}].candidate_file"
                 )
                 candidate_limit = values.get("candidate_limit", 4)
                 if (
@@ -440,7 +449,7 @@ def load_scenario(path: str | Path) -> Scenario:
         rtf_fixture,
         rtf_ephemeral,
         datapacks,
-        companion_mods,
+        companion_artifacts,
         probe_packs,
         server_properties,
         retention,
@@ -1025,7 +1034,10 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             scenario.loader,
             seed=scenario.seed,
             datapacks=list(effective_scenario.datapacks),
-            companion_mods=list(scenario.companion_mods),
+            companion_artifacts=list(resolve_artifacts(
+                scenario.companion_artifacts,
+                expected_loader=scenario.loader,
+            )),
             properties=server_properties,
             timeout=scenario.startup_timeout,
             retention=scenario.retention,
@@ -1033,6 +1045,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         )
         provenance["launch_command"] = state["command"]
         provenance["probe_overlay"] = state["probe_overlay"]
+        provenance["companion_artifacts"] = state.get("companion_artifacts", [])
         artifact_dir = Path(state["artifact_dir"])
         scenario_summary_path = artifact_dir / "scenario-summary.json"
         progress_path = artifact_dir / "scenario-progress.jsonl"

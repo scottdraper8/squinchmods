@@ -1,0 +1,33 @@
+schema_version = 1
+name = "Vanilla climate-domain evaluation — control (no FTF)"
+project = "games/minecraft/investigations/vanilla-control"
+loader = "fabric"
+seed = 3216933670
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/climate-domain"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft"]
+
+[[probes]]
+id = "squinch:rtf-climate-domain"
+version = "1"
+config = { bounds = [0, 0, 2, 2], unit = "chunk", max_wait_ticks = 6000, sample_min_x = -10000, sample_max_x = 10000, sample_min_z = -10000, sample_max_z = 10000, sample_step_blocks = 4, surface_y = 62, convergence_radii = [500, 1000, 2500, 5000, 10000] }
+
+[[steps]]
+id = "generate-lifecycle-gate"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 2, 2]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-climate-domain"
+expect = { terminal_state = "pass" }

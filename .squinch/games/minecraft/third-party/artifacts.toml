@@ -1,0 +1,572 @@
+schema_version = 1
+catalog_version = 1
+
+[[artifacts]]
+id = "mc1.21.1-fabric-biolith-3.0.14"
+project_slug = "biolith"
+project_id = "iGEl6Crx"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "3.0.14"
+version_id = "aBinwigO"
+filename = "biolith-fabric-3.0.14.jar"
+sha256 = "12987c4e1eedafa6a6e208f0b9579dd9d0f6262131ddbdd0557ed78c549deda1"
+status = "approved"
+reason = "Biome composition compatibility investigation"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-biolith"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-biomes-o-plenty-21.1.0.14"
+project_slug = "biomes-o-plenty"
+project_id = "HXF82T3G"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "21.1.0.14"
+version_id = "fhyqphwv"
+filename = "BiomesOPlenty-fabric-1.21.1-21.1.0.14.jar"
+sha256 = "12b70618d74324fda96e8ae051c99ea56ceba192e3edbfc7d39e87aceac7199c"
+status = "approved"
+reason = "Biome composition compatibility investigation"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-glitchcore-2.1.0.2", "mc1.21.1-fabric-terrablender-4.1.0.8"]
+source_id = "source-biomes-o-plenty"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-cloth-config-15.0.140"
+project_slug = "cloth-config"
+project_id = "9s6osm5g"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "15.0.140+fabric"
+version_id = "HpMb5wGb"
+filename = "cloth-config-15.0.140-fabric.jar"
+sha256 = "33894e95da3af59014b39d126586d5241e07ea39f8618763e30dab637405f95f"
+status = "diagnostic-only"
+reason = "Required by the YUNG's Cave Biomes diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-cloth-config"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-create-6.0.10"
+project_slug = "create"
+project_id = "LNytGWDc"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "6.0.10+mc1.21.1"
+version_id = "UjX6dr61"
+filename = "create-1.21.1-6.0.10.jar"
+sha256 = "ef87fe5709f1ba1f5b8bb20a2925b5afb4669e178fd6d8bf10c167759eefe37a"
+status = "approved"
+reason = "NeoForge ore-generation compatibility candidate"
+required_dependencies = []
+source_id = "source-create"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"
+project_slug = "fabric-api"
+project_id = "P7dR8mSH"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.116.15+1.21.1"
+version_id = "Nlt8gI9z"
+filename = "fabric-api-0.116.15+1.21.1.jar"
+sha256 = "a61a10f730ab8aa45ff42486ee65699e6e51c28a0c168deb161e7d4029473aa3"
+status = "approved"
+reason = "Explicit Fabric runtime dependency for the approved matrix"
+required_dependencies = []
+source_id = "source-fabric-api"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-forge-config-api-port-v21.1.6"
+project_slug = "forge-config-api-port"
+project_id = "ohNO6lps"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "v21.1.6-1.21.1-Fabric"
+version_id = "N5qzq0XV"
+filename = "ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar"
+sha256 = "2e3a8f0e3bda85a7d722720e7ce879cbd9d028d9395c6fc224d329b3c982d9b1"
+status = "diagnostic-only"
+reason = "Required by the Regions Unexplored Fabric diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-forge-config-api-port"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-geckolib-4.9.2"
+project_slug = "geckolib"
+project_id = "8BmcQJ2H"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "4.9.2"
+version_id = "dnJdtm0u"
+filename = "geckolib-fabric-1.21.1-4.9.2.jar"
+sha256 = "eac4cf55e1cb99b22cb91ea87c774d2a670c1711a80f4aff50e6ad56b6c58e7e"
+status = "diagnostic-only"
+reason = "Required by the YUNG's Cave Biomes diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-geckolib"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-glitchcore-2.1.0.2"
+project_slug = "glitchcore"
+project_id = "s3dmwKy5"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "2.1.0.2"
+version_id = "sux8kYHe"
+filename = "GlitchCore-fabric-1.21.1-2.1.0.2.jar"
+sha256 = "7cbec4ae898c3011bf785dd58155e3478ed2bc92ff240ec39a607951e7c1b139"
+status = "diagnostic-only"
+reason = "Required by the Biomes O' Plenty diagnostic stack"
+required_dependencies = []
+source_id = "source-glitchcore"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-immersive-ores-1.1.8"
+project_slug = "immersive-ores"
+project_id = "F9Vuwq3S"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.21.1-1.1.8"
+version_id = "vtdNNJ1Q"
+filename = "ImmersiveOres-1.21.1-1.1.8.jar"
+sha256 = "bd983ee2a68f1b5ad32ca05ce5b5c3a17075a0d79f13617bceb56935be004d37"
+status = "approved"
+reason = "Fabric ore-generation compatibility candidate"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-immersive-ores-fabric"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-immersive-ores-1.1.9"
+project_slug = "immersive-ores"
+project_id = "F9Vuwq3S"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "1.21.1-1.1.9"
+version_id = "M35HMjJG"
+filename = "immersiveores-1.21.1-1.1.9.jar"
+sha256 = "457590d960d28274d1520e36157dc8b9efe23d370a1c68e244e162399bdd6cda"
+status = "approved"
+reason = "NeoForge ore-generation compatibility candidate"
+required_dependencies = []
+source_id = "source-immersive-ores-neoforge"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-immersive-engineering-12.4.2-194"
+project_slug = "immersiveengineering"
+project_id = "tIm2nV03"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "12.4.2-194"
+version_id = "uNRARSH2"
+filename = "ImmersiveEngineering-1.21.1-12.4.2-194.jar"
+sha256 = "45942985a4a4aebf265b8e22a0c54a96208637471f36f2532ff5d4911322debc"
+status = "approved"
+reason = "NeoForge ore-generation compatibility candidate"
+required_dependencies = []
+source_id = "source-immersive-engineering"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-lithostitched-1.7.13"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.7.13-fabric-21.1"
+version_id = "JWtSqSeY"
+filename = "lithostitched-1.7.13-fabric-21.1.jar"
+sha256 = "206c086604bcfea5b2862e90069470352cbf4b4d7088b55cdfa8f3452bedc270"
+status = "diagnostic-only"
+reason = "Required by the legacy Regions Unexplored compatibility diagnostic"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-lithostitched"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-mekanism-10.7.19.85"
+project_slug = "mekanism"
+project_id = "Ce6I4WUE"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "10.7.19.85"
+version_id = "5KzzycBT"
+filename = "Mekanism-1.21.1-10.7.19.85.jar"
+sha256 = "004dbc9f3106f4d192aeaa1ee1190dd16ec9ca8059ed3d093b80034f4c574f43"
+status = "approved"
+reason = "NeoForge ore-generation compatibility candidate"
+required_dependencies = []
+source_id = "source-mekanism"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-platform-1.3.3"
+project_slug = "platform"
+project_id = "i6fiqm5y"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.3.3"
+version_id = "BbIdNbF1"
+filename = "Platform-fabric-1.21.1-1.3.3.jar"
+sha256 = "52f49993d4440d266fa3a077090e8091983cd1bda5942f176ae75f3e9e350779"
+status = "diagnostic-only"
+reason = "Required by the VanillaBackport diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-platform"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-regions-unexplored-0.5.9"
+project_slug = "regions-unexplored"
+project_id = "Tkikq67H"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.5.9"
+version_id = "dJhMqyV3"
+filename = "regions_unexplored-fabric-1.21.1-0.5.9.jar"
+sha256 = "f2c4a00ff4bbb36a0ed2c5e2d0f69cdc55122d843cca7ef1bfc7748ebdc874b6"
+status = "approved"
+reason = "Regions Unexplored compatibility investigation"
+required_dependencies = []
+source_id = "source-regions-unexplored"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-regions-unexplored-0.6.2"
+project_slug = "regions-unexplored"
+project_id = "Tkikq67H"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.6.2-fabric-21.1"
+version_id = "SffwLsGY"
+filename = "regions-unexplored-0.6.2-fabric-21.1.jar"
+sha256 = "c0c2f1a83cbdc1f252255823e33230ace9db6f5fd6da010a739f46f7a6d3a6a7"
+status = "diagnostic-only"
+reason = "Hash-matched legacy compatibility diagnostic release"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.7.13"]
+source_id = "source-regions-unexplored"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-terrablender-4.1.0.8"
+project_slug = "terrablender"
+project_id = "kkmrDlKT"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "4.1.0.8"
+version_id = "XNtIBXyQ"
+filename = "TerraBlender-fabric-1.21.1-4.1.0.8.jar"
+sha256 = "f87e94a7fa1227711c3f8aea9ffac7a14e0c7be212fe50ddee95d2c6ba723cac"
+status = "approved"
+reason = "Explicit biome-platform dependency for approved Fabric diagnostics"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-terrablender"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-terralith-2.6.2"
+project_slug = "terralith"
+project_id = "8oi3bsk5"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "2.6.2"
+version_id = "eWDLFabb"
+filename = "Terralith_1.21.x_v2.6.2.jar"
+sha256 = "9cd4d402fde0f523e5b430ac8fd479ce05aea7a50fe0c8c26901f5f769272214"
+status = "excluded"
+reason = "Explicitly outside the active FreeTerraForged ore investigation matrix"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.7.13"]
+source_id = "source-terralith"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-terrestria-7.0.3"
+project_slug = "terrestria"
+project_id = "lsUDPMOT"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "7.0.3"
+version_id = "h7YX7L4K"
+filename = "terrestria-7.0.3.jar"
+sha256 = "b1129fea6cd64dd1abbf0865033983a1eade41d92a86fd92b9d502828a00680e"
+status = "diagnostic-only"
+reason = "Biome composition compatibility diagnostic"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8"]
+source_id = "source-terrestria"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-vanillabackport-1.1.7.10"
+project_slug = "vanillabackport"
+project_id = "6xwxDTgf"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.1.7.10"
+version_id = "ayvoY8lx"
+filename = "VanillaBackport-fabric-1.21.1-1.1.7.10.jar"
+sha256 = "6aba8f56fd71b9b5b724812b22f14d11a71e9ca0bf7e84b52b4c8b91736e0734"
+status = "diagnostic-only"
+reason = "VanillaBackport compatibility diagnostic"
+required_dependencies = ["mc1.21.1-fabric-platform-1.3.3"]
+source_id = "source-vanillabackport"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-yungs-api-5.1.6"
+project_slug = "yungs-api"
+project_id = "Ua7DFN59"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.21.1-Fabric-5.1.6"
+version_id = "9aZPNrZC"
+filename = "YungsApi-1.21.1-Fabric-5.1.6.jar"
+sha256 = "36fb903a1ebcf1511745be2da9e5144f1d2465bff7a5c17beffd347399acd1ba"
+status = "diagnostic-only"
+reason = "Required by the YUNG's Cave Biomes diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-yungs-cave-biomes"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-yungs-cave-biomes-3.1.1"
+project_slug = "yungs-cave-biomes"
+project_id = "cs7iGVq1"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.21.1-Fabric-3.1.1"
+version_id = "geZa9lJS"
+filename = "YungsCaveBiomes-1.21.1-Fabric-3.1.1.jar"
+sha256 = "965d5cd4da7297c5b2c17e37ccb9060291670f742febda9a1121cd83bad3048c"
+status = "diagnostic-only"
+reason = "Underground biome composition compatibility diagnostic"
+required_dependencies = ["mc1.21.1-fabric-cloth-config-15.0.140", "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-yungs-api-5.1.6"]
+source_id = "source-yungs-cave-biomes"
+
+[[sources]]
+id = "source-biolith"
+repository = "https://github.com/TerraformersMC/Biolith.git"
+requested_ref = "1.21.1"
+resolved_commit = "996b7a468ce7c36d2883e70eae3a8c87a30bae63"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/biolith"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-biomes-o-plenty"
+repository = "https://github.com/Glitchfiend/BiomesOPlenty.git"
+requested_ref = "1.21.1"
+resolved_commit = "32ec5f0a17c2101802fc0458f3c6ea85052f70fb"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/biomesoplenty"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-create"
+repository = "https://github.com/Creators-of-Create/Create.git"
+requested_ref = "mc1.21.1/dev"
+resolved_commit = "87b3c6a65fd00c023a07b37b0353144bc7e6a5bf"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/create"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-immersive-engineering"
+repository = "https://github.com/BluSunrize/ImmersiveEngineering.git"
+requested_ref = "1.21.1"
+resolved_commit = "75a27f03e4243544243567e8d5c38d336f4f10f4"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/immersive-engineering"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-immersive-ores-fabric"
+repository = "https://github.com/BlockLegend001/ImmersiveOres.git"
+requested_ref = "1.21.1-Fabric"
+resolved_commit = "902ca40d6d874b2c5452ced1b71c34c118cf25d3"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/immersive-ores"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-immersive-ores-neoforge"
+repository = "https://github.com/BlockLegend001/ImmersiveOres.git"
+requested_ref = "1.21.1-NeoForge"
+resolved_commit = "5413b6b5822833c6ff21ad597a884cc3270315c0"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/immersive-ores-neoforge"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-lithostitched"
+repository = "https://github.com/Apollounknowndev/lithostitched.git"
+requested_ref = "1.21"
+resolved_commit = "5629216757723f196306416a0d3341c8be22f4fa"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/lithostitched"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-mekanism"
+repository = "https://github.com/mekanism/Mekanism.git"
+requested_ref = "v1.21.1-10.7.19.85"
+resolved_commit = "a00109e4856fd38b9c5b3dd7f22ce4a59cd65a80"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/mekanism"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-regions-unexplored"
+repository = "https://github.com/Apollounknowndev/RegionsUnexplored.git"
+requested_ref = "21.1"
+resolved_commit = "f5dfe4eea916cb7ccb4990faebc952459dad5f8b"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/regionsunexplored"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-terralith"
+repository = "https://github.com/Stardust-Labs-MC/Terralith.git"
+requested_ref = "1.20"
+resolved_commit = "5d7b5c58ec302c20328214f92c2a033b180dfdf2"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/terralith"
+status = "excluded"
+shallow = true
+blob_filter = true
+sparse_paths = ["data", "src/main"]
+
+[[sources]]
+id = "source-terrestria"
+repository = "https://github.com/terraformersmc/terrestria.git"
+requested_ref = "v7.0.3"
+resolved_commit = "40f835313779ca0638efa7ce0beb789ff7c4b2fe"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/terrestria"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-vanillabackport"
+repository = "https://github.com/ItsBlackGear/VanillaBackport.git"
+requested_ref = "1.21.1"
+resolved_commit = "9b52fc19a81c2d16c2a2b7cf00bd90b43c404e9b"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/vanillabackport"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources"]
+
+[[sources]]
+id = "source-cloth-config"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-fabric-api"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-forge-config-api-port"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-geckolib"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-glitchcore"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-platform"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-terrablender"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-yungs-cave-biomes"
+repository = "https://github.com/YUNG-GANG/YUNGs-Cave-Biomes.git"
+requested_ref = "1.21.1"
+resolved_commit = "0b668b5187b52932f670b909a15d05ab8a597eea"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/yungs-cave-biomes"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources"]

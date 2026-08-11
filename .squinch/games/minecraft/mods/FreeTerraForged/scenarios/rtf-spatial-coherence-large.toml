@@ -1,0 +1,58 @@
+schema_version = 1
+name = "RTF spatial coherence — large region (10x10 chunks)"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = [
+  "games/minecraft/investigations/reterraforged/probes/spatial-coherence",
+  "games/minecraft/investigations/reterraforged/probes/biome-palette",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-spatial-coherence"
+version = "1"
+config = { bounds = [75, 95, 85, 105], unit = "chunk", max_wait_ticks = 2400, scan_line_count = 16, vertical_column_count = 40, surface_y = 72, min_y = -64, max_y = 256 }
+
+[[probes]]
+id = "squinch:rtf-biome-palette"
+version = "1"
+config = { bounds = [75, 95, 85, 105], unit = "chunk", max_wait_ticks = 2400, min_y = -64, max_y = 319, horizontal_quart_step = 1, vertical_quart_step = 1, top_k = 40, example_limit = 12, include_climate_axes = true, bands = [
+  { id = "deep-cave", min_y = -64, max_y = -33 },
+  { id = "shallow-underground", min_y = -32, max_y = 48 },
+  { id = "surface", min_y = 49, max_y = 128 },
+  { id = "mountain", min_y = 129, max_y = 256 },
+  { id = "high-air", min_y = 257, max_y = 319 },
+] }
+
+[[steps]]
+id = "generate-large-region"
+type = "generate"
+unit = "chunk"
+bounds = [75, 95, 85, 105]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-spatial-coherence"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "biome-palette-large"
+type = "generate"
+unit = "chunk"
+bounds = [75, 95, 85, 105]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-palette"
+expect = { terminal_state = "pass" }

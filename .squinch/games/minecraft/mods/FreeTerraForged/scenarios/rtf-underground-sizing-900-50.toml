@@ -1,0 +1,59 @@
+schema_version = 1
+name = "RTF underground sizing — surface 900 / underground 50"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 3216933670
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-coherence", "games/minecraft/investigations/reterraforged/probes/biome-palette"]
+retention = "keep"
+[rtf_ephemeral]
+id = "underground-sizing-900-50"
+purpose = "Large surface climate regions with small horizontally and vertically coherent cave bands"
+base_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
+base_preset_sha256 = "eeb267db2f56d4cad8a7f44196b2fdf51f1e281d0ec208bd7308eca62f4124fb"
+patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900-underground-50.json"
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+[timeouts]
+startup = 360
+step = 1200
+shutdown = 120
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+[[probes]]
+id = "squinch:rtf-spatial-coherence"
+version = "1"
+config = { bounds = [70, -440, 130, -430], unit = "chunk", max_wait_ticks = 6000, scan_line_count = 10, vertical_column_count = 64, horizontal_y = 72, min_y = -600, max_y = 128 }
+[[probes]]
+id = "squinch:rtf-spatial-coherence-underground"
+version = "1"
+config = { bounds = [70, -440, 130, -430], unit = "chunk", max_wait_ticks = 6000, scan_line_count = 10, vertical_column_count = 1, horizontal_y = -256, min_y = -600, max_y = 128 }
+[[probes]]
+id = "squinch:rtf-biome-palette"
+version = "1"
+config = { bounds = [70, -440, 130, -430], unit = "chunk", max_wait_ticks = 6000, min_y = -600, max_y = 128, horizontal_quart_step = 1, vertical_quart_step = 2, top_k = 40, example_limit = 24, include_climate_axes = true, bands = [{ id = "deep", min_y = -600, max_y = -257 }, { id = "mid-underground", min_y = -256, max_y = -65 }, { id = "shallow-underground", min_y = -64, max_y = 48 }, { id = "surface", min_y = 49, max_y = 128 }] }
+[[steps]]
+id = "surface-coherence"
+type = "generate"
+unit = "chunk"
+bounds = [70, -440, 130, -430]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-spatial-coherence"
+expect = { terminal_state = "pass" }
+[[steps]]
+id = "underground-coherence"
+type = "generate"
+unit = "chunk"
+bounds = [70, -440, 130, -430]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-spatial-coherence-underground"
+expect = { terminal_state = "pass" }
+[[steps]]
+id = "vertical-palette"
+type = "generate"
+unit = "chunk"
+bounds = [70, -440, 130, -430]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-palette"
+expect = { terminal_state = "pass" }

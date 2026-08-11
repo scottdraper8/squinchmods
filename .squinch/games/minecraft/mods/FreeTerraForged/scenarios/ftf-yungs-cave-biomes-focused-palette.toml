@@ -1,0 +1,53 @@
+schema_version = 1
+name = "FTF + YUNG's Cave Biomes focused finished palette"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 3216933670
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-palette"]
+companion_artifacts = [
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-yungs-api-5.1.6",
+    "mc1.21.1-fabric-cloth-config-15.0.140",
+    "mc1.21.1-fabric-geckolib-4.9.2",
+    "mc1.21.1-fabric-yungs-cave-biomes-3.1.1",
+]
+retention = "keep"
+
+[rtf_ephemeral]
+id = "yungs-focused-palette-900-50"
+purpose = "Finished-chunk proof near a deterministic YUNG cave locate result"
+base_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+base_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900-underground-50.json"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "yungscavebiomes"]
+
+[[probes]]
+id = "squinch:rtf-biome-palette"
+version = "1"
+config = { bounds = [60, 350, 68, 360], unit = "chunk", max_wait_ticks = 6000, min_y = -64, max_y = 320, horizontal_quart_step = 1, vertical_quart_step = 2, top_k = 40, example_limit = 24, include_climate_axes = false }
+
+[[steps]]
+id = "locate-yungs-frosted-caves"
+type = "command"
+command = "locate biome yungscavebiomes:frosted_caves"
+
+[[steps]]
+id = "generate-focused-palette"
+type = "generate"
+unit = "chunk"
+bounds = [60, 350, 68, 360]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-palette"
+expect = { terminal_state = "pass" }

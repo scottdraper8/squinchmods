@@ -89,7 +89,7 @@ standalone factor-3 samples against RTF's live runtime tile cache at identical c
 
 ```bash
 tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-cell-cache-cross-check.toml --json
+  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-cell-cache-cross-check.toml --json
 ```
 
 To turn discovery into finished-world evidence, point a scenario generation step at the scanner's
@@ -165,21 +165,21 @@ sequence:
 
 ```bash
 tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/reterraforged/investigations/smoke.toml --json
+  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/smoke.toml --json
 ```
 
-Every relative project, datapack, and probe configuration path in the TOML resolves against the
-scenario file, not the caller's directory. Scenario schema version 1 requires an exact seed and
-ordered steps, and supports command, generation, and selected-probe steps; multiple datapacks;
-server properties; startup/step/shutdown timeouts; retention; required runtime mods; and
-response/region/terminal expectations. A generation step has `generation` authority unless it names
-a selected terminal probe and explicitly requests `finished-chunk` authority — force-load
-acknowledgment alone is never labeled finished-chunk proof. Each run's manifest fingerprints the
-scenario, Git HEAD and dirty patch, untracked inputs, datapacks, Java, Gradle wrapper/build inputs,
-loader, JVM environment arguments, launch command, and the runtime mod list parsed from the real
-loader log. A crash, fatal server condition, timeout, assertion failure, missing or non-passing
-probe terminal, incomplete scan, or cleanup failure makes the command nonzero — never a superficial
-success.
+Every repository-owned project, datapack, fixture, patch, and probe path in the TOML is
+repository-root-relative (`games/minecraft/...`) and resolves from the repository root rather than
+the caller's directory. Scenario schema version 1 requires an exact seed and ordered steps, and
+supports command, generation, and selected-probe steps; multiple datapacks; server properties;
+startup/step/shutdown timeouts; retention; required runtime mods; and response/region/terminal
+expectations. A generation step has `generation` authority unless it names a selected terminal probe
+and explicitly requests `finished-chunk` authority — force-load acknowledgment alone is never
+labeled finished-chunk proof. Each run's manifest fingerprints the scenario, Git HEAD and dirty
+patch, untracked inputs, datapacks, Java, Gradle wrapper/build inputs, loader, JVM environment
+arguments, launch command, and the runtime mod list parsed from the real loader log. A crash, fatal
+server condition, timeout, assertion failure, missing or non-passing probe terminal, incomplete
+scan, or cleanup failure makes the command nonzero — never a superficial success.
 
 An RTF scenario names one retained source-form fixture with `rtf_fixture = ".../fixture.toml"`. The
 runner deterministically materializes it, copies the generated ZIP into the run artifacts, and
@@ -446,7 +446,7 @@ into it, check out an exact commit, build, and remember to clean it up. Run a co
 tooling/squinch mc-investigate compare \
   --project games/minecraft/mods/FreeTerraForged \
   --before <parent-sha> --after <fix-sha> \
-  --scenario .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml \
   --expect different --json
 ```
 

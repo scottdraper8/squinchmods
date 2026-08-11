@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import squinch_minecraft_investigate.scenario as scenario_module
 from squinch_minecraft_investigate import server
 from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.processes import port_is_free
@@ -42,14 +43,14 @@ def test_cell_scan_candidates_become_unique_floor_correct_chunks(tmp_path: Path)
     ]
 
 
-def _write_scenario(path: Path, project: str, *, authority: str = "generation") -> None:
+def _write_scenario(path: Path, project: str = "games/minecraft/project", *, authority: str = "generation") -> None:
     path.write_text(
         f'''schema_version = 1
 name = "relative-path-control"
 project = "{project}"
 loader = "fabric"
 seed = 12345
-datapacks = ["fixture.zip"]
+datapacks = ["games/minecraft/investigations/fixture.zip"]
 retention = "discard"
 
 [server_properties]
@@ -66,7 +67,7 @@ required_mods = []
 [[probes]]
 id = "finished-chunk"
 version = "1"
-config_file = "probe.json"
+config_file = "games/minecraft/investigations/probe.json"
 
 [[steps]]
 id = "generate"
@@ -85,14 +86,16 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Catches invocation-directory-dependent project, datapack, and probe config resolution."""
-    config = tmp_path / "configuration"
-    config.mkdir()
-    project = tmp_path / "project"
-    project.mkdir()
-    (config / "fixture.zip").write_bytes(b"datapack")
-    (config / "probe.json").write_text('{"radius": 4}\n')
-    scenario_path = config / "scenario.toml"
-    _write_scenario(scenario_path, "../project", authority="finished-chunk")
+    project = tmp_path / "games/minecraft/project"
+    project.mkdir(parents=True)
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "probe.json").write_text('{"radius": 4}\n')
+    scenario_path = tmp_path / ".squinch/scenario.toml"
+    scenario_path.parent.mkdir()
+    _write_scenario(scenario_path, authority="finished-chunk")
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
@@ -100,7 +103,7 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     scenario = load_scenario(scenario_path)
 
     assert scenario.project == project.resolve()
-    assert scenario.datapacks == ((config / "fixture.zip").resolve(),)
+    assert scenario.datapacks == ((assets / "fixture.zip").resolve(),)
     assert scenario.probes["finished-chunk"].config == {"radius": 4}
     assert scenario.steps[0].values["bounds"] == [0, 0, 16, 16]
 
@@ -111,7 +114,7 @@ def test_finished_chunk_authority_requires_selected_terminal_probe(tmp_path: Pat
     scenario_path.write_text(
         '''schema_version = 1
 name = "invalid-authority"
-project = "."
+project = "games/minecraft/project"
 loader = "fabric"
 seed = 1
 
@@ -129,13 +132,17 @@ authority = "finished-chunk"
 
 
 def test_repeated_generation_requires_disjoint_windows_and_retains_every_observation(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Catches benchmark repetitions regenerating the same chunks or hiding an outlier in a mean."""
-    scenario_path = tmp_path / "scenario.toml"
-    (tmp_path / "fixture.zip").write_bytes(b"fixture")
-    (tmp_path / "probe.json").write_text("{}\n")
-    _write_scenario(scenario_path, ".")
+    scenario_path = tmp_path / ".squinch/scenario.toml"
+    scenario_path.parent.mkdir()
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "fixture.zip").write_bytes(b"fixture")
+    (assets / "probe.json").write_text("{}\n")
+    _write_scenario(scenario_path)
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     text = scenario_path.read_text().replace(
         "terminal_probe = \"finished-chunk\"",
         'terminal_probe = "finished-chunk"\nrepeat = 3\noffset = [17, 0]\njfr = true',
@@ -204,7 +211,8 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Catches a failed step returning early and stranding its process, listener, or world."""
-    project = tmp_path / "project"
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    project = tmp_path / "games/minecraft/project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
     fixture = Path(__file__).parent / "fixtures" / "fake_gradle_server.py"
@@ -220,11 +228,12 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
     (project / "untracked-input.txt").write_text("must affect provenance\n")
 
-    scenario_path = tmp_path / "failure.toml"
+    scenario_path = tmp_path / ".squinch/failure.toml"
+    scenario_path.parent.mkdir()
     scenario_path.write_text(
         f'''schema_version = 1
 name = "assertion-cleanup-control"
-project = "{project}"
+project = "games/minecraft/project"
 loader = "fabric"
 seed = 12345
 retention = "discard"
@@ -277,7 +286,8 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Catches a timed-out force-load command bypassing scenario cleanup or claiming generation."""
-    project = tmp_path / "project"
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    project = tmp_path / "games/minecraft/project"
     (project / "fabric" / "run").mkdir(parents=True)
     fixture = Path(__file__).parent / "fixtures" / "fake_gradle_server.py"
     gradlew = project / "gradlew"
@@ -291,11 +301,12 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
     subprocess.run(["git", "add", "gradlew"], cwd=project, check=True)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
 
-    scenario_path = tmp_path / "generation-timeout.toml"
+    scenario_path = tmp_path / ".squinch/generation-timeout.toml"
+    scenario_path.parent.mkdir()
     scenario_path.write_text(
         f'''schema_version = 1
 name = "generation-timeout-control"
-project = "{project}"
+project = "games/minecraft/project"
 loader = "fabric"
 seed = 12345
 retention = "discard"

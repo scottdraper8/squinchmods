@@ -20,12 +20,13 @@ and `stopping` are non-terminal; `ready` means RCON authentication succeeded; `s
 `inconclusive`, and `error` are terminal outcomes; `inactive` means no service is tracked; and
 `degraded` or `unknown` requires diagnosis rather than an assumption of success.
 
-Run a canonical or temporary scenario with one command; every relative project, datapack, and probe
-configuration path is resolved against the TOML file rather than the caller's directory:
+Run a canonical or temporary scenario with one command; every repository-owned project, datapack,
+fixture, patch, and probe path is repository-root-relative (`games/minecraft/...`) and resolved from
+the repository root rather than the caller's directory:
 
 ```bash
 tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/reterraforged/investigations/smoke.toml \
+  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/smoke.toml \
   --json
 ```
 
@@ -45,8 +46,8 @@ manifest. Lifecycle timing separately records startup, verified world-open, save
 cleanup rather than folding those costs into generation.
 
 The retained RTF benchmark is
-`.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml`. Use
-it directly with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a
+`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml`. Use it
+directly with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a
 global lock and run the two sides sequentially, preventing before/after benchmark overlap by
 default. Timing and profile metadata remain evidence but are excluded from behavioral equality.
 
@@ -57,7 +58,7 @@ tooling/squinch mc-investigate compare \
   --project games/minecraft/mods/FreeTerraForged \
   --before 9099214b0a92e702bd2de9e1d9e61c5d645fb5b0 \
   --after a05560848cf7bec7ad56ba5832d247d08a1c7da0 \
-  --scenario .squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml \
   --expect different --json
 ```
 
@@ -116,7 +117,7 @@ status, harness hashes, standalone bootstrap boundary, Minecraft/RTF/Java versio
 fingerprinted classpath, cold/warm/Gradle wall timings, and a deterministic result hash.
 
 The canonical live parity gate is
-`.squinch/games/minecraft/mods/FreeTerraForged/investigations/rtf-cell-cache-cross-check.toml`. It
+`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-cell-cache-cross-check.toml`. It
 selects the external `probes/cell-cache` pack, loads the same seed and preset, and compares
 standalone factor-3 samples with RTF's live runtime tile cache at exact block coordinates. Direct
 development starts can select reusable packs with repeatable `--probe-pack PATH`; scenarios use a

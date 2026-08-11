@@ -16,7 +16,7 @@ Mods are git submodules under `games/<game>/mods/<mod>/`. `.squinch/` is the oth
 directory with the same rationale as this one: it holds QA config (parent defaults plus per-mod
 config) centrally, rather than inside each mod's own repo, so upstream-facing fork submodules never
 need squinchmods-specific files on a branch that might get PR'd upstream. See
-`games/minecraft/README.md` (below) for how the QA system actually uses it.
+`.agent-docs/games/minecraft/README.md` (below) for how the QA system actually uses it.
 
 `.squinch/`'s config _mechanism_ is game-agnostic (profiles are just named test-id lists), but its
 current _content_ is not: the global default profile's test list and the mod-config schema's
@@ -64,7 +64,7 @@ graph LR
 ```
 
 This is the structural relationship only; the QA plan/run/promote pipeline itself is covered in
-`games/minecraft/README.md`, not duplicated here.
+`.agent-docs/games/minecraft/README.md`, not duplicated here.
 
 ## Layout
 
@@ -86,9 +86,12 @@ This is the structural relationship only; the QA plan/run/promote pipeline itsel
   private/                      local-only notes, gitignored
 ```
 
-`games/minecraft/README.md` is the entry point for the Minecraft QA system's architecture.
-`games/minecraft/mods/FreeTerraForged/` holds that fork's own investigation history (worldgen
-tuning, branch tracking, etc.), unrelated to the QA tooling docs.
+`.agent-docs/games/minecraft/README.md` is the entry point for the Minecraft QA system's
+architecture. The executable investigation and third-party tooling live under
+`games/minecraft/tooling/`; reusable investigation inputs remain under
+`games/minecraft/investigations/`; generated state is kept in the ignored sibling
+`games/minecraft/investigation-state/`; and mod-specific scenario definitions live under
+`.squinch/games/minecraft/mods/<mod>/scenarios/`.
 
 ## Maintenance
 

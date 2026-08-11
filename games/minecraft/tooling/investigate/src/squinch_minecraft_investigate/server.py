@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .errors import CleanupError, InvestigationError
+from .catalog import ResolvedArtifact
 from .output import timestamp
 from .paths import (
     ENV_SH,
@@ -404,7 +405,7 @@ def start_server(
     *,
     seed: str | None,
     datapacks: list[Path],
-    companion_mods: list[Path] | None = None,
+    companion_artifacts: list[ResolvedArtifact] | None = None,
     properties: dict[str, str],
     timeout: float,
     retention: str,
@@ -493,34 +494,29 @@ def start_server(
                 target_dir.mkdir(parents=True, exist_ok=False)
                 for source in resolved_datapacks:
                     shutil.copy2(source, target_dir / source.name)
-            installed_companion_mods: list[Path] = []
-            if companion_mods:
-                resolved_companions = [
-                    source.expanduser().resolve() for source in companion_mods
-                ]
-                missing_companions = [
-                    source for source in resolved_companions if not source.is_file()
-                ]
-                if missing_companions:
-                    raise InvestigationError(
-                        "companion_mod_not_found",
-                        f"companion mod not found: {missing_companions[0]}",
-                    )
+            installed_companion_artifacts: list[dict[str, str]] = []
+            if companion_artifacts:
                 mods_dir = run_dir / "mods"
                 mods_dir.mkdir(parents=True, exist_ok=True)
-                for source in resolved_companions:
-                    target = mods_dir / source.name
+                for artifact in companion_artifacts:
+                    source = artifact.path
+                    target = mods_dir / artifact.filename
                     if target.exists():
                         raise InvestigationError(
-                            "companion_mod_conflict",
-                            f"companion mod target already exists: {target}",
+                            "companion_artifact_conflict",
+                            f"companion artifact target already exists: {target}",
                         )
                     shutil.copy2(source, target)
-                    installed_companion_mods.append(target)
+                    installed_companion_artifacts.append({
+                        "id": artifact.id,
+                        "source_path": str(source),
+                        "materialized_path": str(target),
+                        "sha256": artifact.sha256,
+                    })
         except BaseException:
-            for mod_path in installed_companion_mods:
+            for artifact in installed_companion_artifacts:
                 with contextlib.suppress(FileNotFoundError):
-                    mod_path.unlink()
+                    Path(artifact["materialized_path"]).unlink()
             _restore_managed_files(
                 {
                     "run_dir": str(run_dir),
@@ -583,7 +579,7 @@ def start_server(
                 "command": command,
                 "effective_properties": effective_properties,
                 "datapacks": [str(path.expanduser().resolve()) for path in datapacks],
-                "companion_mods": [str(p) for p in installed_companion_mods],
+                "companion_artifacts": installed_companion_artifacts,
                 "probe_overlay": {
                     **overlay_details,
                     "tracked_status_before": tracked_status_before,
@@ -604,9 +600,9 @@ def start_server(
                     os.killpg(process.pid, signal.SIGKILL)
                 with contextlib.suppress(subprocess.TimeoutExpired):
                     process.wait(timeout=5)
-            for mod_path in installed_companion_mods:
+            for artifact in installed_companion_artifacts:
                 with contextlib.suppress(FileNotFoundError):
-                    mod_path.unlink()
+                    Path(artifact["materialized_path"]).unlink()
             provisional = {
                 "run_dir": str(run_dir),
                 "artifact_dir": str(artifact_dir),
@@ -831,13 +827,13 @@ def stop_server(
 
         failures.extend(_remove_protocol_files(state))
         failures.extend(_restore_managed_files(state))
-        for mod_str in state.get("companion_mods", []):
-            mod_path = Path(mod_str)
+        for artifact in state.get("companion_artifacts", []):
+            mod_path = Path(artifact["materialized_path"])
             try:
                 if mod_path.exists():
                     mod_path.unlink()
             except OSError as exc:
-                failures.append(f"companion mod removal: {exc}")
+                failures.append(f"companion artifact removal: {exc}")
         retained_world: str | None = None
         try:
             retained_world = _cleanup_world(state, successful and not failures)

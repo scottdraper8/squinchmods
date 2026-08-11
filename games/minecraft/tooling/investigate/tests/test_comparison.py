@@ -46,6 +46,7 @@ def _scenario(path: Path, repo: Path) -> Scenario:
         rtf_fixture=None,
         rtf_ephemeral=None,
         datapacks=(),
+        companion_artifacts=(),
         probe_packs=(),
         server_properties={},
         retention="discard",
