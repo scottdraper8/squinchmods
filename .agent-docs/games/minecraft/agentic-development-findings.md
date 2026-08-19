@@ -28,7 +28,7 @@ friction point raised by the original `dev-server`-era investigations:
 
 ## Active
 
-Three items remain, and none is a "not built yet" gap in the completed tooling:
+Five items remain, and none is a "not built yet" gap in the completed tooling:
 
 1. **An `rtf_ephemeral` merge patch that changes `world.properties.worldHeight`/`worldDepth`
    produces a datapack whose `preset.json` reflects the patch but whose `minecraft:dimension_type`
@@ -60,6 +60,40 @@ Three items remain, and none is a "not built yet" gap in the completed tooling:
    tooling prevents this — it needs direct pushback toward "what does this specific result actually
    tell us" rather than accumulating more test infrastructure and data points for their own sake.
    Kept here as a standing reminder rather than something to "fix."
+4. **Scenario teardown can fail after the terminal probe and Minecraft shutdown have completed.**
+   Two Fabric scenario runs on 2026-08-14 reached a successful terminal probe and clean server save,
+   but did not complete the outer lifecycle: one left the Gradle wrapper and scenario process
+   spinning, and another crashed in `group_members` while iterating `/proc` with Python 3.14
+   `pathlib`
+   (`TypeError: _path_splitroot_ex: path should be string, bytes or os.PathLike, not type`). In both
+   cases the first `doctor --recover` pass removed the owned process but reported an already-dead
+   RCON cleanup failure, while a second pass completed recovery. **Scope:** general scenario-runner
+   teardown and recovery, independent of the mod or probe. **Cost:** invalidated two otherwise
+   successful scenario lifecycles and required manual artifact inspection plus two recovery passes
+   each. **Resolution path:** make `/proc` enumeration resilient to transient/bad directory entries,
+   preserve a successful scenario summary when teardown alone fails, and treat connection-refused
+   RCON cleanup as already complete once the owned server process and listeners are gone.
+5. **A low-sea-level RTF scenario can fail before finished-chunk inspection because cascading fluid
+   updates trip the runner's fatal-log handling.** A canonical `mc-investigate scenario` run using
+   an `rtf_ephemeral` patch with `seaLevel = 48`, `oceanDepth = 10`, and `lavaLevel = 100` generated
+   the requested monument area, then emitted repeated
+   `Too many chained neighbor updates. Skipping the rest.` errors. The runner marked the run fatal
+   before the finished-chunk block probe could inspect the monument's water box; an earlier attempt
+   also timed out during cleanup and required `doctor --recover`. **Additional fixture finding:**
+   changing only the RTF preset JSON does not change the effective vanilla noise-settings sea level.
+   The first low-sea fixture therefore reported `preset sea level = 48` while the live level still
+   reported `getSeaLevel() = 63`, so it was not a valid test of a world whose sea-level sources
+   agreed. **Resolution for the monument investigation:** a full datapack with both the RTF preset
+   and `minecraft:worldgen/noise_settings/overworld.json` set to sea level 48 reached finished
+   chunks cleanly. The diagnostic probe then found the root cause: the old monument redirect
+   returned the live vanilla value 63 to vanilla's water-box calculation, producing water through
+   y=62. After the fix, a finished-chunk scan of the complete 58x58 monument footprint found zero
+   water blocks at or above configured sea level; the highest water block was y=47. A separate
+   sea-level-63/ocean-depth-10 control also reached finished chunks, placed the monument from y=53
+   to y=75, and found zero water blocks at or above y=63, confirming that shallow-ocean protrusion
+   still works. **Scope:** the runner's fatal-log policy and incomplete `rtf_ephemeral` fixture
+   merge remain tooling concerns, but the monument behavior is now empirically classified and fixed
+   with a bounded fixture/probe.
 
 ## Entry template
 

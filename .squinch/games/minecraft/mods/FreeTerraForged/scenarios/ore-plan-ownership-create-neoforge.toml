@@ -1,0 +1,47 @@
+schema_version = 1
+name = "Ore ownership matrix: Create NeoForge"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "neoforge"
+seed = 12345
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry", "games/minecraft/investigations/reterraforged/probes/feature-graph-census"]
+companion_artifacts = ["mc1.21.1-neoforge-create-6.0.10"]
+retention = "discard"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "create"]
+
+[[probes]]
+id = "squinch:rtf-placement-telemetry"
+version = "1"
+config = { feature_ids = ["minecraft:ore_iron_small", "minecraft:ore_diamond", "create:zinc_ore", "create:striated_ores_overworld"], bounds = [354, 354, 361, 361], unit = "chunk", max_wait_ticks = 1200, top_k = 20, bands = [{ id = "vanilla_range", min_y = -64, max_y = 319 }] }
+
+[[probes]]
+id = "squinch:rtf-feature-graph-census"
+version = "1"
+config = {}
+
+[[steps]]
+id = "census-final-feature-graph"
+type = "probe"
+probe = "squinch:rtf-feature-graph-census"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "generate-mountain-window"
+type = "generate"
+unit = "chunk"
+bounds = [354, 354, 361, 361]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-placement-telemetry"
+expect = { terminal_state = "pass" }

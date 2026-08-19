@@ -24,6 +24,7 @@ import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.rtf.mixin.AccessorMultiNoiseBiomeSource;
+import raccoonman.reterraforged.world.worldgen.biome.UndergroundBiomeBanding;
 
 public final class RtfReachabilityCensusProbePack implements ProbePack {
     @Override
@@ -36,8 +37,9 @@ public final class RtfReachabilityCensusProbePack implements ProbePack {
     private static final Climate.Parameter BOTTOM_DEPTH = Climate.Parameter.point(1.1F);
 
     static boolean isUndergroundConvention(Climate.ParameterPoint point) {
-        return point.weirdness().equals(FULL_RANGE)
-            && (point.depth().equals(UNDERGROUND_DEPTH) || point.depth().equals(BOTTOM_DEPTH));
+        UndergroundBiomeBanding.CandidateRole role = UndergroundBiomeBanding.classify(point, false);
+        return role == UndergroundBiomeBanding.CandidateRole.SHALLOW_CAVE
+            || role == UndergroundBiomeBanding.CandidateRole.DEEP_CAVE;
     }
 
     static long fitness(Climate.ParameterPoint point, Climate.TargetPoint target) {

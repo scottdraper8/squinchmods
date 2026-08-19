@@ -21,13 +21,13 @@ import raccoonman.reterraforged.world.worldgen.densityfunction.tile.Tile;
 
 public final class RtfCellCacheProbePack implements ProbePack {
     private static final List<String> DEFAULT_FIELDS = List.of(
-        "height", "height_blocks", "terrain", "terrain_category", "biome_type",
+        "height", "height_blocks", "terrain", "terrain_category",
         "continent_edge", "continent_distance", "river_mask", "river_zone",
         "temperature", "moisture", "erosion", "weirdness", "water_table",
         "terrain_region_id", "biome_region_id"
     );
     private static final Set<String> FIELDS = Set.of(
-        "height", "height_blocks", "terrain", "terrain_category", "biome_type",
+        "height", "height_blocks", "terrain", "terrain_category",
         "continent_edge", "continent_distance", "river_mask", "river_zone",
         "temperature", "moisture", "erosion", "weirdness", "water_table",
         "terrain_region_id", "biome_region_id"
@@ -132,7 +132,6 @@ public final class RtfCellCacheProbePack implements ProbePack {
                 case "height_blocks" -> result.addProperty(field, context.levels.scale(cell.height));
                 case "terrain" -> result.addProperty(field, cell.terrain.getName());
                 case "terrain_category" -> result.addProperty(field, cell.terrain.getCategory().name());
-                case "biome_type" -> result.addProperty(field, cell.biome.name());
                 case "continent_edge" -> result.addProperty(field, cell.continentEdge);
                 case "continent_distance" -> result.addProperty(field, cell.continentDistance);
                 case "river_mask" -> result.addProperty(field, cell.riverMask);

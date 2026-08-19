@@ -8,7 +8,7 @@ import raccoonman.reterraforged.world.worldgen.cell.heightmap.Levels;
 
 final class CellFields {
     static final List<String> DEFAULTS = List.of(
-        "height", "height_blocks", "terrain", "terrain_category", "biome_type",
+        "height", "height_blocks", "terrain", "terrain_category",
         "continent_edge", "continent_distance", "river_mask", "river_zone",
         "temperature", "moisture", "erosion", "weirdness", "water_table",
         "terrain_region_id", "biome_region_id"
@@ -16,7 +16,7 @@ final class CellFields {
 
     static final Set<String> ALL = Set.of(
         "height", "height_blocks", "height_erosion", "sediment", "gradient",
-        "terrain", "terrain_category", "biome_type", "continent_id", "continent_edge",
+        "terrain", "terrain_category", "continent_id", "continent_edge",
         "continent_distance", "continent_x", "continent_z", "continent_scale",
         "river_mask", "river_water_level", "river_zone", "temperature", "moisture",
         "region_temperature", "region_moisture", "erosion", "terrain_erosion",
@@ -37,7 +37,6 @@ final class CellFields {
             case "gradient" -> cell.gradient;
             case "terrain" -> cell.terrain.getName();
             case "terrain_category" -> cell.terrain.getCategory().name();
-            case "biome_type" -> cell.biome.name();
             case "continent_id" -> cell.continentId;
             case "continent_edge" -> cell.continentEdge;
             case "continent_distance" -> cell.continentDistance;

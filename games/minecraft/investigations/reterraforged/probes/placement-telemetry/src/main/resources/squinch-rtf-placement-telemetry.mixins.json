@@ -3,11 +3,12 @@
   "package": "org.squinchmods.investigate.rtf.placement.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "MixinBulkSectionAccess",
     "MixinBiomeFilter",
     "MixinCountPlacement",
     "MixinHeightRangePlacement",
-    "MixinPlacedFeature",
-    "MixinWorldGenRegion"
+    "MixinLevelChunkSection",
+    "MixinPlacedFeature"
   ],
   "injectors": {
     "defaultRequire": 1

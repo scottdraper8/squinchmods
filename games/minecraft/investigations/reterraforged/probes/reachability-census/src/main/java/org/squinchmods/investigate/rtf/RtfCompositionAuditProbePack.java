@@ -27,6 +27,8 @@ import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.rtf.mixin.AccessorMultiNoiseBiomeSource;
+import raccoonman.reterraforged.world.worldgen.biome.UndergroundBiomeBanding;
+import raccoonman.reterraforged.world.worldgen.terrablender.TerraBlenderParameterList;
 
 public final class RtfCompositionAuditProbePack implements ProbePack {
     @Override
@@ -64,24 +66,40 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
                 return this.selection.result(snapshot, data);
             }
 
-            List<Pair<Climate.ParameterPoint, Holder<Biome>>> rawEntries =
-                ((AccessorMultiNoiseBiomeSource) (Object) mnbs).invokeParameters().values();
+            Climate.ParameterList<Holder<Biome>> parameters =
+                ((AccessorMultiNoiseBiomeSource) (Object) mnbs).invokeParameters();
+            List<Pair<Climate.ParameterPoint, Holder<Biome>>> rawEntries = parameters.values();
 
             TreeAnalysis tree = analyzeTree(rawEntries);
-            ChunkSurvey survey = surveyFinishedChunks(snapshot, level, tree.registeredBiomes);
+            biomeSource.possibleBiomes().stream()
+                .map(MinecraftProbeHelpers::biomeId)
+                .forEach(tree.possibleBiomes::add);
+            @SuppressWarnings("unchecked")
+            TerraBlenderParameterList<Holder<Biome>> terraBlenderParameters =
+                (Object) parameters instanceof TerraBlenderParameterList<?> list
+                    ? (TerraBlenderParameterList<Holder<Biome>>) list
+                    : null;
+            ChunkSurvey survey = surveyFinishedChunks(
+                snapshot, level, tree.registeredBiomes, terraBlenderParameters
+            );
 
-            return this.selection.result(snapshot, buildOutput(tree, survey));
+            TerraBlenderParameterList.CompositionDiagnostics<Holder<Biome>> composition = terraBlenderParameters == null
+                ? null
+                : terraBlenderParameters.reterraforged$getCompositionDiagnostics();
+            return this.selection.result(snapshot, buildOutput(tree, survey, composition));
         }
 
         private ChunkSurvey surveyFinishedChunks(
             FinishedChunkSelection.Snapshot snapshot, ServerLevel level,
-            Set<String> registeredBiomes
+            Set<String> registeredBiomes,
+            TerraBlenderParameterList<Holder<Biome>> parameters
         ) {
             int minQuartY = QuartPos.fromBlock(level.getMinBuildHeight());
             int maxQuartY = QuartPos.fromBlock(level.getMaxBuildHeight() - 1);
             int surfaceQuartY = QuartPos.fromBlock(this.surfaceThresholdY);
 
             ChunkSurvey survey = new ChunkSurvey();
+            Climate.Sampler sampler = level.getChunkSource().randomState().sampler();
             for (FinishedChunkSelection.ReadyChunk ready : snapshot.ready()) {
                 int chunkQuartX = ready.coordinate().x() * 4;
                 int chunkQuartZ = ready.coordinate().z() * 4;
@@ -96,6 +114,12 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
                             );
                             boolean isSurface = quartY >= surfaceQuartY;
                             survey.record(biome, isSurface, registeredBiomes);
+                            if (parameters != null) {
+                                Climate.TargetPoint target = sampler.sample(quartX, quartY, quartZ);
+                                TerraBlenderParameterList.SelectionDiagnostics<Holder<Biome>> selection =
+                                    parameters.reterraforged$inspectSelection(target, quartX, quartY, quartZ);
+                                survey.recordSelection(selection, biome);
+                            }
                         }
                     }
                 }
@@ -132,8 +156,12 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             boolean hasSurface = false;
 
             for (Climate.ParameterPoint p : points) {
-                boolean isConv = RtfReachabilityCensusProbePack.isUndergroundConvention(p);
-                if (isConv) {
+                UndergroundBiomeBanding.CandidateRole role = UndergroundBiomeBanding.classify(
+                    p, false
+                );
+                boolean isCandidate = role == UndergroundBiomeBanding.CandidateRole.SHALLOW_CAVE
+                    || role == UndergroundBiomeBanding.CandidateRole.DEEP_CAVE;
+                if (isCandidate) {
                     hasConvention = true;
                     nsCounts[2]++;
                 }
@@ -183,7 +211,11 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         return colon >= 0 ? biomeId.substring(0, colon) : "minecraft";
     }
 
-    private static JsonObject buildOutput(TreeAnalysis tree, ChunkSurvey survey) {
+    private static JsonObject buildOutput(
+        TreeAnalysis tree,
+        ChunkSurvey survey,
+        TerraBlenderParameterList.CompositionDiagnostics<Holder<Biome>> composition
+    ) {
         JsonObject data = new JsonObject();
         data.addProperty("authority", "composition-audit");
 
@@ -203,6 +235,18 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         treeJson.add("namespaces", nsJson);
         data.add("parameter_tree", treeJson);
 
+        JsonObject possibleJson = new JsonObject();
+        possibleJson.addProperty("biome_count", tree.possibleBiomes.size());
+        JsonObject possibleNamespaces = new JsonObject();
+        Map<String, Integer> possibleNamespaceCounts = new TreeMap<>();
+        tree.possibleBiomes.forEach(biome -> possibleNamespaceCounts.merge(namespace(biome), 1, Integer::sum));
+        possibleNamespaceCounts.forEach(possibleNamespaces::addProperty);
+        possibleJson.add("namespaces", possibleNamespaces);
+        JsonArray possibleBiomes = new JsonArray();
+        tree.possibleBiomes.forEach(possibleBiomes::add);
+        possibleJson.add("biomes", possibleBiomes);
+        data.add("biome_source_possible", possibleJson);
+
         // === Underground convention ===
         JsonObject ugJson = new JsonObject();
         ugJson.addProperty("candidate_count", tree.conventionBiomes.size());
@@ -217,6 +261,31 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             ugJson.add("non_convention_underground", ncArr);
         }
         data.add("underground_convention", ugJson);
+
+        if (composition != null) {
+            JsonObject compositionJson = new JsonObject();
+            compositionJson.addProperty("region_count", composition.regionCount());
+            compositionJson.add("source_entry_counts", integers(composition.sourceEntryCounts()));
+            compositionJson.addProperty("canonical_entry_count", composition.canonicalEntryCount());
+            compositionJson.addProperty("exact_duplicate_count", composition.duplicateEntryCount());
+            compositionJson.addProperty("late_global_entry_count", composition.lateGlobalEntryCount());
+            compositionJson.addProperty("excluded_entry_count", composition.excludedEntryCount());
+            compositionJson.addProperty("invalid_entry_count", composition.invalidEntryCount());
+            compositionJson.add("invalid_regions", integers(composition.invalidRegions()));
+			compositionJson.addProperty("alternative_parameter_point_count", composition.alternativePointCount());
+			compositionJson.addProperty("replaced_regional_cave_slot_count", composition.replacedCaveSlotCount());
+			compositionJson.addProperty("surface_selection", "weighted-regional-tree");
+            compositionJson.addProperty("shallow_candidate_count", composition.shallowCandidateCount());
+            compositionJson.addProperty("deep_stage_candidate_count", composition.deepCandidateCount());
+            compositionJson.add("shallow_candidates", biomes(composition.shallowCandidates()));
+            compositionJson.add("deep_stage_candidates", biomes(composition.deepCandidates()));
+            compositionJson.addProperty("unknown_entry_count", composition.unknownEntryCount());
+            compositionJson.addProperty("classification_failure_count", composition.classificationFailureCount());
+            if (composition.fallbackReason() != null) {
+                compositionJson.addProperty("fallback_reason", composition.fallbackReason());
+            }
+            data.add("terrablender_composition", compositionJson);
+        }
 
         // === Duplicate registrations ===
         if (!tree.duplicateRegistrations.isEmpty()) {
@@ -265,6 +334,19 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
 
         data.add("finished_chunk_survey", surveyJson);
 
+        if (survey.selectionSamples > 0) {
+            JsonObject selectionJson = new JsonObject();
+            selectionJson.addProperty("authority", "direct-random-state-sampler-diagnostic");
+            selectionJson.addProperty("samples", survey.selectionSamples);
+            selectionJson.addProperty("finished_palette_agreements", survey.finishedPaletteAgreements);
+            selectionJson.addProperty("finished_palette_disagreements", survey.finishedPaletteDisagreements);
+            selectionJson.add("selected_regions", counts(survey.selectedRegions));
+            selectionJson.add("original_winners", counts(survey.originalWinners));
+            selectionJson.add("banded_winners", counts(survey.bandedWinners));
+            selectionJson.add("fallback_reasons", counts(survey.fallbackReasons));
+            data.add("selection_audit", selectionJson);
+        }
+
         // === Banding health ===
         JsonObject bandingJson = new JsonObject();
         bandingJson.addProperty("convention_candidates", tree.conventionBiomes.size());
@@ -290,9 +372,28 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         return data;
     }
 
+    private static JsonArray integers(List<Integer> values) {
+        JsonArray result = new JsonArray();
+        values.forEach(result::add);
+        return result;
+    }
+
+    private static JsonArray biomes(List<Holder<Biome>> values) {
+        JsonArray result = new JsonArray();
+        values.stream().map(MinecraftProbeHelpers::biomeId).sorted().forEach(result::add);
+        return result;
+    }
+
+    private static JsonObject counts(Map<String, Long> counts) {
+        JsonObject result = new JsonObject();
+        counts.forEach(result::addProperty);
+        return result;
+    }
+
     static final class TreeAnalysis {
         int totalEntries;
         final Set<String> registeredBiomes = new TreeSet<>();
+        final Set<String> possibleBiomes = new TreeSet<>();
         final Map<String, int[]> namespaceCounts = new TreeMap<>();
         final List<String> conventionBiomes = new ArrayList<>();
         final List<String> nonConventionUnderground = new ArrayList<>();
@@ -307,6 +408,13 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         final Set<String> allObserved = new TreeSet<>();
         final Set<String> outsideTree = new TreeSet<>();
         final Map<String, long[]> counts = new TreeMap<>();
+        long selectionSamples;
+        long finishedPaletteAgreements;
+        long finishedPaletteDisagreements;
+        final Map<String, Long> selectedRegions = new TreeMap<>();
+        final Map<String, Long> originalWinners = new TreeMap<>();
+        final Map<String, Long> bandedWinners = new TreeMap<>();
+        final Map<String, Long> fallbackReasons = new TreeMap<>();
 
         void record(String biome, boolean isSurface, Set<String> registeredBiomes) {
             allObserved.add(biome);
@@ -322,6 +430,28 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             }
             if (!registeredBiomes.contains(biome)) {
                 outsideTree.add(biome);
+            }
+        }
+
+        void recordSelection(
+            TerraBlenderParameterList.SelectionDiagnostics<Holder<Biome>> selection,
+            String finishedBiome
+        ) {
+            this.selectionSamples++;
+            this.selectedRegions.merge(Integer.toString(selection.selectedRegion()), 1L, Long::sum);
+            if (selection.usedFallback()) {
+                this.fallbackReasons.merge(selection.fallbackReason(), 1L, Long::sum);
+                return;
+            }
+
+            String original = MinecraftProbeHelpers.biomeId(selection.original());
+            String banded = MinecraftProbeHelpers.biomeId(selection.banded());
+            this.originalWinners.merge(original, 1L, Long::sum);
+            this.bandedWinners.merge(banded, 1L, Long::sum);
+            if (banded.equals(finishedBiome)) {
+                this.finishedPaletteAgreements++;
+            } else {
+                this.finishedPaletteDisagreements++;
             }
         }
     }

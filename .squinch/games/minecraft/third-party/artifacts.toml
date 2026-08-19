@@ -32,6 +32,96 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1
 source_id = "source-biomes-o-plenty"
 
 [[artifacts]]
+id = "mc1.21.1-neoforge-biolith-3.0.14"
+project_slug = "biolith"
+project_id = "iGEl6Crx"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "3.0.14"
+version_id = "EAjbdreT"
+filename = "biolith-neoforge-3.0.14.jar"
+sha256 = "ded9169efb903198046cf44cf91a290ec836ed83a28e29179087eb860e0e6ce9"
+status = "diagnostic-only"
+reason = "NeoForge 21.1.219 compatibility boundary check; Biolith fails its own pre-RTF mixin before preview initialization"
+required_dependencies = []
+source_id = "source-biolith"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-no-mans-land-1.5.12"
+project_slug = "no-mans-land"
+project_id = "kjZCvAn6"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "1.5.12"
+version_id = "bcszfrVc"
+filename = "nomansland-1.5.12.jar"
+sha256 = "7c79f329a28be69b9cc8308f2cc2360874e95752086768008b81b3f75c90d8a6"
+status = "diagnostic-only"
+reason = "Exact No Man's Land 1.5.12 + Biolith biome-placement compatibility investigation stack"
+required_dependencies = ["mc1.21.1-neoforge-biolith-3.0.14"]
+source_id = "source-no-mans-land"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-biolith-3.0.11"
+project_slug = "biolith"
+project_id = "iGEl6Crx"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "3.0.11"
+version_id = "1ZfKhpFg"
+filename = "biolith-neoforge-3.0.11.jar"
+sha256 = "9a30b36cdb396b6a986f51a6fb6c11c4df0d246cdae4c7841668f7d89ff05c94"
+status = "approved"
+reason = "Exact NeoForge 21.1.219 biome preview parity stack"
+required_dependencies = []
+source_id = "source-biolith"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-biomes-o-plenty-21.1.0.14"
+project_slug = "biomes-o-plenty"
+project_id = "HXF82T3G"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "21.1.0.14"
+version_id = "BtZKRp69"
+filename = "BiomesOPlenty-neoforge-1.21.1-21.1.0.14.jar"
+sha256 = "5f3c8d752c2e0464eca8c9527d8ffe498129fd37a2fe86a266b64c98371763b1"
+status = "approved"
+reason = "NeoForge biome preview parity investigation"
+required_dependencies = ["mc1.21.1-neoforge-glitchcore-2.1.0.2", "mc1.21.1-neoforge-terrablender-4.1.0.8"]
+source_id = "source-biomes-o-plenty"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-glitchcore-2.1.0.2"
+project_slug = "glitchcore"
+project_id = "s3dmwKy5"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "2.1.0.2"
+version_id = "S2TfWrZR"
+filename = "GlitchCore-neoforge-1.21.1-2.1.0.2.jar"
+sha256 = "59d2a3fb3d6877e43018fd6a2b199d526074a864276a5f49091409a1cdc62fae"
+status = "diagnostic-only"
+reason = "Required by the NeoForge Biomes O' Plenty diagnostic stack"
+required_dependencies = []
+source_id = "source-glitchcore"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-terrablender-4.1.0.8"
+project_slug = "terrablender"
+project_id = "kkmrDlKT"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "4.1.0.8"
+version_id = "6e8GCrLb"
+filename = "TerraBlender-neoforge-1.21.1-4.1.0.8.jar"
+sha256 = "0c49b5ef447a7f09100e9a210888a7347fbda0aa75322063991f6063b25fe3f9"
+status = "approved"
+reason = "Explicit NeoForge biome-platform dependency for preview parity"
+required_dependencies = []
+source_id = "source-terrablender"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-cloth-config-15.0.140"
 project_slug = "cloth-config"
 project_id = "9s6osm5g"
@@ -197,6 +287,51 @@ required_dependencies = []
 source_id = "source-mekanism"
 
 [[artifacts]]
+id = "mc1.21.1-neoforge-lithostitched-1.7.13"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "1.7.13-neoforge-21.1"
+version_id = "qPASucBM"
+filename = "lithostitched-1.7.13-neoforge-21.1.jar"
+sha256 = "a90b1d485b138328ceaa156b7897b0829eb1ee1522b997870a53129ae65e5512"
+status = "diagnostic-only"
+reason = "The published jar targets a different NeoForge Beardifier method layout and fails its own mixin before the RTF preview adapter can run"
+required_dependencies = []
+source_id = "source-lithostitched"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-regions-unexplored-0.6.2"
+project_slug = "regions-unexplored"
+project_id = "Tkikq67H"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "0.6.2-neoforge-21.1"
+version_id = "5A8LFnXX"
+filename = "regions-unexplored-0.6.2-neoforge-21.1.jar"
+sha256 = "ccf32ed714f2724f54406b9e02a8d6f94d87dc5c72397bc39b3d6ed8f32412ea"
+status = "diagnostic-only"
+reason = "Depends on the diagnostic-only NeoForge Lithostitched release whose upstream mixin is incompatible with the repository NeoForge runtime"
+required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.7.13"]
+source_id = "source-regions-unexplored"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta4"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "1.8.0+beta4-neoforge-21.1"
+version_id = "81DDKTGJ"
+filename = "lithostitched-1.8.0+beta4-neoforge-21.1.jar"
+sha256 = "f9bed6228565d69166ac85edbe6159e28674a687562964e5424a8c8a477d20c0"
+status = "diagnostic-only"
+reason = "Latest NeoForge 21.1 Lithostitched release for the Regions Unexplored preview compatibility matrix"
+required_dependencies = []
+source_id = "source-lithostitched-upstream"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-platform-1.3.3"
 project_slug = "platform"
 project_id = "i6fiqm5y"
@@ -333,15 +468,27 @@ source_id = "source-yungs-cave-biomes"
 
 [[sources]]
 id = "source-biolith"
-repository = "https://github.com/TerraformersMC/Biolith.git"
-requested_ref = "1.21.1"
+repository = "git@github.com:TerraformersMC/Biolith.git"
+requested_ref = "v3.0.14"
 resolved_commit = "996b7a468ce7c36d2883e70eae3a8c87a30bae63"
 minecraft_version = "1.21.1"
 checkout = "games/minecraft/reference/sources/1.21.1/mods/biolith"
 status = "available"
 shallow = true
 blob_filter = true
-sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources", "neoforge/src/main/java", "neoforge/src/main/resources"]
+
+[[sources]]
+id = "source-no-mans-land"
+repository = "git@github.com:Alchemists-Of-Yore/No-Mans-Land.git"
+requested_ref = "1.21.1"
+resolved_commit = "141489a9d18d05aa490440706bdd7ee1b74f41aa"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/no-mans-land"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src"]
 
 [[sources]]
 id = "source-biomes-o-plenty"
@@ -405,7 +552,7 @@ sparse_paths = ["src/main/java", "src/main/resources"]
 
 [[sources]]
 id = "source-lithostitched"
-repository = "https://github.com/Apollounknowndev/lithostitched.git"
+repository = "git@github.com:Apollounknowndev/lithostitched.git"
 requested_ref = "1.21"
 resolved_commit = "5629216757723f196306416a0d3341c8be22f4fa"
 minecraft_version = "1.21.1"
@@ -414,6 +561,18 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+
+[[sources]]
+id = "source-lithostitched-upstream"
+repository = "git@github.com:Apollounknowndev/lithostitched.git"
+requested_ref = "21.1"
+resolved_commit = "b7305014de3e80849511eedb615eaf7aa46259ce"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/lithostitched-upstream"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources", "neoforge/src/main/java", "neoforge/src/main/resources"]
 
 [[sources]]
 id = "source-mekanism"
@@ -429,15 +588,15 @@ sparse_paths = ["src/main/java", "src/main/resources"]
 
 [[sources]]
 id = "source-regions-unexplored"
-repository = "https://github.com/Apollounknowndev/RegionsUnexplored.git"
+repository = "git@github.com:Apollounknowndev/RegionsUnexplored.git"
 requested_ref = "21.1"
-resolved_commit = "f5dfe4eea916cb7ccb4990faebc952459dad5f8b"
+resolved_commit = "ea78a0feb58434a2c7b8601f01037327cf2e3f54"
 minecraft_version = "1.21.1"
 checkout = "games/minecraft/reference/sources/1.21.1/mods/regionsunexplored"
 status = "available"
 shallow = true
 blob_filter = true
-sparse_paths = ["common/src/main/java", "common/src/main/resources"]
+sparse_paths = ["src/common/main/java", "src/common/main/resources"]
 
 [[sources]]
 id = "source-terralith"

@@ -6,6 +6,11 @@ Minecraft selects multi-noise biomes from temperature, humidity, continentalness
 weirdness, and offset. Within a vertical column, depth is the primary Y-varying coordinate; the
 others are largely horizontal fields.
 
+FTF is the climate producer and Minecraft, together with biome-mod integrations, is the selector.
+Terrain categories can shape the ranges that FTF produces, but they must not become substitute biome
+IDs or replace the continuous climate fields used by the selector. A biome is reachable only when
+the climate produced for a terrain context gets close enough to that biome's registered target.
+
 Climate parameter ranges are nearest-neighbor targets, not hard inclusion filters. A terminal depth
 registration can continue winning below its declared point when no closer candidate exists. Merely
 shortening a range does not create a lower boundary.
@@ -16,8 +21,14 @@ RTF climate mappings have these relationships:
 - underground depth is surface-relative and aligned with terrain depth;
 - ocean and land continentalness blend across configured coast controls rather than switch at a hard
   seam; and
-- erosion needed for biome selection is captured before river/climate passes overwrite the terrain
-  value.
+- terrain-owned erosion and weirdness remain available to biome selection until an explicitly
+  classified hydrology feature assigns its own values.
+
+Hydrology-specific climate ownership is narrow by design. Rivers, submerged lakes, and wetlands may
+assign the values that identify those features, but river proximity or a low river-mask value must
+not replace the climate produced for ordinary plains, hills, badlands, or mountains. Generic terrain
+needs to retain enough erosion and weirdness variation for the biome registrations that are intended
+to compete there.
 
 Altering a density function shared with terrain redistributes both biomes and terrain.
 
@@ -62,6 +73,20 @@ The current implementation seams are `UndergroundBiomeBanding`, `MixinMultiNoise
 for the plain source, `MixinParameterList` for TerraBlender's per-region trees, and the
 `MixinRandomState`/`MixinNoiseChunk` sampler-context propagation. Together they form the
 preset-context and layout data path.
+
+## Preview identity
+
+The preset preview should query the same active biome-selection system that world generation uses,
+not render an internal terrain category as a biome substitute.
+
+- Resolve the biome at the generated surface height using the active positional query path.
+- Display the exact registry ID so vanilla and modded biomes have the same identity in the preview
+  that they have in a generated chunk.
+- Keep underground-only candidates out of the surface view without changing runtime selection.
+- Treat TerraBlender, Biolith, Lithostitched, and similar integrations as part of the selection path
+  when they are active.
+- If an optional integration cannot participate, fall back to the normal composed biome source and
+  make the degraded preview state visible instead of silently inventing a different result.
 
 ## TerraBlender
 

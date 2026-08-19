@@ -4,6 +4,24 @@ Minecraft's multi-noise biome source selects from temperature, humidity, contine
 depth, weirdness, and offset registrations. Depth is the main Y-varying coordinate; the other fields
 are largely column-like.
 
+## Climate fields and reachability
+
+The biome source consumes climate values produced by terrain and noise systems. It does not know
+whether a location is a plain, mountain, or river except through those values and the registered
+parameter points.
+
+Biome reachability is therefore a property of both sides of the lookup:
+
+- a registration describes a target in climate space, not a hard inclusion mask;
+- the producer must sample a neighborhood around that target in the terrain contexts where the biome
+  is intended to appear; and
+- the sampled fields should change smoothly in space so nearby locations do not make unrelated biome
+  decisions from arbitrary labels or hashes.
+
+Widening a parameter range does not help if the producer never reaches it. Conversely, making a
+producer cover a wider range without preserving spatial continuity can replace coherent regions with
+a fine-grained biome mosaic.
+
 ## Nearest-neighbor registrations
 
 Climate parameter ranges are nearest-neighbor targets rather than hard inclusion filters. A biome

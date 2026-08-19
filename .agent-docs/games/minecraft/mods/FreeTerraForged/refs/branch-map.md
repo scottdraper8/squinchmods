@@ -1,20 +1,20 @@
-# ReTerraForged Branch Map
+# FreeTerraForged Branch Map
 
-Reflects branches that exist locally as of 2026-08-05; reverify before relying on it long-term.
+Reflects the live local branches and in-repository submodule state as of 2026-08-18.
 
-`origin` is `scottdraper8/FreeTerraForged` (renamed from `ReTerraForged` to match upstream);
-`upstream` is `ETcodehome/FreeTerraForged` (renamed from `ReTerraForged`).
+`origin` is `scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
 
 ## Branches
 
-| Branch                         | Origin  | Tip       | Status                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------------ | ------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `1.21.1`                       | tracked | `a154b1c` | Production base. In sync with `upstream/1.21.1`.                                                                                                                                                                                                                                                                                                        |
-| `feat/configurable-strata`     | tracked | `ff1eed1` | Configurable strata/deepslate band. No PR opened yet. The TerraBlender surface-rule registration is composed with the merged underground-biome-banding initialization. Both loaders compile and a real Fabric server boot passed. See `plans/configurable-strata.md`. Needs a rebase onto the current `1.21.1` tip before a PR is opened.               |
-| `feat/configurable-shorelines` | tracked | `6368dbb` | Beach/shoreline subsystem port. No PR opened yet. Shoreline metadata was integrated with the current uplift-river carver and wetland water levels use current complex hydrology. Both loaders compile and a real Fabric server boot passed. See `plans/configurable-shorelines.md`. Needs a rebase onto the current `1.21.1` tip before a PR is opened. |
+| Branch                         | Remote  | Status                                                                                                  |
+| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------- |
+| `1.21.1`                       | tracked | Current production base, pinned to `908595b`; synchronized with upstream and pushed to `origin/1.21.1`. |
+| `feat/configurable-strata`     | tracked | Active configurable strata/deepslate-band work. No PR opened; needs rebasing before submission.         |
+| `feat/configurable-shorelines` | tracked | Active configurable shoreline work. No PR opened; needs rebasing before submission.                     |
+| `hotfix/biome-previewer-bugs`  | tracked | Active biome-preview follow-up; pushed to `origin`, PR #186 open upstream.                              |
 
-Worktrees: the in-repository `FreeTerraForged` submodule is on `1.21.1`. Product WIP branches do not
-have idle worktrees.
+The in-repository `FreeTerraForged` submodule is on `hotfix/biome-previewer-bugs`. The branch is
+intentionally still under development. Use `git branch -vv` in the submodule for its current tip.
 
 ## `qa/` vs `fix/` convention
 

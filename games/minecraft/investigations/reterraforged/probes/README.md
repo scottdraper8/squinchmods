@@ -9,13 +9,15 @@ different measurements:
   `RealChunkBiomeProfileScanner` without its fixed `(80,100)..(95,115)` region, visual targets, log
   stream, or `MinecraftServer` tick Mixin.
 - `placement-telemetry`: placement invocation, sampled count, height candidate, biome-filter, and
-  surviving write telemetry, keyed by feature and chunk. Its five Mixins hook the generic vanilla
-  placement classes (`PlacedFeature`, `HeightRangePlacement`, `CountPlacement`, `BiomeFilter`,
-  `WorldGenRegion`) and only capture events — nothing about the pack is cave-specific despite its
-  origin in cave-decoration investigation; `feature_ids` selects any registered `PlacedFeature`,
-  including standard ores (see `plans/ore-generation-improvements.md` for a worked example). Feature
-  IDs, bounds, bands, sampling limits, and output selection are request configuration;
-  finished-chunk closure comes from the shared helper.
+  surviving write telemetry, keyed by feature and chunk. Its hooks cover generic placement classes
+  (`PlacedFeature`, `HeightRangePlacement`, `CountPlacement`, `BiomeFilter`) plus the chunk-section
+  write path used directly by vanilla `OreFeature` (`BulkSectionAccess` and `LevelChunkSection`). It
+  only captures events — nothing about the pack is cave-specific despite its origin in
+  cave-decoration investigation; `feature_ids` selects any registered `PlacedFeature`, including
+  standard ores (see
+  `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/ore-generation/implementation-plan.md` for
+  the production boundary). Feature IDs, bounds, bands, sampling limits, and output selection are
+  request configuration; finished-chunk closure comes from the shared helper.
 - `reachability-census`: per-biome finished-chunk selection counts, fitness wins (surface and
   underground), competitive-strength metrics (win margin min/max/mean, strength = volume × margin),
   and classification (REACHABLE/FRAGILE/UNREACHABLE/BANDING_EXCLUDED) with registration-shape

@@ -1,0 +1,46 @@
+schema_version = 1
+name = "Ore plan verification: additional seed 12345 inland control"
+project = "games/minecraft/mods/FreeTerraForged"
+loader = "fabric"
+seed = 12345
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry"]
+retention = "keep-on-failure"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-placement-telemetry"
+version = "1"
+config = { feature_ids = ["minecraft:ore_coal_upper", "minecraft:ore_iron_small", "minecraft:ore_diamond", "minecraft:ore_redstone"], bounds = [226, -414, 233, -407], unit = "chunk", max_wait_ticks = 1200, top_k = 20, bands = [{ id = "vanilla_range", min_y = -64, max_y = 319 }] }
+
+[[probes]]
+id = "squinch:finished-chunk-palette"
+version = "1"
+config = { bounds = [226, -414, 233, -407], unit = "chunk", sample_heightmap = "WORLD_SURFACE", sample_step = 4, top_k = 20, example_limit = 20 }
+
+[[steps]]
+id = "generate-inland-window"
+type = "generate"
+unit = "chunk"
+bounds = [226, -414, 233, -407]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-placement-telemetry"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "verify-finished-surface"
+type = "probe"
+probe = "squinch:finished-chunk-palette"
+expect = { terminal_state = "pass" }

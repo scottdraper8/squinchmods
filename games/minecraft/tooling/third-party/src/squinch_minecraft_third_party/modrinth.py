@@ -252,6 +252,7 @@ def acquire_catalog_artifact(
     catalog_path: Path,
     *,
     destination_root: Path | None = None,
+    include_beta: bool = False,
 ) -> AcquiredRelease:
     artifacts, _sources = load_catalog(catalog_path)
     try:
@@ -267,6 +268,7 @@ def acquire_catalog_artifact(
         version_id=artifact.version_id,
         version_number=artifact.version_number,
         pinned_sha256=artifact.sha256,
+        include_beta=include_beta,
         destination_root=destination_root,
     )
     if release.project_id != artifact.project_id or release.version_id != artifact.version_id:

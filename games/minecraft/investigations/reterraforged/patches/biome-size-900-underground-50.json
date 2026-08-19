@@ -1,0 +1,8 @@
+{
+  "climate": {
+    "biomeShape": {
+      "biomeSize": 900,
+      "undergroundBiomeSize": 50
+    }
+  }
+}

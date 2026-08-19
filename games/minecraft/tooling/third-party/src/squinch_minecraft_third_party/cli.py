@@ -20,6 +20,7 @@ def _parser() -> argparse.ArgumentParser:
     acquire.add_argument("--artifact-id", required=True)
     acquire.add_argument("--catalog", type=Path)
     acquire.add_argument("--cache-root", type=Path)
+    acquire.add_argument("--include-beta", action="store_true", help="Allow an explicitly pinned beta-channel release")
 
     validate = subparsers.add_parser("validate", help="Validate the committed artifact catalog")
     validate.add_argument("--catalog", type=Path)
@@ -51,6 +52,7 @@ def main(argv: list[str] | None = None) -> None:
                 args.artifact_id,
                 catalog,
                 destination_root=args.cache_root,
+                include_beta=args.include_beta,
             )
             print(json.dumps({
                 "project": release.project,

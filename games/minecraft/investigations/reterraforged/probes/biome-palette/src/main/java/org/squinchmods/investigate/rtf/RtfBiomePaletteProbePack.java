@@ -139,6 +139,7 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
                             sampled++;
                             if (ready.chunk().getBlockState(cursor.set(blockX, blockY, blockZ)).isAir()) {
                                 biomeStats.airSamples++;
+                                biomeStats.addAirExample(blockX, blockY, blockZ, this.exampleLimit);
                                 air++;
                                 if (airExamples.size() < this.exampleLimit) {
                                     JsonObject example = new JsonObject();
@@ -228,7 +229,19 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
         private int minY = Integer.MAX_VALUE;
         private int maxY = Integer.MIN_VALUE;
         private final Map<String, Long> bands = new LinkedHashMap<>();
+        private final JsonArray airExamples = new JsonArray();
         private ClimateAxisStats climateAxes;
+
+        private void addAirExample(int x, int y, int z, int limit) {
+            if (this.airExamples.size() >= limit) {
+                return;
+            }
+            JsonObject example = new JsonObject();
+            example.addProperty("x", x);
+            example.addProperty("y", y);
+            example.addProperty("z", z);
+            this.airExamples.add(example);
+        }
 
         private ClimateAxisStats climateAxes() {
             if (this.climateAxes == null) {
@@ -243,6 +256,7 @@ public final class RtfBiomePaletteProbePack implements ProbePack {
             result.addProperty("air_samples", this.airSamples);
             result.addProperty("min_y", this.minY);
             result.addProperty("max_y", this.maxY);
+            result.add("air_examples", this.airExamples);
             JsonObject bandCounts = new JsonObject();
             this.bands.forEach(bandCounts::addProperty);
             result.add("bands", bandCounts);

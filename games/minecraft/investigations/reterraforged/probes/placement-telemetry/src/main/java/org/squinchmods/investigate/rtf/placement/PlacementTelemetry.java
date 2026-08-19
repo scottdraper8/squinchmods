@@ -24,6 +24,7 @@ import org.squinchmods.investigate.MinecraftProbeHelpers;
 public final class PlacementTelemetry {
     private static final ConcurrentHashMap<Key, Stats> STATS = new ConcurrentHashMap<>();
     private static final ThreadLocal<Deque<Run>> ACTIVE = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<BlockPos> LAST_SECTION_POSITION = new ThreadLocal<>();
     private static final ThreadMXBean THREADS = ManagementFactory.getThreadMXBean();
 
     private PlacementTelemetry() {
@@ -50,6 +51,7 @@ public final class PlacementTelemetry {
         }
         if (stack.isEmpty()) {
             ACTIVE.remove();
+            LAST_SECTION_POSITION.remove();
         }
     }
 
@@ -103,6 +105,36 @@ public final class PlacementTelemetry {
         stats.writtenBlocks.computeIfAbsent(
             MinecraftProbeHelpers.blockId(state), ignored -> new LongAdder()
         ).increment();
+    }
+
+    public static void sectionPosition(BlockPos position) {
+        if (!ACTIVE.get().isEmpty()) {
+            LAST_SECTION_POSITION.set(position.immutable());
+        }
+    }
+
+    /**
+     * Records a write made directly through a chunk section. Vanilla's
+     * standard OreFeature uses this path instead of WorldGenRegion.setBlock.
+     * BulkSectionAccess supplies the world-space position immediately before
+     * vanilla writes through the section.
+     */
+    public static void blockWrite(BlockState state) {
+        Deque<Run> stack = ACTIVE.get();
+        if (stack.isEmpty()) {
+            return;
+        }
+        BlockPos position = LAST_SECTION_POSITION.get();
+        if (position == null) {
+            Run run = stack.peek();
+            Stats stats = STATS.computeIfAbsent(new Key(run.featureId(), run.chunk()), ignored -> new Stats());
+            stats.blockWrites.increment();
+            stats.writtenBlocks.computeIfAbsent(
+                MinecraftProbeHelpers.blockId(state), ignored -> new LongAdder()
+            ).increment();
+            return;
+        }
+        blockWrite(position, state);
     }
 
     public static Map<Key, Stats> stats() {
