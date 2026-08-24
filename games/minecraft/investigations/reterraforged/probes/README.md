@@ -14,10 +14,8 @@ different measurements:
   write path used directly by vanilla `OreFeature` (`BulkSectionAccess` and `LevelChunkSection`). It
   only captures events — nothing about the pack is cave-specific despite its origin in
   cave-decoration investigation; `feature_ids` selects any registered `PlacedFeature`, including
-  standard ores (see
-  `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/ore-generation/implementation-plan.md` for
-  the production boundary). Feature IDs, bounds, bands, sampling limits, and output selection are
-  request configuration; finished-chunk closure comes from the shared helper.
+  standard ores. Feature IDs, bounds, bands, sampling limits, and output selection are request
+  configuration; finished-chunk closure comes from the shared helper.
 - `reachability-census`: per-biome finished-chunk selection counts, fitness wins (surface and
   underground), competitive-strength metrics (win margin min/max/mean, strength = volume × margin),
   and classification (REACHABLE/FRAGILE/UNREACHABLE/BANDING_EXCLUDED) with registration-shape

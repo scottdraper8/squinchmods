@@ -148,11 +148,9 @@ registry/provider state speculatively and do not claim parity from a fallback re
 
 ## Next implementation gate
 
-There is no authorized production implementation on `feat/worldgen-compatibility-runtime`. The
-branch is source-clean and uses the production-equivalent tree. New runtime evidence belongs in the
-clean detached worktree:
-
-`games/minecraft/investigation-state/worktrees/ftf-compat-runtime-evidence`
+There is no authorized production implementation. Begin any implementation or new runtime evidence
+from the live upstream production tip in an isolated clean worktree; do not assume an existing
+investigation checkout is current.
 
 The first implementation must be justified by a concrete consumer. The maximum safe initial scope
 is:

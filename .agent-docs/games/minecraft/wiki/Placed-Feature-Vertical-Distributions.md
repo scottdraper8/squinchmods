@@ -25,11 +25,37 @@ probability `extensionLength / 321`.
 `BiomeFilter` still resolves ownership for every candidate, so candidate density is not a per-biome
 quota.
 
+## Remapping a discrete authored distribution
+
+Treat an authored height provider as probability mass over integer Y cells, not as two endpoints to
+stretch. If an authored cell has probability mass `p(y)` and maps into a live interval with width
+`w(y)`, its live candidate intensity is:
+
+```text
+mapped intensity(y) = p(y) * w(y)
+attempt scale = sum(mapped intensity)
+mapped Y probability = mapped intensity / attempt scale
+```
+
+The attempt scale may be less than one. Unbiased stochastic rounding—`floor(scale)` plus a Bernoulli
+trial for the fractional part—preserves the expected count without forcing every occurrence to
+produce a candidate.
+
+Piecewise mapping should use cell edges, preserve the authored provider shape, and resolve relative
+anchors in the reference frame before mapping. Exact identity should delegate to the original
+placement path so it consumes no additional random values. Candidate-density preservation does not
+guarantee identical final block density: terrain hosts, caves, fluids, exposure rejection, feature
+overlap, biome ownership, and later decoration remain independent authorities.
+
 ## Random-stream behavior
 
 Minecraft decoration uses shared random streams. Additional draws on the main stream change later
 decoration. A baseline draw on the original stream plus extension decisions derived from stable
 inputs such as world seed, feature identity, and position leaves later main-stream draws unchanged.
+
+When one authored attempt expands into several candidates, fanout must occur before the first
+spatial sampler that needs independent values. Repeating only after X/Z sampling stacks candidates
+in one column; repeating only after height sampling can duplicate an already-filtered result.
 
 Concurrent neighboring-chunk generation can change aggregate write counts even when the placement
 decision for each stable input is deterministic. Placement determinism and aggregate block totals

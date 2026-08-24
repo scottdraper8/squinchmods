@@ -20,37 +20,20 @@ Use seed `3216933670`, the canonical archipelago fixtures, a default-depth contr
 regression area around `(230250, 163350)`. Validate continuity, real-block shelf slope, island
 count/footprint, whole-island clearance, determinism, chunk boundaries, and generation cost.
 
-## Dynamic ore generation
-
-Active documents:
-
-`.agent-docs/games/minecraft/mods/FreeTerraForged/plans/ore-generation/`
-
-Implementation branch: `feat/ore-contract-classifier` at `0a0b05e`, pushed to origin and
-source-clean in:
-
-`games/minecraft/investigation-state/worktrees/ftf-ore-contract-classifier`
-
-The mechanism and policy gates are closed. Standard final active `ore` and `scattered_ore` contracts
-are remapped into the live FTF vertical frame while preserving their feature geometry, targets, X/Z
-sampling, filters, biome membership, and downstream behavior. Custom feature systems remain
-unchanged. Remaining work is independent implementation review, same-seed player A/B QA, and final
-reference-frame identity/release verification. Do not restart the completed ownership, formula, or
-broad block-count surveys without a concrete failed contract.
-
 ## Worldgen compatibility
 
 Single source of truth:
 
 `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/worldgen-compatibility.md`
 
-This remains an evidence-backed boundary, not a production runtime. The source-clean investigation
-branch is `feat/worldgen-compatibility-runtime` at `2aee90a`; its tree is identical to production
-merge `734c054`. Worktree:
+This remains an evidence-backed boundary, not a production runtime. The local
+`feat/worldgen-compatibility-runtime` branch and its worktree contain no compatibility-layer source
+changes and are behind current production. Before implementation, recreate or advance the worktree
+from live `upstream/1.21.1`. Existing worktree:
 
 `/var/tmp/ftf-consolidated-compat-layer`
 
-Use only the clean detached evidence worktree for new compatibility scenarios:
+The detached evidence worktree is also on the older base and must be refreshed before new scenarios:
 
 `games/minecraft/investigation-state/worktrees/ftf-compat-runtime-evidence`
 
@@ -76,6 +59,7 @@ No production source change, branch push, or PR is authorized by the investigati
 ## Shared operating rules
 
 - Branch/worktree map: `.agent-docs/games/minecraft/mods/FreeTerraForged/refs/branch-map.md`
+- Engineering wiki: `.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/README.md`
 - Canonical fixtures: `games/minecraft/investigations/reterraforged/fixtures/`
 - Investigation workflow: `.agent-docs/games/minecraft/agentic-development-guide.md`
 - Tooling findings: `.agent-docs/games/minecraft/agentic-development-findings.md`
@@ -85,6 +69,5 @@ No production source change, branch push, or PR is authorized by the investigati
 
 The shared FTF submodule checkout remains at `hotfix/biome-previewer-bugs` `2aee90a` because that is
 the parent repository's recorded submodule commit. Do not alter it or the parent submodule pointer.
-Preserve unrelated parent changes and the active ore worktree. Use repository-relative scenario
-projects, check investigation status before and after every run, and never run Minecraft from a
-personal launcher profile.
+Preserve unrelated parent changes. Use repository-relative scenario projects, check investigation
+status before and after every run, and never run Minecraft from a personal launcher profile.

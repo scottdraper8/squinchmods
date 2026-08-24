@@ -21,6 +21,38 @@ Added candidates drawn from Minecraft's main random stream perturb later decorat
 baseline candidate on the existing stream and deriving extension decisions from isolated stable
 inputs leaves later main-stream draws unchanged.
 
+## Dynamic ordinary ores
+
+In a non-reference FTF Overworld, standard `minecraft:ore` and `minecraft:scattered_ore` placed
+features adapt their authored vertical probability mass and expected candidate count to the live
+geological frame. The mapping uses the dimension bottom, the fixed deepslate transition at Y `0..8`,
+sea level, and the dimension top. A reference frame of `-64..319` with sea level `63` delegates to
+the original path exactly.
+
+Eligibility comes from the final active placed-feature graph and the feature's public contract, not
+its namespace or supplying mod. A conventional modded ore can therefore participate without an
+adapter. A contract is transformed only when it has:
+
+- the standard ore or scattered-ore configured feature and `OreConfiguration`;
+- one supported uniform or triangular/trapezoid height provider;
+- recognized absolute, above-bottom, or below-top anchors; and
+- a placement-modifier order with a safe fanout boundary before independent spatial sampling.
+
+The transform changes only candidate Y and expected candidate multiplicity. It preserves X/Z
+sampling, biome membership, decoration order, downstream filters, target-rule order, output states,
+deposit size and geometry, and discard-on-air-exposure behavior. Expansion adds independent deposit
+origins; it does not enlarge deposits.
+
+Unknown height providers or position transformers, conflicting registrations, malformed frames,
+unsafe filter ordering, and unregistered direct features remain unchanged. Custom configured feature
+systems—including geodes, retrogen, striated formations, and other mechanisms that happen to write
+ore blocks—are outside this behavior. Noise-router large ore veins are also separate.
+
+The live plan is immutable and server-owned. It is activated only for an Overworld whose active
+random state is owned by FTF; installing FTF does not alter ordinary generation in another
+Overworld. Resource reload does not recreate the active worldgen registry graph, so it does not
+reclassify or mutate that plan.
+
 ## Structures use different authorities
 
 There is no common structure-height fix:
