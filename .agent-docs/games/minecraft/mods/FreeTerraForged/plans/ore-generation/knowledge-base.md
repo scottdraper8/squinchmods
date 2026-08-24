@@ -1,166 +1,356 @@
 <!-- markdownlint-disable MD013 MD038 MD046 -->
 
-# Ore Generation Knowledge Base
+# Dynamic Ore Knowledge Base
 
-This is the current evidence-backed model for ore generation in FreeTerraForged. It is a current
-state document, not a run history. Unless stated otherwise, evidence is from Minecraft `1.21.1`, FTF
-baseline `908595b`, and the latest-stable stack in [`test-matrix.md`](test-matrix.md).
+## Ordinary ore is a pipeline, not a block count
 
-## How ore generation works
-
-Ordinary placed-feature ore generation is evaluated in this order:
+For one final placed-feature occurrence, generation is:
 
 ```text
-dimension / generator
-→ selected biome
-→ final biome feature membership
-→ decoration step and placed-feature modifiers
-→ height provider and filters
-→ configured ore feature
-→ target-block rules and vein geometry
-→ terrain volume, caves, exposure, and later writes
+final biome membership and decoration order
+→ Count/Rarity/implicit multiplicity
+→ X/Z sampling
+→ height-provider Y sampling
+→ placement filters and biome check
+→ configured ore/scattered-ore geometry
+→ ordered target-rule tests
+→ discard-on-air-exposure test
+→ block writes
+→ later decoration/overwrites
+→ finished visible blocks
 ```
 
-The final `BiomeGenerationSettings.features()` list is the input that matters at runtime. A
-feature's registry entry is not enough: loader modifiers, biome-composition systems, datapacks, and
-replacements can change final membership, order, or duplication.
+Every layer matters:
 
-`UNDERGROUND_ORES` is not an ore classifier. It also contains disks such as sand, clay, gravel, mud,
-and calcite. Classification must use the configured-feature type and complete placement contract.
+- Count/Rarity controls expected origin trials.
+- InSquare controls horizontal origin distribution; chunks remain 16×16 at every world height.
+- Height providers control nonuniform Y probability.
+- Biome membership and filters decide which candidate origins survive.
+- `OreConfiguration.size` and the `ore`/`scattered_ore` algorithm control deposit geometry.
+- Ordered target rules choose hosts and output states (for example stone versus deepslate ore).
+- `discard_chance_on_air_exposure` rejects otherwise valid target cells.
+- Terrain, caves, fluids, overlap, and later features determine realized/final blocks.
 
-For `minecraft:ore`:
+`UNDERGROUND_ORES` is not a classifier; that decoration step also contains disks and custom
+features. Namespace and output block are not classifiers either. The reliable first boundary is the
+actual configured `Feature.ORE` or `Feature.SCATTERED_ORE` mechanism with `OreConfiguration`.
 
-- the configured feature defines target rules and vein size;
-- the placed feature defines count or rarity, horizontal distribution, height, and filters;
-- the biome feature list defines where the feature can run;
-- the feature can run successfully without writing a block;
-- target material, terrain volume, cave exposure, and later writes determine realized blocks.
+## Environmental role is not a vanilla cave/mountain flag
 
-Therefore these are different measurements:
+The high-mountain deepslate observation is caused by the interaction of two independent vanilla
+mechanisms. FTF's `ErodeFeature` can place a shallow tuff surface band on steep terrain. Vanilla
+ore configuration commonly contains both a normal stone target and a deepslate/tuff target. At
+`OreFeature.doPlace`, target rules are tested in order against the current host block; when the
+host is tuff, the normal target fails and the deepslate/tuff target succeeds. The ore feature then
+writes the configured deepslate ore output directly. There is no later generic transmutation step.
+
+Minecraft does not retain one universal semantic value such as `isCave`, `isMountain`, or
+`environmentRole` for ore placement. Existing signals answer narrower questions:
+
+| Signal | What it describes | Policy value |
+| --- | --- | --- |
+| Current host plus neighboring blocks | The generated local shape at the write position | Primary generic signal |
+| `WORLD_SURFACE_WG` and `OCEAN_FLOOR_WG` | Distance below the local world/ocean surface | Primary cheap depth signal |
+| `CarvingMask` | Whether a vanilla carver processed a coordinate | Diagnostic/secondary only |
+| `EnvironmentScanPlacement`-style bounded scan | Nearby air/solid topology | Possible generic classifier input |
+| Biome and biome tags | Intended ecological environment | Secondary context only |
+| NoiseRouter or FTF terrain cells | Generator-specific terrain cause or intent | Not a universal runtime signal |
+
+The distinction between cause and shape matters. `NoiseBasedChunkGenerator.applyCarvers` runs
+configured carvers that write air and maintain a `CarvingMask`. `CarvingMaskPlacement` can reuse
+that mask, but it only covers carver-produced cavities; noise-density caves and arbitrary modded
+terrain need not leave the same provenance. The mask is also set before the carver has necessarily
+successfully replaced the host block, so it is not a perfect cavity truth table. `CaveSurface` is
+only a floor/ceiling scan direction. Vanilla vegetation placement uses that direction together
+with local air/solid scanning; it does not receive a universal cave boolean.
+
+The generic distinction we can test is therefore environmental role rather than named terrain:
+
+- `SURFACE_VENEER`: the candidate is shallow below the local world surface, such as FTF's tuff
+  band on a mountain;
+- `CAVITY_WALL`: the host is solid but has nearby air/fluid or bounded cavity topology;
+- `SOLID_INTERIOR`: no nearby cavity topology is visible; and
+- `UNKNOWN`: context is insufficient, so vanilla behavior is preserved.
+
+This separates the important cases better than a global Y threshold. A high mountain surface is
+high in absolute Y but shallow relative to its local surface. A cave beneath that mountain can
+also be high in absolute Y while being far below the local surface and adjacent to a cavity. A
+cave ore deep inside a thick wall may have no local-air signal; without carver provenance or
+generator-specific density evaluation, its origin cannot be recovered generically after terrain
+has been generated. That uncertainty must remain an explicit `UNKNOWN` result rather than a guess.
+
+The correct decision boundary for any contextual target policy is `OreFeature.doPlace`, not the
+height placement layer. `doPlace` has the position, host state, target list, configured output,
+and world context while it loops through ordered target rules and writes the selected state. The
+lower-level `canPlaceOre` check can observe the host and air exposure, but it does not by itself
+provide the complete target-list context needed for safe output substitution. A generic policy
+must not assume that the first target is always a normal ore or that a deepslate output has a
+corresponding normal sibling. If no explicitly safe alternate target exists, suppressing a
+contextually invalid target or preserving vanilla behavior is safer than inventing an output
+mapping.
+
+### Environmental-role probe and performance boundary
+
+The next diagnostic should extend the existing ore placement telemetry at the accepted target or
+write boundary. For each accepted candidate, record the feature/target index, Y, host and output
+states, local surface depth, neighboring air/fluid state, biome, and optional carver-mask state.
+Run matched mountain-surface and cave controls with:
+
+1. baseline telemetry;
+2. observation-only environmental reads; and
+3. only if the observations separate the cases, a contextual gate prototype.
+
+The observation-only path should use heightmap reads, the current block, six-neighbor checks, and
+at most a small bounded local scan. It should not evaluate NoiseRouter or FTF terrain cells for
+every ore candidate, scan whole columns/regions, or create missing carving masks in production.
+Those operations are either generator-specific, potentially expensive, or unavailable for all
+cave types. Compare generation wall time, ore-feature CPU time, candidate totals, accepted host
+and output breakdowns, and the environmental-role counts across identical seeds, presets, and
+chunk windows.
+
+This is a diagnostic design direction, not a change to the accepted dynamic-Y contract. The
+dynamic path continues to preserve the configured target order, output states, exposure rules,
+and host-dependent realization until evidence supports a separate contextual target policy.
+
+## Vanilla ore distributions are heterogeneous
+
+The final 1.21.1 census contains:
+
+- fixed and random Count providers;
+- rarity-based and implicit-one multiplicity;
+- uniform, triangle, and trapezoid height distributions;
+- absolute, above-bottom, below-top, and mixed anchors;
+- ranges intentionally extending outside the vanilla dimension;
+- multiple upper/lower and small/large producers for one material;
+- biome-specific producers;
+- varied size and air-exposure discard; and
+- ordered stone/deepslate target-output rules.
+
+Consequently, “multiply every ore count by world-height ratio” is wrong. A provider may occupy only
+one geological segment, cross segments with different scale, have a nonuniform PMF, or retain an
+authored out-of-world tail.
+
+Examples:
+
+- diamond is a small trapezoid/triangle-like bottom-relative producer with a `0.5` air-exposure
+  discard chance;
+- small iron has similar size without diamond's exposure rule;
+- upper iron and upper coal use high absolute distributions with authored support above the
+  reference top;
+- copper and emerald have distinct biome/height families; and
+- tuff is a standard ore configured to write a host-like block, demonstrating why output block
+  names do not define ownership.
+
+## FTF's live vertical frame
+
+Minecraft's reference Overworld dimension is `-64..319` with sea level `63`. FTF independently
+varies:
+
+- `worldDepth`: real volume below zero;
+- `worldHeight`: upper volume;
+- sea level; and
+- terrain/host composition within the frame.
+
+The inherited deepslate transition remains absolute `0..8`. The correct discrete geological bands
+are therefore:
+
+| Band | Reference inclusive cells | Live inclusive cells |
+| --- | --- | --- |
+| deep | `-64..-1` | `liveMin..-1` |
+| deepslate transition | `0..8` | `0..8` |
+| below sea | `9..62` | `9..liveSea-1` |
+| sea and above | `63..319` | `liveSea..liveMax` |
+
+Mapping cell boundaries (`min-0.5`, `max+0.5`) avoids off-by-one density errors. Sea level is the
+first cell above global fluid fill, so its boundary is `seaLevel-0.5`.
+
+## Dynamic intensity derivation
+
+For each supported height provider:
+
+1. resolve anchors in the reference frame;
+2. calculate exact discrete probability mass for every authored integer Y;
+3. map the lower and upper boundary of each Y cell through the piecewise geological transform;
+4. distribute probability times overlap width into live Y cells;
+5. use total mapped weight as expected trial scale; and
+6. sample Y from the normalized cumulative table.
+
+The trapezoid PMF is derived from Minecraft's two-uniform-sum construction, including nonzero
+plateau. A triangle is a zero-plateau trapezoid.
+
+Out-of-world authored cells are not discarded during derivation. Vanilla itself samples them and
+lets world bounds prevent writes. Mapping/extrapolating them preserves that clipping fraction. This
+explains two otherwise surprising observations:
+
+- deep/maximum diamond origins can lie below the live floor; and
+- short-top upper-iron origins can lie above the live ceiling.
+
+In both cases in-world calls and writes match the mapped authored intensity.
+
+## Why fanout location matters
+
+Height-only expansion generates multiple Y samples for one already-chosen X/Z column. It preserves
+vertical counts but not the spatial process. The retained implementation fans out before first
+spatial sampling whenever possible:
 
 ```text
-candidate calls → biome passes → successful feature calls → actual block writes
+Count/Rarity fanout → independent InSquare samples → mapped Height samples
 ```
 
-The current telemetry records all four where the probe can observe them. Actual section block writes
-are the realized-output metric.
+For implicit-one chains, InSquare itself can fan out. If Height is first, Height fans out because the
+authored contract has no earlier X/Z randomization to preserve.
 
-## Vertical behavior
+All 16 local X and Z offsets appeared in deep, maximum, scattered, Create, and Immersive Ores runs.
 
-Vanilla 1.21.1 uses several different height contracts, including absolute, bottom-relative,
-top-relative, uniform, and triangular ranges. Examples include coal above absolute Y 136, iron from
-the bottom to absolute Y 72, redstone from the bottom to absolute Y 15, and diamond in a
-bottom-relative triangular range.
+## Candidate intensity versus realized concentration
 
-FTF's existing dynamic height hook only recognizes the canonical uniform range from
-`above_bottom(0)` to `absolute(256)`. It creates extension bands for that range. It does not inspect
-ore target rules, classify `minecraft:ore`, or adapt the varied ordinary ore ranges. The current
-ordinary ore behavior is therefore still vanilla-contract placement; no production ore adapter has
-been implemented.
+Candidate expectation is mechanically predictable. Finished ore is conditional.
 
-Large ore veins controlled by `CaveSettings.largeOreVeins` are a separate noise-router system. They
-are not part of the ordinary placed-feature adapter.
+The 256-chunk reference/shallow same-seed comparison showed modeled/observed candidate ratios near
+one for representative high-volume ores. Surviving writes per million reconstructed host
+opportunities were:
 
-The `oreCompatibleStoneOnly` setting is currently persisted and visible but has no effective
-alternate tag branch in the source. It must not be treated as an active ore policy until separately
-resolved.
+| Feature | Reference | Shallow | Difference |
+| --- | ---: | ---: | ---: |
+| upper coal | `14432.8` | `14389.9` | `-0.3%` |
+| small iron | `574.3` | `561.3` | `-2.3%` |
+| upper iron | `6019.0` | `4587.5` | `-23.8%` |
+| diamond | `181.2` | `96.1` | `-47%` |
 
-## Current baseline measurements
+Coal/small iron show the expected stable local concentration in comparable hosts. Upper iron's high
+terrain opportunities and diamond's small, exposure-sensitive deposit interact differently with
+the shallow fixture's terrain/caves. Diamond had `1792` configured checks and `845` surviving writes
+in the reference window versus `515` and `174` in shallow terrain. The transform's candidate count
+was correct; the realization context changed.
 
-The following are aggregate actual block writes in the current telemetry windows. The reference,
-shallow, and extreme cases use 256 chunks; the standard and control cases use 64 chunks.
+This proves both that realized writes are necessary evidence and that a generic production
+algorithm must not “fix” each finished ratio with ore-specific feedback.
 
-| Fixture                    |            Coal upper |             Iron small |                 Diamond |               Redstone |
-| -------------------------- | --------------------: | ---------------------: | ----------------------: | ---------------------: |
-| Reference                  |                   `0` |    `2,078` (`-63..44`) |     `1,410` (`-63..12`) |    `3,784` (`-63..15`) |
-| Shallow                    |                   `0` |    `3,484` (`-15..52`) |     `1,437` (`-15..51`) |    `4,604` (`-16..15`) |
-| Extreme                    |                   `0` | `2,840` (`-1023..-85`) | `1,608` (`-1023..-946`) | `3,539` (`-1021..-97`) |
-| Standard survey            |                   `0` |     `303` (`-63..-19`) |      `338` (`-63..-15`) |     `607` (`-63..-13`) |
-| Seed `12345`, inland       |     `41` (`134..139`) |    `1,052` (`-15..71`) |       `342` (`-15..61`) |    `1,128` (`-15..15`) |
-| Seed `987654`, inland      |  `1,433` (`134..183`) |    `1,100` (`-15..72`) |       `360` (`-15..61`) |    `1,123` (`-15..15`) |
-| Seed `12345`, mountain     | `10,680` (`133..205`) |    `1,099` (`-15..72`) |       `338` (`-15..62`) |    `1,158` (`-15..14`) |
-| Seed `12345`, cave control | `19,568` (`133..654`) |  `1,276` (`-1018..69`) |   `421` (`-1023..-947`) |  `1,392` (`-1021..14`) |
+## Maximum-height and contraction evidence
 
-The controls establish the important result: candidate counts remain largely fixed while realized
-writes change with biome, host material, terrain height, caves, and available vertical volume. A
-density multiplier cannot be chosen from candidate counts alone.
+In the maximum-height 16-chunk control, common/high-volume surviving-write concentration per million
+host opportunities remained close to the reference controls where matching hosts existed:
 
-The standard survey also observed non-ore disks and ordinary ore features in the same decoration
-step. This is why the implementation must classify feature contracts rather than rewrite an entire
-generation step.
+- coal about `14544.7`;
+- small iron about `575.3`;
+- upper iron about `6345.9`; and
+- tuff about `79113.2`.
 
-## Final feature graph census
+The deep-ocean fixture has little or no eligible upper terrain for some ores. Zero writes there mean
+zero realization opportunities, not zero transformed candidates.
 
-The current census walks every registered biome's final placed-feature list on both loaders.
+The 256-chunk short-ceiling run used a real `-64..127` dimension. Upper coal produced `1941`
+candidates versus `1942.4` modeled and `40936` surviving writes. Upper iron produced `5777` versus
+`5827.2` modeled and `34358` surviving writes. Its authored absolute `80..384` range mapped to a
+support beginning near `67` and extending through `144`, retaining a small above-ceiling tail.
 
-| Metric                         | Fabric | NeoForge |
-| ------------------------------ | -----: | -------: |
-| Biomes inspected               |     64 |       64 |
-| Registered placed features     |    285 |      285 |
-| Active unique feature IDs      |    199 |      199 |
-| Active feature occurrences     |  2,755 |    2,755 |
-| Duplicate final memberships    |      0 |        0 |
-| Inactive registry entries      |     86 |       86 |
-| Same-contract candidate groups |     34 |       34 |
+## Standard modded mechanism evidence
 
-The active namespace counts are 2,520 Minecraft occurrences and 235 FTF occurrences. The census
-therefore sees FTF's generated features in the final graph, not only vanilla registry entries.
+### Create
 
-The current graph proves no duplicate final memberships. The 86 inactive registry entries are
-removal candidates, but a final-only census cannot identify whether a missing entry was removed,
-replaced, or never selected by a given biome. The 34 same-contract groups are also candidates, not
-replacement proof. A definitive replacement census requires before/after modifier provenance.
+`create:zinc_ore` is standard `minecraft:ore` with uniform absolute `-63..70`, eight attempts, and a
+downstream `create:config_filter`. In a maximum-height NeoForge control:
 
-## Ownership matrix
+- expected transformed calls were about `1051.7`; observed were `1057`;
+- `1051` calls succeeded after the custom filter;
+- all local X/Z offsets remained represented; and
+- `11946` zinc writes survived.
 
-The clean ownership question is whether a companion's ore feature is standard and additive or a
-custom system that must remain outside the first FTF adapter.
+Create striated ores remained a custom configured feature: one observed call, no standard transform.
 
-| Producer                 | Current observation                                                                               | Classification                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Vanilla                  | Standard `minecraft:ore` and `minecraft:scattered_ore` features with ordinary placement contracts | First supported contract                                                    |
-| Create zinc              | `create:zinc_ore`; 5,249 writes; standard ore feature with `create:config_filter`                 | Standard ore plus custom filter; requires filter-aware classification       |
-| Create striated ores     | `create:striated_ores_overworld`; 35,049 writes; custom layered feature                           | Custom system; preserve and report                                          |
-| Immersive Ores vibranium | `immersiveores:vibranium_ore_placed`; 1,322 writes on both loaders                                | Additive conventional producer                                              |
-| Immersive Ores geode     | Active feature; 0 writes in the current window                                                    | Active custom/conditional path; absence of writes is not absence from graph |
-| Regions Unexplored       | Vanilla `minecraft:ore` redstone-large; 607 deepslate-redstone writes                             | Composition case; not clean ownership evidence                              |
-| Biomes O' Plenty         | No stable 1.21.1 BOP/TerraBlender/GlitchCore chain; beta composition run passes                   | Composition case; exclude from stable ownership evidence                    |
-| Mekanism                 | Not yet run in the current matrix                                                                 | Later custom-system case                                                    |
-| Immersive Engineering    | Not yet run in the current matrix                                                                 | Later custom-system case                                                    |
+### Immersive Ores
 
-Fabric and NeoForge Immersive Ores runs agree for the observed conventional vibranium path. Create
-is intentionally NeoForge-only in the current matrix because that is the selected release/runtime
-case.
+`immersiveores:vibranium_ore_placed` is standard `minecraft:ore`, uniform absolute `-60..0`, seven
+attempts. In a maximum-height Fabric control:
 
-## Composition boundaries
+- expected transformed calls were about `1764.5`; observed were `1764`;
+- origins covered `-960..0` and all local X/Z offsets; and
+- `5506` vibranium writes survived.
 
-Regions Unexplored `0.6.2` with Lithostitched `1.7.13` now starts and reaches placement on Fabric
-with Fabric API `0.116.15+1.21.1`. Its `minecraft:ore` feature writes 607 deepslate redstone blocks
-in the current diagnostic window. This proves the current dependency stack is compatible; it does
-not make RU an ownership-isolation control because RU changes biome composition.
+The mod's custom/conditional geode path remained outside the transform.
 
-Biomes O' Plenty is different: the compatible `1.21.1` BOP, TerraBlender, and GlitchCore artifacts
-are beta-only. The exact Fabric beta stack now passes the composition diagnostic on 81/81 chunks,
-exposes 114 possible BOP biomes, and observes BOP's `glowing_grotto` underground case. The exact
-NeoForge beta stack passes 81/81 preview-parity chunks with zero mismatches. This resolves the
-acquisition and startup issue, but there is still no all-stable BOP runtime to add to the stable
-matrix. Do not label these composition results stable ore evidence.
+### Scattered ore
 
-## Telemetry boundary
+A repository-owned raw-gold `minecraft:scattered_ore` control wrote successfully in a maximum-height
+world:
 
-The probe observes direct `LevelChunkSection` writes used by vanilla `OreFeature`, in addition to
-placement and feature-call telemetry. It does not yet split target-block rejection, air-exposure
-rejection, or later-overwrite identity into separate counters. Custom features that write through a
-different path may need additional instrumentation.
+- expected calls about `994.9`; observed `996`;
+- mapped origin Y `-512..0`;
+- all local X/Z offsets; and
+- `1252` unique surviving raw-gold writes.
 
-## Source evidence
+This confirms that the generic configured-feature boundary covers both first-slice algorithms.
 
-- Vanilla feature contracts: mapped `OrePlacements.java` and `OreFeature` source.
-- FTF height behavior: `DynamicHeightRangePlacement.java` and `MixinHeightRangePlacement.java`.
-- FTF stone setting: `MiscellaneousSettings.java` and `RTFBlockTagsProvider.java`.
-- Create ownership: `create:zinc_ore`, `create:striated_ores_overworld`, and the Create
-  feature/filter sources in the acquired `mc1.21.1/dev` checkout.
-- Immersive Ores ownership: the exact Fabric and NeoForge release artifacts and current run
-  summaries.
-- Full graph and placement evidence: run manifests and summaries under
-  `games/minecraft/investigation-state/runs/`, with current run IDs in `test-matrix.md`.
+## Loader and reload evidence
+
+Fabric run `20260820T035254Z-abba0a9687` and NeoForge run
+`20260820T035453Z-3e044efc9b` used the same maximum frame, seed, window, `/reload`, and post-reload
+probe. Both produced exactly:
+
+| Feature | Authored Count candidates | Configured calls |
+| --- | ---: | ---: |
+| diamond | `28` | `437` |
+| tuff | `8` | `126` |
+
+Their complete configured-origin X, Z, and Y histograms were identical. Diamond raw/unique/final
+counts were also identical (`211`/`204`/`108`). A nine-block tuff final-survival difference arose
+from later loader composition/overwrites. This is direct evidence that common candidate RNG and plan
+activation are loader-identical while realized final state can differ downstream.
+
+Only one dynamic plan inventory was logged before each reload. The reload callbacks were removed
+from ore; the immutable worldgen plan remained valid.
+
+## Provenance and telemetry limits
+
+The first implementation does not reconstruct a historical before/after feature graph. It knows
+the final active occurrence and what that occurrence did. That is enough for a final-contract
+transform.
+
+Per-occurrence survival can identify produced-then-overwritten positions and their final blocks.
+It cannot always attribute a shared final output block to another producer after the fact; combined
+material summaries therefore remain secondary to producer-scoped generation hooks.
+
+The host scan deterministically samples stochastic RuleTests without consuming generation RNG and
+labels that denominator accordingly. It reconstructs opportunities, not a literal replay of every
+random rule decision.
+
+## Performance
+
+Linear density means linear work in expanded bands. Maximum-height tuff can write hundreds of
+thousands of blocks across 16 chunks. Three matched maximum-frame samples per side used the same
+`-1024..1023` fixture, seed, 16-chunk window, loader, finished-chunk authority, feature set, and
+full host-volume probe:
+
+| Measurement | Pre-transform median | Dynamic median | Difference |
+| --- | ---: | ---: | ---: |
+| generation | `8.165s` | `8.862s` | `+8.5%` |
+| full post-generation probe | `12.276s` | `12.864s` | `+4.8%` |
+| combined step | `20.827s` | `21.726s` | `+4.3%` |
+
+All six server runs passed and recorded complete cleanup. One dynamic invocation suffered the known
+host Python teardown fault only after its successful summary and cleanup were durable; its timing is
+retained with that qualification. This small controlled window is not a broad hardware benchmark,
+but it closes the first-slice maximum-preset timing gate and discloses a measurable cost. Runtime
+memory still receives ordinary release observation; the immutable plan itself is bounded to the
+supported feature tables and does not grow with generated chunks.
+
+Silently capping or applying square-root scaling would be a different density policy.
+
+## Separate systems
+
+- Noise-router `largeOreVeins` is a density/noise system, not placed-feature ore.
+- Retrogen runs outside initial chunk decoration.
+- Custom configured features own their own algorithms and may need separate adapters.
+- `oreCompatibleStoneOnly` currently has no effective alternative code path.
+- RU and BOP are composition cases, not ownership controls; BOP's compatible artifacts are beta.
+
+## Authorities
+
+- Vanilla/FTF source at the pinned 1.21.1 baseline.
+- Final contract census and placement telemetry probe packs under
+  `games/minecraft/investigations/reterraforged/probes/`.
+- Independent formula mirror at
+  `games/minecraft/investigations/reterraforged/analysis/dynamic-ore-realization.py`.
+- Exact scenarios under `games/minecraft/investigations/reterraforged/analysis/`.
+- Run IDs and stable artifact versions in [`test-matrix.md`](test-matrix.md).
+- Immutable prototype classes in the isolated ore worktree only.

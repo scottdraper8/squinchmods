@@ -43,36 +43,34 @@ the rendered continent coastline.
    must cover and constrain it relative to island radius.
 5. Replace pointwise `continentFade` with one stable clearance decision per island cell.
 6. Port cliffs, mountains, volcanoes, erosion, weirdness, terrain classification, and climate.
-   **Constraint from `biome-fixing-plan.md` #160 fix**: the climate port must preserve island-beach
-   shore-biome selection. The #160 fix removed a hardcoded `BiomeType.SAVANNA` assignment for
-   `ISLAND_BEACH` cells in `ClimateModule.java` and added coast continentalness
-   (`Continentalness.COAST.mid()`) for `ISLAND_BEACH` in `CellSampler.CONTINENT`. Without these,
-   island beaches revert to forced savanna or receive inland continentalness that prevents shore
-   biomes (beach, snowy_beach) from winning vanilla biome selection. Verify that the redesign's
-   equivalent code produces coast-range continentalness and real sampled temperature/humidity for
-   island shoreline terrain. **ISLAND/ISLAND_MOUNTAINS continentalness must not map to FAR_INLAND.**
-   Currently these terrain types fall through to the default inland path in
-   `CellSampler.CONTINENT.read()`, producing FAR_INLAND continentalness that causes cold islands to
-   select continental biomes (snowy_taiga) instead of more coastal ones. The redesign should
-   constrain island-interior continentalness to the COAST–NEAR_INLAND range while preserving a
-   center-to-edge gradient. (Deferred from `biome-fixing-plan.md` Phase 3 as an aesthetic
-   improvement that belongs in the redesign.) **Island temperature must be coherent with surrounding
-   ocean.** Island temperature is currently sampled independently from surrounding ocean via
-   `ClimateModule`'s biome-region center sampling. A warm island beach can directly border frozen
-   ocean when a temperature zone boundary crosses the island's footprint. The redesign's climate
-   port should either inherit island temperature from surrounding ocean, constrain it to within one
-   band, or blend at boundaries — whichever approach falls out of the new cellular model's
-   per-island identity. (Deferred from `biome-fixing-plan.md` Phase 3.) **Shelf erosion must be
-   derived, not inherited from OceanPopulator.** Currently, `ArchipelagoPopulator` only sets
-   `cell.erosion` for land cells (`islandAlpha >= shelfEnd`); shelf cells keep `OceanPopulator`'s
-   hardcoded `-1.1F`. This value feeds into Minecraft's density functions via `CellSampler.EROSION`,
-   producing maximum terrain density steepness. The -1.1 compounds the steep-wall problem (mechanism
-   #2 above): the same extreme steepness is applied regardless of whether the shelf drops 30 blocks
-   or 1000 blocks. Replacing -1.1 with a constant like `Erosion.LEVEL_4.mid()` (0.25) does soften
-   the coastline but changes island shape unpredictably — the correct value depends on the physical
-   shelf geometry. Derive shelf erosion from the actual shelf slope (vertical drop / horizontal
-   distance), lerping between a steep-shelf and gentle-shelf erosion value. This belongs in the
-   distance-band conversion (step 4), not as a standalone patch.
+   **Island climate constraint:** the climate port must preserve island-beach shore-biome selection.
+   The current implementation removed a hardcoded `BiomeType.SAVANNA` assignment for `ISLAND_BEACH`
+   cells in `ClimateModule.java` and added coast continentalness (`Continentalness.COAST.mid()`) for
+   `ISLAND_BEACH` in `CellSampler.CONTINENT`. Without these, island beaches revert to forced savanna
+   or receive inland continentalness that prevents shore biomes (beach, snowy_beach) from winning
+   vanilla biome selection. Verify that the redesign's equivalent code produces coast-range
+   continentalness and real sampled temperature/humidity for island shoreline terrain.
+   **ISLAND/ISLAND_MOUNTAINS continentalness must not map to FAR_INLAND.** Currently these terrain
+   types fall through to the default inland path in `CellSampler.CONTINENT.read()`, producing
+   FAR_INLAND continentalness that causes cold islands to select continental biomes (snowy_taiga)
+   instead of more coastal ones. The redesign should constrain island-interior continentalness to
+   the COAST–NEAR_INLAND range while preserving a center-to-edge gradient. **Island temperature must
+   be coherent with surrounding ocean.** Island temperature is currently sampled independently from
+   surrounding ocean via `ClimateModule`'s biome-region center sampling. A warm island beach can
+   directly border frozen ocean when a temperature zone boundary crosses the island's footprint. The
+   redesign's climate port should either inherit island temperature from surrounding ocean,
+   constrain it to within one band, or blend at boundaries — whichever approach falls out of the new
+   cellular model's per-island identity. **Shelf erosion must be derived, not inherited from
+   OceanPopulator.** Currently, `ArchipelagoPopulator` only sets `cell.erosion` for land cells
+   (`islandAlpha >= shelfEnd`); shelf cells keep `OceanPopulator`'s hardcoded `-1.1F`. This value
+   feeds into Minecraft's density functions via `CellSampler.EROSION`, producing maximum terrain
+   density steepness. The -1.1 compounds the steep-wall problem (mechanism #2 above): the same
+   extreme steepness is applied regardless of whether the shelf drops 30 blocks or 1000 blocks.
+   Replacing -1.1 with a constant like `Erosion.LEVEL_4.mid()` (0.25) does soften the coastline but
+   changes island shape unpredictably — the correct value depends on the physical shelf geometry.
+   Derive shelf erosion from the actual shelf slope (vertical drop / horizontal distance), lerping
+   between a steep-shelf and gentle-shelf erosion value. This belongs in the distance-band
+   conversion (step 4), not as a standalone patch.
 7. Tune only after the complete data path works.
 
 ## Validation
