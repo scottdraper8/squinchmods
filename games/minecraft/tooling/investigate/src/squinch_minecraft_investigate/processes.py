@@ -84,12 +84,24 @@ def identity_matches(expected: dict) -> bool:
     )
 
 
+def _proc_ids() -> list[int]:
+    """Return a stable snapshot of numeric /proc entry names.
+
+    `Path.iterdir()` can hand Python 3.14 a transient Path whose backing process
+    disappears while the directory is being scanned. `DirEntry.name` is already
+    a string, so take the names first and read each process stat separately.
+    """
+    try:
+        with os.scandir("/proc") as entries:
+            return [int(entry.name) for entry in entries if entry.name.isdigit()]
+    except OSError:
+        return []
+
+
 def group_members(pgrp: int) -> list[dict]:
     members: list[dict] = []
-    for item in Path("/proc").iterdir():
-        if not item.name.isdigit():
-            continue
-        identity = proc_identity(int(item.name))
+    for pid in _proc_ids():
+        identity = proc_identity(pid)
         if identity and identity["pgrp"] == pgrp and identity["state"] != "Z":
             members.append(identity)
     return sorted(members, key=lambda value: value["pid"])
@@ -98,11 +110,10 @@ def group_members(pgrp: int) -> list[dict]:
 def descendants(expected_roots: list[dict]) -> list[dict]:
     """Return live descendants while at least one exact recorded ancestry link exists."""
     snapshot: dict[int, dict] = {}
-    for item in Path("/proc").iterdir():
-        if item.name.isdigit():
-            identity = proc_identity(int(item.name))
-            if identity and identity["state"] != "Z":
-                snapshot[identity["pid"]] = identity
+    for pid in _proc_ids():
+        identity = proc_identity(pid)
+        if identity and identity["state"] != "Z":
+            snapshot[identity["pid"]] = identity
     accepted: dict[int, dict] = {
         int(root["pid"]): snapshot[int(root["pid"])]
         for root in expected_roots

@@ -20,11 +20,63 @@ def sourceRoots = packs.collectMany { pack -> pack.sources.collect { new File(it
 def resourceRoots = packs.collectMany { pack -> pack.resources.collect { new File(it).canonicalFile } }
 def manifests = packs.collect { pack -> new File(pack.manifest).canonicalFile }
 
+def mergeProbeServices = { task ->
+    def servicePath = "META-INF/services/org.squinchmods.investigate.ProbePack"
+    def providers = resourceRoots.collect { new File(it, servicePath) }
+            .findAll { it.isFile() }
+            .collectMany { it.readLines("UTF-8") }
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() && !it.startsWith("#") }
+            .unique()
+    if (!providers.isEmpty()) {
+        def service = new File(task.destinationDir, servicePath)
+        service.parentFile.mkdirs()
+        service.text = providers.join("\n") + "\n"
+    }
+}
+
 gradle.beforeProject { project ->
     if (project.path != ":${loaderProperty}") {
         return
     }
     project.pluginManager.withPlugin("java") {
+        if (loaderProperty == "neoforge") {
+            def probeSourceSet = project.sourceSets.create("squinchProbe") {
+                java.srcDirs(sourceRoots)
+                resources.srcDirs(resourceRoots)
+                compileClasspath += project.sourceSets.main.output + project.configurations.compileClasspath
+                runtimeClasspath += output + compileClasspath + project.configurations.runtimeClasspath
+            }
+            project.tasks.named(probeSourceSet.processResourcesTaskName).configure { task ->
+                manifests.each { task.inputs.file(it) }
+                resourceRoots.each { task.inputs.dir(it) }
+                task.duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+                task.doLast {
+                    mergeProbeServices(task)
+                    def metadata = new File(task.destinationDir, "META-INF/neoforge.mods.toml")
+                    metadata.parentFile.mkdirs()
+                    metadata.text = '''modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "Development evidence only"
+
+[[mods]]
+modId = "squinch_investigate"
+version = "1"
+displayName = "Squinch Investigation Probe"
+'''
+                    mixinConfigs.each { config ->
+                        metadata << "\n[[mixins]]\nconfig = \"${config}\"\n"
+                    }
+                }
+            }
+            project.loom.mods.create("squinchProbe") {
+                sourceSet(probeSourceSet)
+            }
+            project.tasks.matching { it.name.startsWith("run") }.configureEach {
+                dependsOn(project.tasks.named(probeSourceSet.classesTaskName))
+            }
+            return
+        }
         sourceRoots.each { project.sourceSets.main.java.srcDir(it) }
         resourceRoots.each { project.sourceSets.main.resources.srcDir(it) }
         project.tasks.named("processResources").configure { task ->
@@ -32,18 +84,7 @@ gradle.beforeProject { project ->
             resourceRoots.each { task.inputs.dir(it) }
             task.duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
             task.doLast {
-                def servicePath = "META-INF/services/org.squinchmods.investigate.ProbePack"
-                def providers = resourceRoots.collect { new File(it, servicePath) }
-                        .findAll { it.isFile() }
-                        .collectMany { it.readLines("UTF-8") }
-                        .collect { it.trim() }
-                        .findAll { !it.isEmpty() && !it.startsWith("#") }
-                        .unique()
-                if (!providers.isEmpty()) {
-                    def service = new File(task.destinationDir, servicePath)
-                    service.parentFile.mkdirs()
-                    service.text = providers.join("\n") + "\n"
-                }
+                mergeProbeServices(task)
                 if (loaderProperty == "fabric") {
                     def metadata = new File(task.destinationDir, "fabric.mod.json")
                     if (!metadata.isFile()) {
@@ -58,17 +99,6 @@ gradle.beforeProject { project ->
                     }
                     parsed.mixins = mixins
                     metadata.text = JsonOutput.prettyPrint(JsonOutput.toJson(parsed)) + "\n"
-                } else if (loaderProperty == "neoforge") {
-                    def metadata = new File(task.destinationDir, "META-INF/neoforge.mods.toml")
-                    if (!metadata.isFile()) {
-                        throw new GradleException("generated NeoForge metadata is missing: ${metadata}")
-                    }
-                    mixinConfigs.each { config ->
-                        def marker = "config = \"${config}\""
-                        if (!metadata.text.contains(marker)) {
-                            metadata << "\n[[mixins]]\n    ${marker}\n"
-                        }
-                    }
                 } else {
                     throw new GradleException("probe overlay does not support loader ${loaderProperty}")
                 }

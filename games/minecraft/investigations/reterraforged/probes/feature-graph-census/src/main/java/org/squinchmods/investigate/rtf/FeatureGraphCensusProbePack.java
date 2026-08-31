@@ -12,7 +12,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -20,7 +19,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.BiomeGenerationSettings;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
@@ -32,6 +30,9 @@ import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.TerminalState;
+import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlan;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlans;
 
 /** Records the final biome feature graph after loader and mod composition has completed. */
 public final class FeatureGraphCensusProbePack implements ProbePack {
@@ -50,13 +51,26 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
             Registry<Biome> biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
             Registry<PlacedFeature> placedFeatures =
                 level.registryAccess().registryOrThrow(Registries.PLACED_FEATURE);
-            Census census = new Census(placedFeatures);
+            if (!(level.getChunkSource().getGenerator() instanceof TerraForgedChunkGenerator generator)) {
+                JsonObject data = new JsonObject();
+                data.addProperty("error", "Selected generator is not the FTF-owned runtime root");
+                return ProbeResult.complete(TerminalState.FAIL, ProbePhase.GENERATION, data, 0);
+            }
+            WorldgenPlan worldgenPlan = generator.plan().orElse(null);
+            if (worldgenPlan == null) {
+                JsonObject data = new JsonObject();
+                data.addProperty("error", "FTF generator has no active worldgen plan");
+                return ProbeResult.complete(TerminalState.FAIL, ProbePhase.GENERATION, data, 0);
+            }
+            WorldgenPlans.PlacedFeatures plan = worldgenPlan.placedFeatures();
+            Census census = new Census(placedFeatures, plan);
 
             biomes.holders()
                 .sorted(Comparator.comparing(holder -> holder.key().location().toString()))
-                .forEach(holder -> census.inspectBiome(holder.key().location().toString(), holder.value()));
+                .forEach(holder -> census.inspectBiome(holder.key().location().toString(), holder, plan));
 
             JsonObject data = census.toJson();
+            data.add("capability_report", worldgenPlan.report().toJson());
             return ProbeResult.complete(
                 TerminalState.PASS,
                 ProbePhase.GENERATION,
@@ -74,11 +88,13 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
         private final Map<String, Integer> namespaceActiveCounts = new TreeMap<>();
         private final JsonArray biomesJson = new JsonArray();
         private final JsonArray duplicateMemberships = new JsonArray();
+        private final WorldgenPlans.PlacedFeatures plan;
         private int biomeCount;
         private int totalOccurrences;
         private int duplicateOccurrenceCount;
 
-        private Census(Registry<PlacedFeature> registry) {
+        private Census(Registry<PlacedFeature> registry, WorldgenPlans.PlacedFeatures plan) {
+            this.plan = plan;
             registry.keySet().stream()
                 .map(ResourceLocation::toString)
                 .sorted()
@@ -88,24 +104,30 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
                 });
         }
 
-        private void inspectBiome(String biomeId, Biome biome) {
+        private void inspectBiome(
+            String biomeId,
+            Holder.Reference<Biome> biome,
+            WorldgenPlans.PlacedFeatures plan
+        ) {
             this.biomeCount++;
-            BiomeGenerationSettings settings = biome.getGenerationSettings();
             JsonObject biomeJson = new JsonObject();
             biomeJson.addProperty("biome", biomeId);
             JsonArray stepsJson = new JsonArray();
             Map<String, List<JsonObject>> occurrencesById = new TreeMap<>();
             Set<String> uniqueBiomeIds = new TreeSet<>();
 
-            List<HolderSet<PlacedFeature>> steps = settings.features();
-            for (int stepIndex = 0; stepIndex < steps.size(); stepIndex++) {
-                HolderSet<PlacedFeature> step = steps.get(stepIndex);
+            int stepCount = plan.pipelines().stream()
+                .filter(pipeline -> pipeline.biome().equals(biome.key()))
+                .mapToInt(WorldgenPlans.PlacedFeaturePipeline::generationStep)
+                .max()
+                .orElse(-1) + 1;
+            for (int stepIndex = 0; stepIndex < stepCount; stepIndex++) {
                 JsonObject stepJson = new JsonObject();
                 stepJson.addProperty("step_index", stepIndex);
                 stepJson.addProperty("step", stepName(stepIndex));
                 JsonArray featuresJson = new JsonArray();
                 int occurrenceIndex = 0;
-                for (Holder<PlacedFeature> holder : step) {
+                for (Holder<PlacedFeature> holder : plan.forBiome(biome, stepIndex)) {
                     String id = holderId(holder);
                     PlacedFeature placed = holder.value();
                     Contract contract = Contract.of(placed);
@@ -154,8 +176,17 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
 
         private JsonObject toJson() {
             JsonObject data = new JsonObject();
-            data.addProperty("authority", "final-biome-generation-settings");
-            data.addProperty("scope", "all-registered-biomes-and-final-feature-steps");
+            data.addProperty("authority", "ftf-owned-typed-feature-plan");
+            data.addProperty("scope", "all-registered-biomes-and-compiled-feature-occurrences");
+            data.addProperty("plan_state", this.plan.descriptor().state().name().toLowerCase());
+            data.addProperty("plan_mechanism", this.plan.descriptor().mechanism());
+            data.addProperty("compiled_pipeline_count", this.plan.pipelines().size());
+            data.addProperty("compiled_schedule_step_count", this.plan.steps().size());
+            data.addProperty("ore_plan_active_features", this.plan.ores().activeFeatures());
+            data.addProperty("ore_plan_standard_ores", this.plan.ores().standardOres());
+            data.addProperty("ore_plan_dynamic_transforms", this.plan.ores().verticalTransforms().size());
+            data.addProperty("ore_plan_delegated_features", this.plan.ores().delegatedFeatures());
+            data.addProperty("ore_plan_failure_count", this.plan.ores().failures().size());
             data.addProperty("biome_count", this.biomeCount);
             data.addProperty("placed_feature_registry_count", this.registeredIds.size());
             data.addProperty("active_unique_feature_count", this.activeIds.size());

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .cleanup import remove_acquired
 from .errors import AcquisitionError
-from .modrinth import acquire_catalog_artifact, cache_root
+from .modrinth import acquire_catalog_artifact, audit_latest_catalog, cache_root
 from .catalog import load_catalog, validate_catalog
 from .source import checkout_source
 
@@ -25,6 +25,15 @@ def _parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Validate the committed artifact catalog")
     validate.add_argument("--catalog", type=Path)
     validate.add_argument("--cache-root", type=Path)
+
+    latest = subparsers.add_parser(
+        "audit-latest", help="Compare catalog pins with live compatible Modrinth releases"
+    )
+    latest.add_argument("--artifact-id", action="append", dest="artifact_ids")
+    latest.add_argument("--catalog", type=Path)
+    latest.add_argument(
+        "--include-beta", action="store_true", help="Include beta and alpha channels"
+    )
 
     remove = subparsers.add_parser("remove", help="Remove acquired release and optional source artifacts")
     remove.add_argument("--artifact-id", required=True, help="Catalog artifact ID to remove")
@@ -69,6 +78,20 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(validate_catalog(
                 catalog,
                 cache_root=args.cache_root or cache_root(),
+            ), indent=2, sort_keys=True))
+        elif args.command == "audit-latest":
+            artifacts, _sources = load_catalog(catalog)
+            selected_ids = args.artifact_ids or [
+                artifact.id
+                for artifact in artifacts.values()
+                if artifact.status in {"approved", "diagnostic-only"}
+            ]
+            missing = sorted(set(selected_ids) - artifacts.keys())
+            if missing:
+                raise AcquisitionError(f"catalog artifact does not exist: {missing[0]}")
+            print(json.dumps(audit_latest_catalog(
+                [artifacts[artifact_id] for artifact_id in selected_ids],
+                include_beta=args.include_beta,
             ), indent=2, sort_keys=True))
         elif args.command == "source":
             print(json.dumps(checkout_source(

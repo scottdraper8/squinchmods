@@ -8,7 +8,65 @@ import pytest
 
 from squinch_minecraft_investigate import server
 from squinch_minecraft_investigate.errors import InvestigationError
+from squinch_minecraft_investigate import processes
 from squinch_minecraft_investigate.processes import port_is_free
+
+
+def test_proc_scans_snapshot_entry_names_before_reading_process_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transient /proc process must not leave lifecycle cleanup with a broken Path."""
+
+    class Entries:
+        def __enter__(self) -> list[object]:
+            return [
+                type("Entry", (), {"name": "41"})(),
+                type("Entry", (), {"name": "not-a-pid"})(),
+                type("Entry", (), {"name": "42"})(),
+            ]
+
+        def __exit__(self, _type: object, _value: object, _traceback: object) -> bool:
+            return False
+
+    identities = {
+        41: {"pid": 41, "ppid": 1, "pgrp": 41, "session": 41, "start_ticks": 1, "state": "S"},
+        42: {"pid": 42, "ppid": 41, "pgrp": 41, "session": 41, "start_ticks": 2, "state": "S"},
+    }
+    monkeypatch.setattr(processes.os, "scandir", lambda _path: Entries())
+    monkeypatch.setattr(processes, "proc_identity", lambda pid: identities.get(pid))
+    monkeypatch.setattr(processes, "identity_matches", lambda _expected: True)
+
+    assert processes.group_members(41) == [identities[41], identities[42]]
+    assert processes.descendants([identities[41]]) == [identities[41], identities[42]]
+
+
+def test_forceload_removal_is_persisted_per_acknowledged_region(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = {"block_min_x": 1, "block_min_z": 2, "block_max_x": 3, "block_max_z": 4}
+    second = {"block_min_x": 5, "block_min_z": 6, "block_max_x": 7, "block_max_z": 8}
+    state = {"forceload_regions": [first, second]}
+    commands: list[str] = []
+    snapshots: list[list[dict[str, int]]] = []
+
+    def run(_state: dict, values: list[str], _timeout: float) -> list[dict]:
+        commands.extend(values)
+        return [{"command": value, "response": "Unmarked"} for value in values]
+
+    monkeypatch.setattr(server, "run_commands", run)
+    monkeypatch.setattr(
+        server,
+        "_write_active",
+        lambda current: snapshots.append(list(current["forceload_regions"])),
+    )
+
+    assert server._remove_forceload_regions(state, 30) == []
+    assert commands == [
+        "forceload remove 5 6 7 8",
+        "forceload remove 1 2 3 4",
+    ]
+    assert snapshots == [[first], []]
+    assert state["forceload_regions"] == []
 
 
 @pytest.mark.slow
@@ -29,6 +87,20 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
     second_datapack = tmp_path / "second.zip"
     first_datapack.write_bytes(b"first")
     second_datapack.write_bytes(b"second")
+    runtime_config = tmp_path / "terrablender-region-2.toml"
+    runtime_config.write_text("[general]\noverworld_region_size = 2\n")
+    config_target = run_dir / "config" / "terrablender.toml"
+    config_target.parent.mkdir()
+    config_target.write_text("[general]\noverworld_region_size = 3\n")
+    original_config = config_target.read_text()
+    second_runtime_config = tmp_path / "provider-settings.toml"
+    second_runtime_config.write_text("enabled = false\n")
+    second_config_target = run_dir / "config" / "nested" / "terrablender.toml"
+    second_config_target.parent.mkdir()
+    second_config_target.write_text("enabled = true\n")
+    second_original_config = second_config_target.read_text()
+    absent_config_target = run_dir / "config" / "generated-on-first-start.json"
+    absent_config_target.write_text("preserve me\n")
 
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
@@ -40,6 +112,11 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
         "fabric",
         seed="123",
         datapacks=[first_datapack, second_datapack],
+        runtime_files=[
+            (runtime_config, "config/terrablender.toml"),
+            (second_runtime_config, "config/nested/terrablender.toml"),
+        ],
+        runtime_absent_files=["config/generated-on-first-start.json"],
         properties={},
         timeout=10,
         retention="discard",
@@ -51,6 +128,9 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
         "first.zip",
         "second.zip",
     ]
+    assert config_target.read_text() == runtime_config.read_text()
+    assert second_config_target.read_text() == second_runtime_config.read_text()
+    assert not absent_config_target.exists()
 
     result = server.stop_server(project.resolve(), "fabric", successful=True, timeout=0.5)
 
@@ -58,6 +138,9 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
     assert port_is_free(state["ports"]["server"])
     assert port_is_free(state["ports"]["rcon"])
     assert (run_dir / "server.properties").read_text() == original_properties
+    assert config_target.read_text() == original_config
+    assert second_config_target.read_text() == second_original_config
+    assert absent_config_target.read_text() == "preserve me\n"
     assert not (run_dir / "eula.txt").exists()
     assert not Path(state["world_dir"]).exists()
     assert not (state_root / "active.json").exists()
@@ -178,3 +261,88 @@ def test_probe_overlay_tracked_source_mutation_fails_and_cleans_up(
     assert not (state_root / "active.json").exists()
     manifest = next((state_root / "runs").glob("*/manifest.json"))
     assert '"complete": true' in manifest.read_text()
+
+
+def test_recover_stops_an_orphaned_starting_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = {
+        "lifecycle": "starting",
+        "process": {"pid": 44, "ppid": 33, "pgrp": 44, "session": 44, "start_ticks": 1},
+        "owned_processes": [{"pid": 44, "pgrp": 44, "session": 44, "start_ticks": 1}],
+        "ports": {"server": 25565, "rcon": 25575},
+    }
+    observed: dict[str, object] = {}
+    monkeypatch.setattr(server, "load_active", lambda _project, _loader: state)
+    monkeypatch.setattr(server, "identity_matches", lambda _identity: True)
+    monkeypatch.setattr(server, "group_members", lambda _pgrp: [])
+    monkeypatch.setattr(server, "port_is_free", lambda _port: True)
+    monkeypatch.setattr(
+        server,
+        "proc_identity",
+        lambda _pid: {"pid": 44, "ppid": 1, "pgrp": 44, "session": 44, "start_ticks": 1},
+    )
+
+    def stop(_project: Path, _loader: str, **kwargs: object) -> dict:
+        observed.update(kwargs)
+        return {"recovered": True}
+
+    monkeypatch.setattr(server, "stop_server", stop)
+
+    assert server.recover(Path("project"), "fabric", 30) == {"recovered": True}
+    assert observed == {"successful": False, "timeout": 30, "allow_orphaned_starting": True}
+
+
+def test_recover_refuses_a_starting_run_with_live_launcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = {
+        "lifecycle": "starting",
+        "launcher": {"pid": 33, "pgrp": 33, "session": 33, "start_ticks": 1},
+        "process": {"pid": 44, "ppid": 33, "pgrp": 44, "session": 44, "start_ticks": 1},
+        "owned_processes": [{"pid": 44, "pgrp": 44, "session": 44, "start_ticks": 1}],
+        "ports": {"server": 25565, "rcon": 25575},
+    }
+    monkeypatch.setattr(server, "load_active", lambda _project, _loader: state)
+    monkeypatch.setattr(server, "identity_matches", lambda _identity: True)
+    monkeypatch.setattr(server, "group_members", lambda _pgrp: [])
+    monkeypatch.setattr(server, "port_is_free", lambda _port: True)
+
+    with pytest.raises(InvestigationError, match="live launching command") as failure:
+        server.recover(Path("project"), "fabric", 30)
+
+    assert failure.value.code == "startup_in_progress"
+
+
+def test_recover_without_live_process_removes_companion_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "project" / "neoforge" / "run"
+    mods_dir = run_dir / "mods"
+    mods_dir.mkdir(parents=True)
+    companion = mods_dir / "example.jar"
+    companion.write_bytes(b"owned companion")
+    active = tmp_path / "active.json"
+    active.write_text("{}")
+    state = {
+        "lifecycle": "starting",
+        "process": {"pid": 44, "ppid": 33, "pgrp": 44, "session": 44, "start_ticks": 1},
+        "owned_processes": [],
+        "ports": {"server": 25565, "rcon": 25575},
+        "run_dir": str(run_dir),
+        "artifact_dir": str(tmp_path / "artifacts"),
+        "active_path": str(active),
+        "managed_files": [],
+        "companion_artifacts": [{"materialized_path": str(companion)}],
+    }
+    monkeypatch.setattr(server, "load_active", lambda _project, _loader: state)
+    monkeypatch.setattr(server, "identity_matches", lambda _identity: False)
+    monkeypatch.setattr(server, "group_members", lambda _pgrp: [])
+    monkeypatch.setattr(server, "port_is_free", lambda _port: True)
+    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: tmp_path / "lock")
+    monkeypatch.setattr(server, "_remove_protocol_files", lambda _state: [])
+    monkeypatch.setattr(server, "_restore_managed_files", lambda _state: [])
+    monkeypatch.setattr(server, "_cleanup_world", lambda _state, successful: None)
+    monkeypatch.setattr(server, "_write_manifest", lambda _state: None)
+
+    result = server.recover(Path("project"), "neoforge", 30)
+
+    assert result["cleanup"]["complete"] is True
+    assert not companion.exists()
+    assert not active.exists()

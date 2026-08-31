@@ -39,6 +39,7 @@ from .state import atomic_write_json, read_json
 SCENARIO_VERSION = 1
 STEP_TYPES = {"command", "generate", "probe"}
 RETENTIONS = {"discard", "keep-on-failure", "keep"}
+LAUNCH_TASKS = {"runServer", "prodServer"}
 FATAL_LOG_PATTERNS = (
     re.compile(r"---- Minecraft Crash Report ----", re.IGNORECASE),
     re.compile(r"Exception in server tick loop", re.IGNORECASE),
@@ -78,10 +79,13 @@ class Scenario:
     name: str
     project: Path
     loader: str
+    launch_task: str
     seed: str
     rtf_fixture: Path | None
     rtf_ephemeral: RTFEphemeralPreset | None
     datapacks: tuple[Path, ...]
+    runtime_files: tuple[tuple[Path, str], ...]
+    runtime_absent_files: tuple[str, ...]
     companion_artifacts: tuple[str, ...]
     probe_packs: tuple[Path, ...]
     server_properties: dict[str, str]
@@ -160,10 +164,13 @@ def load_scenario(path: str | Path) -> Scenario:
             "name",
             "project",
             "loader",
+            "launch_task",
             "seed",
             "rtf_fixture",
             "rtf_ephemeral",
             "datapacks",
+            "runtime_files",
+            "runtime_absent_files",
             "companion_artifacts",
             "probe_packs",
             "retention",
@@ -184,6 +191,11 @@ def load_scenario(path: str | Path) -> Scenario:
     loader = raw.get("loader")
     if loader not in {"fabric", "forge", "neoforge", "quilt"}:
         raise _error(f"unsupported loader: {loader!r}")
+    launch_task = raw.get("launch_task", "runServer")
+    if launch_task not in LAUNCH_TASKS:
+        raise _error(f"launch_task must be one of {sorted(LAUNCH_TASKS)}")
+    if launch_task == "prodServer" and loader != "fabric":
+        raise _error("prodServer launch_task is currently supported only for Fabric")
     seed_value = raw.get("seed")
     if isinstance(seed_value, bool) or not isinstance(seed_value, (str, int)):
         raise _error("seed must be an exact string or integer")
@@ -244,6 +256,58 @@ def load_scenario(path: str | Path) -> Scenario:
         _scenario_path(scenario_path, value, f"datapacks[{index}]")
         for index, value in enumerate(datapack_values)
     )
+    runtime_file_values = raw.get("runtime_files", [])
+    if not isinstance(runtime_file_values, list):
+        raise _error("runtime_files must be an array of tables")
+    runtime_files: list[tuple[Path, str]] = []
+    runtime_targets: set[str] = set()
+    for index, value in enumerate(runtime_file_values):
+        if not isinstance(value, dict):
+            raise _error(f"runtime_files[{index}] must be a table")
+        _known_keys(value, {"source", "target"}, f"runtime_files[{index}]")
+        if set(value) != {"source", "target"}:
+            raise _error(f"runtime_files[{index}] must set source and target")
+        source = _scenario_path(
+            scenario_path, value["source"], f"runtime_files[{index}].source"
+        )
+        target = value["target"]
+        if (
+            not isinstance(target, str)
+            or not target
+            or Path(target).is_absolute()
+            or ".." in Path(target).parts
+            or Path(target).parts[:1] != ("config",)
+            or len(Path(target).parts) < 2
+        ):
+            raise _error(
+                f"runtime_files[{index}].target must be a config/ path relative to the loader run directory"
+            )
+        normalized_target = Path(target).as_posix()
+        if normalized_target in runtime_targets:
+            raise _error(f"duplicate runtime_files target: {normalized_target}")
+        runtime_targets.add(normalized_target)
+        runtime_files.append((source, normalized_target))
+    runtime_absent_values = raw.get("runtime_absent_files", [])
+    if not isinstance(runtime_absent_values, list):
+        raise _error("runtime_absent_files must be an array of config paths")
+    runtime_absent_files: list[str] = []
+    for index, target in enumerate(runtime_absent_values):
+        if (
+            not isinstance(target, str)
+            or not target
+            or Path(target).is_absolute()
+            or ".." in Path(target).parts
+            or Path(target).parts[:1] != ("config",)
+            or len(Path(target).parts) < 2
+        ):
+            raise _error(
+                f"runtime_absent_files[{index}] must be a config/ path relative to the loader run directory"
+            )
+        normalized_target = Path(target).as_posix()
+        if normalized_target in runtime_targets:
+            raise _error(f"duplicate managed runtime target: {normalized_target}")
+        runtime_targets.add(normalized_target)
+        runtime_absent_files.append(normalized_target)
     companion_artifact_values = raw.get("companion_artifacts", [])
     if not isinstance(companion_artifact_values, list) or any(
         not isinstance(value, str) or not value or Path(value).name != value
@@ -445,10 +509,13 @@ def load_scenario(path: str | Path) -> Scenario:
         name,
         project,
         loader,
+        launch_task,
         seed,
         rtf_fixture,
         rtf_ephemeral,
         datapacks,
+        tuple(runtime_files),
+        tuple(runtime_absent_files),
         companion_artifacts,
         probe_packs,
         server_properties,
@@ -583,6 +650,11 @@ def capture_provenance(
     missing = [str(path) for path in scenario.datapacks if not path.is_file()]
     if missing:
         raise InvestigationError("datapack_not_found", f"datapack not found: {missing[0]}")
+    missing_runtime_files = [str(source) for source, _target in scenario.runtime_files if not source.is_file()]
+    if missing_runtime_files:
+        raise InvestigationError(
+            "runtime_file_not_found", f"runtime file not found: {missing_runtime_files[0]}"
+        )
     missing_candidates = [
         str(step.values["candidate_file"])
         for step in scenario.steps
@@ -638,6 +710,16 @@ def capture_provenance(
             "untracked": untracked,
         },
         "datapacks": datapacks,
+        "runtime_files": [
+            {
+                "source": str(source),
+                "target": target,
+                "sha256": _sha256(source),
+                "size": source.stat().st_size,
+            }
+            for source, target in scenario.runtime_files
+        ],
+        "runtime_absent_files": list(scenario.runtime_absent_files),
         "candidate_inputs": [
             {
                 "step_id": step.step_id,
@@ -663,7 +745,7 @@ def capture_provenance(
         "launch_command": [
             "bash",
             "./gradlew",
-            f":{scenario.loader}:runServer",
+            f":{scenario.loader}:{scenario.launch_task}",
             "--console=plain",
             "--no-daemon",
         ],
@@ -759,7 +841,7 @@ def parse_mod_list(log_text: str, loader: str) -> list[dict[str, str]]:
     if loader == "fabric":
         active = False
         for line in log_text.splitlines():
-            if re.search(r"FabricLoader\) Loading \d+ mods:", line):
+            if re.search(r"(?:FabricLoader\)|\[main/INFO\]:) Loading \d+ mods:", line):
                 active = True
                 continue
             if active:
@@ -1034,6 +1116,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             scenario.loader,
             seed=scenario.seed,
             datapacks=list(effective_scenario.datapacks),
+            runtime_files=list(scenario.runtime_files),
+            runtime_absent_files=list(scenario.runtime_absent_files),
             companion_artifacts=list(resolve_artifacts(
                 scenario.companion_artifacts,
                 expected_loader=scenario.loader,
@@ -1042,6 +1126,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             timeout=scenario.startup_timeout,
             retention=scenario.retention,
             probe_packs=scenario.probe_packs,
+            launch_task=scenario.launch_task,
         )
         provenance["launch_command"] = state["command"]
         provenance["probe_overlay"] = state["probe_overlay"]

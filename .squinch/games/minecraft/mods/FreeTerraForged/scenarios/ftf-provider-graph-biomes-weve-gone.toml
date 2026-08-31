@@ -1,0 +1,50 @@
+schema_version = 1
+name = "FTF provider graph — Oh The Biomes We've Gone"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census", "games/minecraft/investigations/reterraforged/probes/feature-graph-census", "games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-corgilib-5.0.0.9", "mc1.21.1-fabric-oh-the-trees-youll-grow-5.3.2", "mc1.21.1-fabric-oh-the-biomes-weve-gone-2.6.0"]
+runtime_absent_files = ["config/biomeswevegone/world_generation.json"]
+retention = "keep"
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "biomeswevegone"]
+[[probes]]
+id = "squinch:rtf-worldgen-normalization-census"
+version = "1"
+config = {}
+[[probes]]
+id = "squinch:rtf-feature-graph-census"
+version = "1"
+config = {}
+[[probes]]
+id = "squinch:rtf-composition-audit"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 4, surface_threshold_y = 62 }
+[[steps]]
+id = "census-normalizable-worldgen-graph"
+type = "probe"
+probe = "squinch:rtf-worldgen-normalization-census"
+expect = { terminal_state = "pass" }
+[[steps]]
+id = "census-final-feature-graph"
+type = "probe"
+probe = "squinch:rtf-feature-graph-census"
+expect = { terminal_state = "pass" }
+[[steps]]
+id = "audit-composition"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 0, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-composition-audit"
+expect = { terminal_state = "pass" }

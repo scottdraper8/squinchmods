@@ -21,6 +21,61 @@ Added candidates drawn from Minecraft's main random stream perturb later decorat
 baseline candidate on the existing stream and deriving extension decisions from isolated stable
 inputs leaves later main-stream draws unchanged.
 
+## Rescued underground surface features
+
+RTF can rescue a narrow family of conventional surface-search feature pipelines when their original
+environment scan finds no target in an extended-height band. The original attempt keeps priority. A
+rescue searches the same X/Z column, then repeats the target, block-predicate, and biome checks at
+the proposed position. Unknown placement shapes and unsafe modifier orders remain unchanged.
+
+The deterministic per-band budget is part of the density contract. Every failed original scan may
+enter rescue policy, but only a scaled subset is scheduled to search; scheduled searches reuse a
+run-local X/Z-column and height-band cache when possible. Consequently a policy-entry count is not a
+column-search count and must never be reported as “search attempts.” Viability measurements keep
+failed entries, budget skips, scheduled searches, physical scans, cache reuse, predicate checks,
+discovered surfaces, and successful rescues separate.
+
+A rescued origin must also lie behind the stable RTF terrain envelope. The guard samples a 9-by-9
+neighborhood around the origin and requires at least four complete blocks between that origin and
+the lowest sampled surface. Surface samples and per-column cutoffs are cached for the active run.
+When the active generator does not expose the RTF terrain context, rescue is disabled rather than
+guessing from a mutable heightmap.
+
+This proves only that the placement origin is locally protected. Minecraft's generic placed-feature
+contract does not expose a trustworthy maximum write footprint for arbitrary configured features, so
+later blocks from a large feature can extend beyond the guarded origin. The check is not an
+unbounded enclosure or cave-connectivity test.
+
+The maximum-range Spider Nest control confirms that the mechanism addresses its intended case. In a
+2,048-block-tall Overworld, repeated 64-chunk runs place roughly 2,940 rescued origins, about 1,860
+above Y=256. With rescue disabled, the four affected Biomes O' Plenty decorations produce roughly
+1,300 biome-filter passes and 4,100-4,200 observed block-write operations; production rescue
+produces roughly 4,200 passes and 10,100-10,400 writes. Sparse windows can legitimately find almost
+no eligible surfaces and do not measure global usefulness.
+
+In the high control, all 2,948 returned rescues pass the downstream biome filter and invoke their
+configured feature; 2,288 configured placements return success. The 77.6% rescue-to-placement rate
+includes feature-internal rejection: corner and hanging cobwebs are effectively 100%, spider eggs
+are 95.2%, and stringy cobweb is 16.8%. In the sparse control, both returned rescues become
+successful configured placements.
+
+On the same 8-by-8 chunk high control, PR #202 produces 2,261 successful configured placements
+versus production's 2,288. The aggregate count changes by only 1.2%, while the exact-position probe
+shows that almost all rescue columns change. Placement volume and positional parity are therefore
+separate acceptance metrics.
+
+The production rescue mechanism is acceptable as the interim implementation. Normal feature RNG and
+chunk-completion order cause bounded repeat variation, but a compatibility change must remain inside
+that repeatability envelope rather than systematically replacing X/Z columns. The long-term runtime
+plan absorbs rescue as an owner-scoped typed placement node only after exact eligibility, density,
+same-column, enclosure, downstream-success, and positional parity are proven.
+
+The current probe's elapsed intervals include instrumentation and are not a production benchmark.
+Five fresh-server production versus rescue-disabled observations with the same lightweight placement
+probe show no generation-time difference above run noise. A warmed in-process benchmark and
+allocation profile are still required for a tight performance bound. The focused retained runs and
+counter definitions are linked from the canonical worldgen-compatibility plan.
+
 ## Dynamic ordinary ores
 
 In a non-reference FTF Overworld, standard `minecraft:ore` and `minecraft:scattered_ore` placed

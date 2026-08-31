@@ -1,6 +1,6 @@
 schema_version = 1
 name = "FTF + TerraBlender/Biolith/Terrestria biome preview parity"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
@@ -13,7 +13,7 @@ retention = "keep"
 
 [rtf_ephemeral]
 id = "biome-preview-parity-mixed-900-50"
-purpose = "Preview parity at a deterministic Terrestria biome location"
+purpose = "Fixed-window preview parity; locate separately records Biolith-owned Terrestria generation"
 base_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 base_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
 patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900-underground-50.json"
@@ -34,7 +34,7 @@ required_mods = ["minecraft", "reterraforged", "terrablender", "biolith", "terre
 [[probes]]
 id = "squinch:rtf-biome-preview-parity"
 version = "1"
-config = { bounds = [-94, 131, -90, 135], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, example_limit = 32 }
+config = { bounds = [16, 275, 20, 279], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, example_limit = 32 }
 
 [[steps]]
 id = "locate-terrestria"
@@ -45,7 +45,7 @@ command = "locate biome terrestria:japanese_maple_forest"
 id = "compare-preview-to-finished-chunks"
 type = "generate"
 unit = "chunk"
-bounds = [-94, 131, -90, 135]
+bounds = [16, 275, 20, 279]
 authority = "finished-chunk"
 terminal_probe = "squinch:rtf-biome-preview-parity"
 expect = { terminal_state = "pass" }

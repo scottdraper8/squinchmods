@@ -28,7 +28,14 @@ import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.rtf.mixin.AccessorMultiNoiseBiomeSource;
 import raccoonman.reterraforged.world.worldgen.biome.UndergroundBiomeBanding;
-import raccoonman.reterraforged.world.worldgen.terrablender.TerraBlenderParameterList;
+import raccoonman.reterraforged.concurrent.Resource;
+import raccoonman.reterraforged.world.worldgen.GeneratorContext;
+import raccoonman.reterraforged.world.worldgen.RTFRandomState;
+import raccoonman.reterraforged.world.worldgen.cell.Cell;
+import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenBiomeSelection;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlan;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlans;
 
 public final class RtfCompositionAuditProbePack implements ProbePack {
     @Override
@@ -74,25 +81,23 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             biomeSource.possibleBiomes().stream()
                 .map(MinecraftProbeHelpers::biomeId)
                 .forEach(tree.possibleBiomes::add);
-            @SuppressWarnings("unchecked")
-            TerraBlenderParameterList<Holder<Biome>> terraBlenderParameters =
-                (Object) parameters instanceof TerraBlenderParameterList<?> list
-                    ? (TerraBlenderParameterList<Holder<Biome>>) list
-                    : null;
+            WorldgenPlan plan = level.getChunkSource().getGenerator() instanceof TerraForgedChunkGenerator generator
+                ? generator.plan().orElse(null)
+                : ((RTFRandomState) (Object) level.getChunkSource().randomState()).plan();
+            GeneratorContext generatorContext = ((RTFRandomState) (Object) level.getChunkSource().randomState())
+                .generatorContext();
             ChunkSurvey survey = surveyFinishedChunks(
-                snapshot, level, tree.registeredBiomes, terraBlenderParameters
+                snapshot, level, tree.registeredBiomes, plan, generatorContext
             );
 
-            TerraBlenderParameterList.CompositionDiagnostics<Holder<Biome>> composition = terraBlenderParameters == null
-                ? null
-                : terraBlenderParameters.reterraforged$getCompositionDiagnostics();
-            return this.selection.result(snapshot, buildOutput(tree, survey, composition));
+            return this.selection.result(snapshot, buildOutput(tree, survey, plan));
         }
 
         private ChunkSurvey surveyFinishedChunks(
             FinishedChunkSelection.Snapshot snapshot, ServerLevel level,
             Set<String> registeredBiomes,
-            TerraBlenderParameterList<Holder<Biome>> parameters
+            WorldgenPlan plan,
+            GeneratorContext generatorContext
         ) {
             int minQuartY = QuartPos.fromBlock(level.getMinBuildHeight());
             int maxQuartY = QuartPos.fromBlock(level.getMaxBuildHeight() - 1);
@@ -114,11 +119,26 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
                             );
                             boolean isSurface = quartY >= surfaceQuartY;
                             survey.record(biome, isSurface, registeredBiomes);
-                            if (parameters != null) {
+                            if (plan != null && generatorContext != null
+                                && !plan.providerSelection().providers().isEmpty()) {
                                 Climate.TargetPoint target = sampler.sample(quartX, quartY, quartZ);
-                                TerraBlenderParameterList.SelectionDiagnostics<Holder<Biome>> selection =
-                                    parameters.reterraforged$inspectSelection(target, quartX, quartY, quartZ);
-                                survey.recordSelection(selection, biome);
+                                long cellX;
+                                long cellZ;
+                                try (Resource<Cell> resource = Cell.getResource()) {
+                                    Cell cell = resource.get().reset();
+                                    generatorContext.lookup.applyCell(
+                                        cell, QuartPos.toBlock(quartX), QuartPos.toBlock(quartZ), false, true
+                                    );
+                                    cellX = cell.biomeRegionX;
+                                    cellZ = cell.biomeRegionZ;
+                                }
+                                WorldgenPlans.ProviderResult selection = plan.providerSelection()
+                                    .resolve(cellX, cellZ, target)
+                                    .orElseThrow();
+                                Holder<Biome> resolved = WorldgenBiomeSelection.resolve(
+                                    quartX, quartY, quartZ, sampler
+                                ).orElse(selection.biome());
+                                survey.recordSelection(selection, resolved, biome);
                             }
                         }
                     }
@@ -214,7 +234,7 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
     private static JsonObject buildOutput(
         TreeAnalysis tree,
         ChunkSurvey survey,
-        TerraBlenderParameterList.CompositionDiagnostics<Holder<Biome>> composition
+        WorldgenPlan plan
     ) {
         JsonObject data = new JsonObject();
         data.addProperty("authority", "composition-audit");
@@ -262,29 +282,25 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         }
         data.add("underground_convention", ugJson);
 
-        if (composition != null) {
-            JsonObject compositionJson = new JsonObject();
-            compositionJson.addProperty("region_count", composition.regionCount());
-            compositionJson.add("source_entry_counts", integers(composition.sourceEntryCounts()));
-            compositionJson.addProperty("canonical_entry_count", composition.canonicalEntryCount());
-            compositionJson.addProperty("exact_duplicate_count", composition.duplicateEntryCount());
-            compositionJson.addProperty("late_global_entry_count", composition.lateGlobalEntryCount());
-            compositionJson.addProperty("excluded_entry_count", composition.excludedEntryCount());
-            compositionJson.addProperty("invalid_entry_count", composition.invalidEntryCount());
-            compositionJson.add("invalid_regions", integers(composition.invalidRegions()));
-			compositionJson.addProperty("alternative_parameter_point_count", composition.alternativePointCount());
-			compositionJson.addProperty("replaced_regional_cave_slot_count", composition.replacedCaveSlotCount());
-			compositionJson.addProperty("surface_selection", "weighted-regional-tree");
-            compositionJson.addProperty("shallow_candidate_count", composition.shallowCandidateCount());
-            compositionJson.addProperty("deep_stage_candidate_count", composition.deepCandidateCount());
-            compositionJson.add("shallow_candidates", biomes(composition.shallowCandidates()));
-            compositionJson.add("deep_stage_candidates", biomes(composition.deepCandidates()));
-            compositionJson.addProperty("unknown_entry_count", composition.unknownEntryCount());
-            compositionJson.addProperty("classification_failure_count", composition.classificationFailureCount());
-            if (composition.fallbackReason() != null) {
-                compositionJson.addProperty("fallback_reason", composition.fallbackReason());
+        if (plan != null) {
+            JsonObject providerJson = new JsonObject();
+            providerJson.addProperty("state", plan.providerSelection().descriptor().state().name().toLowerCase());
+            providerJson.addProperty("mechanism", plan.providerSelection().descriptor().mechanism());
+            providerJson.addProperty("provider_count", plan.providerSelection().providers().size());
+            providerJson.addProperty("has_fallback", plan.providerSelection().fallback().isPresent());
+            providerJson.addProperty("has_deferred_placeholder", plan.providerSelection().deferredPlaceholder().isPresent());
+            JsonArray providers = new JsonArray();
+            for (WorldgenPlans.ProviderDomain provider : plan.providerSelection().providers()) {
+                JsonObject value = new JsonObject();
+                value.addProperty("id", provider.id().toString());
+                value.addProperty("weight", provider.weight());
+                value.addProperty("registration_order", provider.registrationOrder());
+                value.addProperty("candidate_count", provider.candidates().values().size());
+                providers.add(value);
             }
-            data.add("terrablender_composition", compositionJson);
+            providerJson.add("providers", providers);
+            data.add("provider_plan", providerJson);
+            data.add("capability_report", plan.report().toJson());
         }
 
         // === Duplicate registrations ===
@@ -372,18 +388,6 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         return data;
     }
 
-    private static JsonArray integers(List<Integer> values) {
-        JsonArray result = new JsonArray();
-        values.forEach(result::add);
-        return result;
-    }
-
-    private static JsonArray biomes(List<Holder<Biome>> values) {
-        JsonArray result = new JsonArray();
-        values.stream().map(MinecraftProbeHelpers::biomeId).sorted().forEach(result::add);
-        return result;
-    }
-
     private static JsonObject counts(Map<String, Long> counts) {
         JsonObject result = new JsonObject();
         counts.forEach(result::addProperty);
@@ -434,18 +438,18 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
         }
 
         void recordSelection(
-            TerraBlenderParameterList.SelectionDiagnostics<Holder<Biome>> selection,
+            WorldgenPlans.ProviderResult selection,
+            Holder<Biome> resolved,
             String finishedBiome
         ) {
             this.selectionSamples++;
-            this.selectedRegions.merge(Integer.toString(selection.selectedRegion()), 1L, Long::sum);
+            this.selectedRegions.merge(selection.domain().toString(), 1L, Long::sum);
             if (selection.usedFallback()) {
-                this.fallbackReasons.merge(selection.fallbackReason(), 1L, Long::sum);
-                return;
+                this.fallbackReasons.merge("deferred_default", 1L, Long::sum);
             }
 
-            String original = MinecraftProbeHelpers.biomeId(selection.original());
-            String banded = MinecraftProbeHelpers.biomeId(selection.banded());
+            String original = MinecraftProbeHelpers.biomeId(selection.biome());
+            String banded = MinecraftProbeHelpers.biomeId(resolved);
             this.originalWinners.merge(original, 1L, Long::sum);
             this.bandedWinners.merge(banded, 1L, Long::sum);
             if (banded.equals(finishedBiome)) {

@@ -1,12 +1,12 @@
 schema_version = 1
 name = "Ore ownership matrix: Immersive Ores NeoForge"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "neoforge"
 seed = 12345
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry", "games/minecraft/investigations/reterraforged/probes/feature-graph-census"]
 companion_artifacts = ["mc1.21.1-neoforge-immersive-ores-1.1.9"]
-retention = "discard"
+retention = "keep"
 
 [server_properties]
 view-distance = 4

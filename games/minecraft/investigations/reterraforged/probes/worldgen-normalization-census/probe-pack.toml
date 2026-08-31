@@ -1,0 +1,9 @@
+schema_version = 1
+id = "rtf-worldgen-normalization-census"
+version = "1"
+target_adapter = "minecraft-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = []
+configuration_schema = "probe-config-v1.json"
+capabilities = ["server-thread", "worldgen-registry-graph", "codec-round-trip", "mechanism-census", "normalization-boundary"]

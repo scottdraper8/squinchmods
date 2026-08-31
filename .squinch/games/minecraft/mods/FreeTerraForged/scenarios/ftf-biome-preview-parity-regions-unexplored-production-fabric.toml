@@ -1,0 +1,41 @@
+schema_version = 1
+name = "FTF + current Regions Unexplored/Lithostitched production-remapped Fabric preview parity"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+    "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
+    "mc1.21.1-fabric-regions-unexplored-0.6.2",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "lithostitched", "regions_unexplored"]
+
+[[probes]]
+id = "squinch:rtf-biome-preview-parity"
+version = "1"
+config = { bounds = [64, 64, 67, 67], unit = "chunk", max_wait_ticks = 2400, horizontal_quart_step = 1, example_limit = 32, use_tile_authority = true }
+
+[[steps]]
+id = "compare-preview-to-finished-chunks"
+type = "generate"
+unit = "chunk"
+bounds = [64, 64, 67, 67]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-preview-parity"
+expect = { terminal_state = "pass" }

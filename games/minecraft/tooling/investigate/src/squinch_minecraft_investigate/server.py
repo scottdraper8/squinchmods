@@ -70,14 +70,26 @@ def sourced_environment() -> dict[str, str]:
     return environment
 
 
-def _backup_file(path: Path, artifact_dir: Path) -> dict:
+def _backup_file(
+    path: Path, artifact_dir: Path, backup_relative: Path | None = None
+) -> dict:
     record = {"path": str(path), "existed": path.exists(), "backup": None}
     if path.exists():
         if not path.is_file() or path.is_symlink():
             raise InvestigationError(
                 "unsafe_managed_file", f"refusing to replace non-regular file: {path}"
             )
-        backup = artifact_dir / "managed-files" / path.name
+        relative = backup_relative or Path(path.name)
+        if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+            raise InvestigationError(
+                "unsafe_managed_file", f"invalid managed backup path: {relative}"
+            )
+        managed_root = (artifact_dir / "managed-files").resolve()
+        backup = (managed_root / relative).resolve()
+        if backup == managed_root or not backup.is_relative_to(managed_root):
+            raise InvestigationError(
+                "unsafe_managed_file", f"managed backup escapes its artifact directory: {backup}"
+            )
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, backup)
         record["backup"] = str(backup)
@@ -90,6 +102,12 @@ def _restore_managed_files(state: dict) -> list[str]:
     if "run_dir" in state:
         run_dir = Path(state["run_dir"])
         allowed_paths = {run_dir / "eula.txt", run_dir / "server.properties"}
+        allowed_paths.update(
+            Path(record["target"]) for record in state.get("runtime_files", [])
+        )
+        allowed_paths.update(
+            Path(path) for path in state.get("runtime_absent_files", [])
+        )
     for record in state.get("managed_files", []):
         path = Path(record["path"])
         try:
@@ -98,10 +116,10 @@ def _restore_managed_files(state: dict) -> list[str]:
             if path.is_symlink() or (path.exists() and not path.is_file()):
                 raise ValueError("managed target is not a regular file")
             if record["existed"]:
-                backup = Path(record["backup"])
+                backup = Path(record["backup"]).resolve()
                 if "artifact_dir" in state:
-                    expected = Path(state["artifact_dir"]) / "managed-files" / path.name
-                    if backup != expected:
+                    managed_root = (Path(state["artifact_dir"]) / "managed-files").resolve()
+                    if backup == managed_root or not backup.is_relative_to(managed_root):
                         raise ValueError("managed backup is outside the artifact directory")
                 if backup.is_symlink() or not backup.is_file():
                     raise FileNotFoundError(f"backup missing: {backup}")
@@ -161,6 +179,22 @@ def _remove_protocol_files(state: dict) -> list[str]:
         except OSError:
             # A non-empty protocol directory can contain another run's active files.
             pass
+    return failures
+
+
+def _remove_companion_artifacts(state: dict) -> list[str]:
+    failures: list[str] = []
+    mods_root = (Path(state["run_dir"]) / "mods").resolve()
+    for artifact in state.get("companion_artifacts", []):
+        mod_path = Path(artifact["materialized_path"])
+        try:
+            if mod_path.parent.resolve() != mods_root:
+                raise ValueError("companion artifact is outside the run mods directory")
+            if mod_path.is_symlink() or (mod_path.exists() and not mod_path.is_file()):
+                raise ValueError("companion artifact is not a regular file")
+            mod_path.unlink(missing_ok=True)
+        except (OSError, ValueError) as exc:
+            failures.append(f"companion artifact removal: {mod_path}: {exc}")
     return failures
 
 
@@ -405,6 +439,8 @@ def start_server(
     *,
     seed: str | None,
     datapacks: list[Path],
+    runtime_files: list[tuple[Path, str]] | None = None,
+    runtime_absent_files: list[str] | None = None,
     companion_artifacts: list[ResolvedArtifact] | None = None,
     properties: dict[str, str],
     timeout: float,
@@ -412,6 +448,7 @@ def start_server(
     probe_packs: tuple[Path, ...] = (),
     server_port: int | None = None,
     rcon_port: int | None = None,
+    launch_task: str = "runServer",
 ) -> dict:
     startup_started = time.monotonic()
     loader_dir = validate_loader(project, loader)
@@ -480,15 +517,73 @@ def start_server(
         names = [source.name for source in resolved_datapacks]
         if len(names) != len(set(names)):
             raise InvestigationError("duplicate_datapack", "two datapacks have the same filename")
+        resolved_runtime_files: list[dict[str, str]] = []
+        config_root = (run_dir / "config").resolve()
+        for source_value, target_value in runtime_files or []:
+            source = source_value.expanduser().resolve()
+            target = (run_dir / target_value).resolve()
+            if not source.is_file() or source.is_symlink():
+                raise InvestigationError(
+                    "runtime_file_not_found", f"runtime file is not a regular file: {source}"
+                )
+            if not target.is_relative_to(config_root) or target == config_root:
+                raise InvestigationError(
+                    "unsafe_runtime_file", f"runtime file target escapes config directory: {target_value}"
+                )
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise InvestigationError(
+                    "unsafe_runtime_file", f"runtime file target is not a regular file: {target}"
+                )
+            resolved_runtime_files.append({
+                "source": str(source),
+                "target": str(target),
+                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            })
+        resolved_runtime_absent_files: list[str] = []
+        for target_value in runtime_absent_files or []:
+            target = (run_dir / target_value).resolve()
+            if not target.is_relative_to(config_root) or target == config_root:
+                raise InvestigationError(
+                    "unsafe_runtime_file", f"absent runtime file target escapes config directory: {target_value}"
+                )
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise InvestigationError(
+                    "unsafe_runtime_file", f"absent runtime file target is not a regular file: {target}"
+                )
+            resolved_runtime_absent_files.append(str(target))
+        managed_targets = [record["target"] for record in resolved_runtime_files]
+        managed_targets.extend(resolved_runtime_absent_files)
+        if len(set(managed_targets)) != len(managed_targets):
+            raise InvestigationError("duplicate_runtime_file", "runtime file targets must be unique")
 
         artifact_dir.mkdir(parents=True, exist_ok=False)
         managed_files = [
             _backup_file(run_dir / "eula.txt", artifact_dir),
             _backup_file(run_dir / "server.properties", artifact_dir),
+            *[
+                _backup_file(
+                    Path(record["target"]),
+                    artifact_dir,
+                    Path(record["target"]).relative_to(run_dir),
+                )
+                for record in resolved_runtime_files
+            ],
+            *[
+                _backup_file(
+                    Path(target), artifact_dir, Path(target).relative_to(run_dir)
+                )
+                for target in resolved_runtime_absent_files
+            ],
         ]
         try:
             (run_dir / "eula.txt").write_text("eula=true\n", encoding="utf-8")
             (run_dir / "server.properties").write_text(property_text, encoding="utf-8")
+            for record in resolved_runtime_files:
+                target = Path(record["target"])
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(Path(record["source"]), target)
+            for target in resolved_runtime_absent_files:
+                Path(target).unlink(missing_ok=True)
             if resolved_datapacks:
                 target_dir = world_dir / "datapacks"
                 target_dir.mkdir(parents=True, exist_ok=False)
@@ -522,16 +617,26 @@ def start_server(
                     "run_dir": str(run_dir),
                     "artifact_dir": str(artifact_dir),
                     "managed_files": managed_files,
+                    "runtime_files": resolved_runtime_files,
+                    "runtime_absent_files": resolved_runtime_absent_files,
                 }
             )
             if world_dir.exists() and world_dir.is_dir() and not world_dir.is_symlink():
                 shutil.rmtree(world_dir)
             raise
 
+        if launch_task not in {"runServer", "prodServer"}:
+            raise InvestigationError(
+                "invalid_launch_task", f"unsupported Gradle launch task: {launch_task}"
+            )
+        if launch_task == "prodServer" and loader != "fabric":
+            raise InvestigationError(
+                "invalid_launch_task", "prodServer is currently supported only for Fabric"
+            )
         command = [
             "bash",
             "./gradlew",
-            f":{loader}:runServer",
+            f":{loader}:{launch_task}",
             "--console=plain",
             "--no-daemon",
             *overlay_arguments,
@@ -574,8 +679,11 @@ def start_server(
                 "ports": {"server": chosen_server_port, "rcon": chosen_rcon_port},
                 "rcon": {"host": "127.0.0.1", "password": password},
                 "process": identity,
+                "launcher": proc_identity(os.getpid()),
                 "owned_processes": [identity],
                 "managed_files": managed_files,
+                "runtime_files": resolved_runtime_files,
+                "runtime_absent_files": resolved_runtime_absent_files,
                 "command": command,
                 "effective_properties": effective_properties,
                 "datapacks": [str(path.expanduser().resolve()) for path in datapacks],
@@ -607,6 +715,8 @@ def start_server(
                 "run_dir": str(run_dir),
                 "artifact_dir": str(artifact_dir),
                 "managed_files": managed_files,
+                "runtime_files": resolved_runtime_files,
+                "runtime_absent_files": resolved_runtime_absent_files,
             }
             _restore_managed_files(provisional)
             if world_dir.exists() and world_dir.is_dir() and not world_dir.is_symlink():
@@ -733,14 +843,32 @@ def _cleanup_world(state: dict, successful: bool) -> str | None:
     return None
 
 
+def _remove_forceload_regions(state: dict, timeout: float) -> list[str]:
+    """Remove only this run's regions and durably forget each acknowledged removal."""
+    failures: list[str] = []
+    for region in reversed(list(state.get("forceload_regions", []))):
+        command = (
+            f"forceload remove {region['block_min_x']} {region['block_min_z']} "
+            f"{region['block_max_x']} {region['block_max_z']}"
+        )
+        try:
+            run_commands(state, [command], min(timeout, 10.0))
+        except InvestigationError as exc:
+            failures.append(f"owned forceload removal: {exc}")
+        else:
+            state["forceload_regions"].remove(region)
+            _write_active(state)
+    return failures
+
+
 def stop_server(
-    project: Path, loader: str, *, successful: bool, timeout: float
+    project: Path, loader: str, *, successful: bool, timeout: float, allow_orphaned_starting: bool = False
 ) -> dict:
     active = active_path(project, loader)
     with project_lock(lock_path(project, loader)):
         cleanup_started = time.monotonic()
         state = load_active(project, loader)
-        if state["lifecycle"] == "starting":
+        if state["lifecycle"] == "starting" and not allow_orphaned_starting:
             raise InvestigationError(
                 "startup_in_progress",
                 "server startup is still owned by the launching command",
@@ -750,19 +878,14 @@ def stop_server(
         _write_active(state)
         failures: list[str] = []
         diagnostics: list[str] = []
-        for region in reversed(state.get("forceload_regions", [])):
-            command = (
-                f"forceload remove {region['block_min_x']} {region['block_min_z']} "
-                f"{region['block_max_x']} {region['block_max_z']}"
-            )
-            try:
-                run_commands(state, [command], min(timeout, 10.0))
-            except InvestigationError as exc:
-                failures.append(f"owned forceload removal: {exc}")
+        failures.extend(_remove_forceload_regions(state, timeout))
         save_started = time.monotonic()
         if was_ready:
             try:
-                run_commands(state, ["save-all flush"], min(timeout, 30.0))
+                # Large worldgen evidence windows can legitimately need more than thirty seconds
+                # to flush. The caller already supplies the bounded shutdown budget; imposing a
+                # smaller hidden cap turns a healthy, still-saving server into a forced teardown.
+                run_commands(state, ["save-all flush"], timeout)
             except InvestigationError as exc:
                 failures.append(f"world save: {exc}")
         state.setdefault("timings", {})["save_seconds"] = time.monotonic() - save_started
@@ -827,13 +950,7 @@ def stop_server(
 
         failures.extend(_remove_protocol_files(state))
         failures.extend(_restore_managed_files(state))
-        for artifact in state.get("companion_artifacts", []):
-            mod_path = Path(artifact["materialized_path"])
-            try:
-                if mod_path.exists():
-                    mod_path.unlink()
-            except OSError as exc:
-                failures.append(f"companion artifact removal: {exc}")
+        failures.extend(_remove_companion_artifacts(state))
         retained_world: str | None = None
         try:
             retained_world = _cleanup_world(state, successful and not failures)
@@ -893,6 +1010,19 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
     )
     ports_bound = any(not port_is_free(int(port)) for port in state["ports"].values())
     if process_alive or ports_bound:
+        if state["lifecycle"] == "starting":
+            if not _starting_run_is_orphaned(state):
+                raise InvestigationError(
+                    "startup_in_progress",
+                    "server startup is still owned by a live launching command",
+                )
+            return stop_server(
+                project,
+                loader,
+                successful=False,
+                timeout=timeout,
+                allow_orphaned_starting=True,
+            )
         return stop_server(project, loader, successful=False, timeout=timeout)
     with project_lock(lock_path(project, loader)):
         state = load_active(project, loader)
@@ -905,6 +1035,7 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
             )
         failures = _remove_protocol_files(state)
         failures.extend(_restore_managed_files(state))
+        failures.extend(_remove_companion_artifacts(state))
         try:
             retained_world = _cleanup_world(state, successful=False)
         except CleanupError as exc:
@@ -920,3 +1051,17 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
             raise CleanupError("recovery was incomplete", details={"failures": failures})
         Path(state["active_path"]).unlink()
         return state
+
+
+def _starting_run_is_orphaned(state: dict) -> bool:
+    """Whether a doctor recovery can safely take over a stranded startup.
+
+    New state records retain the launcher identity. Legacy state did not, so only a changed parent
+    for the exact tracked process establishes that the original launcher has exited.
+    """
+    launcher = state.get("launcher")
+    if isinstance(launcher, dict):
+        return not identity_matches(launcher)
+    expected = state["process"]
+    actual = proc_identity(int(expected["pid"]))
+    return actual is not None and actual["ppid"] != int(expected["ppid"])

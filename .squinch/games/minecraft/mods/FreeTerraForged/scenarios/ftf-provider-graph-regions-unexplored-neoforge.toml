@@ -1,0 +1,40 @@
+schema_version = 1
+name = "FTF provider graph — Regions Unexplored + current Lithostitched NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census", "games/minecraft/investigations/reterraforged/probes/feature-graph-census"]
+companion_artifacts = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta4", "mc1.21.1-neoforge-regions-unexplored-0.6.2"]
+retention = "keep"
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+[expectations]
+required_mods = ["minecraft", "reterraforged", "lithostitched", "regions_unexplored"]
+[[probes]]
+id = "squinch:rtf-feature-graph-census"
+version = "1"
+config = {}
+[[probes]]
+id = "squinch:rtf-composition-audit"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 4, surface_threshold_y = 62 }
+[[steps]]
+id = "census-final-feature-graph"
+type = "probe"
+probe = "squinch:rtf-feature-graph-census"
+expect = { terminal_state = "pass" }
+[[steps]]
+id = "audit-composition"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 0, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-composition-audit"
+expect = { terminal_state = "pass" }

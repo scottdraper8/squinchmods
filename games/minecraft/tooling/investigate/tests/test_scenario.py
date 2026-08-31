@@ -108,6 +108,76 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     assert scenario.steps[0].values["bounds"] == [0, 0, 16, 16]
 
 
+def test_production_launch_task_is_explicit_and_fabric_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "games/minecraft/project"
+    project.mkdir(parents=True)
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "probe.json").write_text("{}\n")
+    scenario_path = tmp_path / ".squinch/production.toml"
+    scenario_path.parent.mkdir()
+    _write_scenario(scenario_path)
+    scenario_path.write_text(
+        scenario_path.read_text().replace(
+            'loader = "fabric"', 'loader = "fabric"\nlaunch_task = "prodServer"'
+        )
+    )
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+
+    assert load_scenario(scenario_path).launch_task == "prodServer"
+
+    scenario_path.write_text(scenario_path.read_text().replace('loader = "fabric"', 'loader = "neoforge"'))
+    with pytest.raises(InvestigationError, match="only for Fabric"):
+        load_scenario(scenario_path)
+
+
+def test_runtime_files_are_repository_inputs_confined_to_run_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "games/minecraft/project"
+    project.mkdir(parents=True)
+    inputs = tmp_path / "games/minecraft/investigations"
+    inputs.mkdir(parents=True)
+    config = inputs / "terrablender.toml"
+    config.write_text("[general]\noverworld_region_size = 2\n")
+    scenario_path = tmp_path / ".squinch/runtime-file.toml"
+    scenario_path.parent.mkdir()
+    scenario_path.write_text(
+        '''schema_version = 1
+name = "runtime-file-control"
+project = "games/minecraft/project"
+loader = "fabric"
+seed = 1
+runtime_absent_files = ["config/generated-on-first-start.json"]
+
+[[runtime_files]]
+source = "games/minecraft/investigations/terrablender.toml"
+target = "config/terrablender.toml"
+
+[[steps]]
+id = "list"
+type = "command"
+command = "list"
+'''
+    )
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+
+    loaded = load_scenario(scenario_path)
+    assert loaded.runtime_files == ((config.resolve(), "config/terrablender.toml"),)
+    assert loaded.runtime_absent_files == ("config/generated-on-first-start.json",)
+
+    scenario_path.write_text(
+        scenario_path.read_text().replace(
+            'target = "config/terrablender.toml"', 'target = "../terrablender.toml"'
+        )
+    )
+    with pytest.raises(InvestigationError, match="must be a config/ path"):
+        load_scenario(scenario_path)
+
+
 def test_finished_chunk_authority_requires_selected_terminal_probe(tmp_path: Path) -> None:
     """Negative control: force-load acknowledgment must not be mislabeled finished-chunk proof."""
     scenario_path = tmp_path / "scenario.toml"
@@ -188,6 +258,11 @@ def test_real_loader_log_shapes_produce_exact_runtime_mod_identities() -> None:
 \t- reterraforged 0.0.6005
 [main/INFO] (Minecraft) Starting server
 """
+    fabric_production = """[02:03:32] [main/INFO]: Loading 2 mods:
+\t- minecraft 1.21.1
+\t- reterraforged 0.0.6005
+[02:03:33] [main/INFO]: Starting minecraft server version 1.21.1
+"""
     neoforge = """[main/INFO] (ModDiscoverer)
      Mod List:
         Name Version (Mod Id)
@@ -197,6 +272,10 @@ def test_real_loader_log_shapes_produce_exact_runtime_mod_identities() -> None:
 """
 
     assert parse_mod_list(fabric, "fabric") == [
+        {"id": "minecraft", "version": "1.21.1"},
+        {"id": "reterraforged", "version": "0.0.6005"},
+    ]
+    assert parse_mod_list(fabric_production, "fabric") == [
         {"id": "minecraft", "version": "1.21.1"},
         {"id": "reterraforged", "version": "0.0.6005"},
     ]

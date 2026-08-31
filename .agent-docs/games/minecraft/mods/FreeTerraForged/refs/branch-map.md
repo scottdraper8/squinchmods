@@ -1,23 +1,21 @@
 # FreeTerraForged Branch Map
 
-Reflects the live local branches, remote refs, and in-repository submodule state as of 2026-08-24.
+Reflects the live local branches, remote refs, and in-repository submodule state as of 2026-08-29.
 
 `origin` is `scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
 
 ## Branches
 
-| Branch                                | Remote  | Status                                                                                                                                                                  |
-| ------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `1.21.1`                              | tracked | Current production base at `dcb2ae0`; local, `origin`, and `upstream` are aligned.                                                                                      |
-| `feat/worldgen-compatibility-runtime` | local   | Empty planning placeholder at `2aee90a`, behind current production. It has no compatibility-runtime source changes. Worktree: `/var/tmp/ftf-consolidated-compat-layer`. |
-| `feat/configurable-strata`            | tracked | Configurable strata/deepslate-band work at `b8da568`; pushed, divergent from current production, and requires product QA plus rebasing.                                 |
-| `feat/configurable-shorelines`        | tracked | Configurable shoreline work at `a5c6c53`; pushed, divergent from current production, and requires visual/product QA plus rebasing.                                      |
-| `hotfix/biome-previewer-bugs`         | tracked | Historical merged tip at `2aee90a`; retained because the parent repository currently pins its submodule checkout to this commit.                                        |
+| Branch                                | Remote  | Status                                                                                                                                   |
+| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.21.1`                              | tracked | Current production branch. Local, `origin`, and `upstream` are aligned at `4a3ab1c`, and the in-repository worktree is checked out here. |
+| `feat/worldgen-compatibility-runtime` | local   | Active compatibility runtime at `8f5ab0a`, based on `4a3ab1c`; its dedicated worktree is clean after the accepted preview correction.    |
+| `feat/configurable-strata`            | tracked | Configurable strata/deepslate-band work is pushed, divergent from current production, and requires product QA plus rebasing.             |
+| `feat/configurable-shorelines`        | tracked | Configurable shoreline work is pushed, divergent from current production, and requires visual/product QA plus rebasing.                  |
 
-The in-repository `FreeTerraForged` submodule remains on `hotfix/biome-previewer-bugs` at `2aee90a`
-because the parent repository records that exact submodule commit. Do not advance that checkout or
-the parent submodule pointer as a side effect of branch maintenance.
+The in-repository `FreeTerraForged` worktree and the parent repository's submodule pointer are on
+current `1.21.1`.
 
-The compatibility evidence checkout is detached at `2aee90a` in
-`games/minecraft/investigation-state/worktrees/ftf-compat-runtime-evidence`. Both compatibility
-worktrees must be recreated or advanced from live `upstream/1.21.1` before production work begins.
+The active compatibility runtime and evidence worktree is
+`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. New evidence and
+implementation must continue there from the live `upstream/1.21.1` base.

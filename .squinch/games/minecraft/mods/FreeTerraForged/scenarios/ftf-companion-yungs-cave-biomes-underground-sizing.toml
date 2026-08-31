@@ -6,7 +6,7 @@ seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
-    "mc1.21.1-fabric-yungs-api-5.1.6",
+    "mc1.21.1-fabric-yungs-api-5.1.8",
     "mc1.21.1-fabric-cloth-config-15.0.140",
     "mc1.21.1-fabric-geckolib-4.9.2",
     "mc1.21.1-fabric-yungs-cave-biomes-3.1.1",

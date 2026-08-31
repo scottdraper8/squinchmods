@@ -172,14 +172,20 @@ Every repository-owned project, datapack, fixture, patch, and probe path in the 
 repository-root-relative (`games/minecraft/...`) and resolves from the repository root rather than
 the caller's directory. Scenario schema version 1 requires an exact seed and ordered steps, and
 supports command, generation, and selected-probe steps; multiple datapacks; server properties;
-startup/step/shutdown timeouts; retention; required runtime mods; and response/region/terminal
-expectations. A generation step has `generation` authority unless it names a selected terminal probe
-and explicitly requests `finished-chunk` authority — force-load acknowledgment alone is never
-labeled finished-chunk proof. Each run's manifest fingerprints the scenario, Git HEAD and dirty
-patch, untracked inputs, datapacks, Java, Gradle wrapper/build inputs, loader, JVM environment
-arguments, launch command, and the runtime mod list parsed from the real loader log. A crash, fatal
-server condition, timeout, assertion failure, missing or non-passing probe terminal, incomplete
-scan, or cleanup failure makes the command nonzero — never a superficial success.
+startup/step/shutdown timeouts; retention; required runtime mods; managed runtime configuration
+files; and response/region/terminal expectations. Use `[[runtime_files]]` with a repository-relative
+`source` and a `target` below `config/` when a scenario must vary a generated mod configuration. The
+runner fingerprints the source, backs up the target, installs the input before launch, and restores
+the original on every cleanup path. Use a top-level `runtime_absent_files` array of `config/` paths
+when first-start behavior requires a generated configuration not to exist; those targets receive the
+same backup and restoration guarantees. A generation step has `generation` authority unless it names
+a selected terminal probe and explicitly requests `finished-chunk` authority — force-load
+acknowledgment alone is never labeled finished-chunk proof. Each run's manifest fingerprints the
+scenario, Git HEAD and dirty patch, untracked inputs, datapacks, Java, Gradle wrapper/build inputs,
+loader, JVM environment arguments, launch command, and the runtime mod list parsed from the real
+loader log. A crash, fatal server condition, timeout, assertion failure, missing or non-passing
+probe terminal, incomplete scan, or cleanup failure makes the command nonzero — never a superficial
+success.
 
 An RTF scenario names one retained source-form fixture with `rtf_fixture = ".../fixture.toml"`. The
 runner deterministically materializes it, copies the generated ZIP into the run artifacts, and

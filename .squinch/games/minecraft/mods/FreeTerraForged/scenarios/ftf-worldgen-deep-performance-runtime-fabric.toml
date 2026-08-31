@@ -1,0 +1,46 @@
+schema_version = 1
+name = "FTF compatibility-runtime deep/tall BOP generation performance candidate"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-palette"]
+companion_artifacts = [
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-glitchcore-2.1.0.2",
+    "mc1.21.1-fabric-biomes-o-plenty-21.1.0.14",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "biomesoplenty"]
+
+[[probes]]
+id = "squinch:rtf-biome-palette"
+version = "1"
+config = { bounds = [80, 80, 88, 88], unit = "chunk", max_wait_ticks = 2400, min_y = -600, max_y = 319, horizontal_quart_step = 1, vertical_quart_step = 1, top_k = 20, example_limit = 12, bands = [
+  { id = "deep", min_y = -600, max_y = -65 },
+  { id = "vanilla", min_y = -64, max_y = 256 },
+  { id = "high", min_y = 257, max_y = 319 },
+] }
+
+[[steps]]
+id = "benchmark-deep-biome-windows"
+type = "generate"
+unit = "chunk"
+bounds = [80, 80, 88, 88]
+repeat = 3
+offset = [16, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-palette"
+expect = { region_count = 3, terminal_state = "pass" }

@@ -90,6 +90,63 @@ def _versions(
     return [value for value in values if value.get("version_type") == "release"]
 
 
+def audit_latest_catalog(
+    artifacts: list[CatalogArtifact], *, include_beta: bool = False
+) -> dict[str, Any]:
+    """Compare pinned artifacts with Modrinth's current first compatible version."""
+    groups: dict[tuple[str, str, str], list[CatalogArtifact]] = {}
+    for artifact in artifacts:
+        key = (artifact.project_id, artifact.minecraft_version, artifact.loader)
+        groups.setdefault(key, []).append(artifact)
+
+    results: list[dict[str, Any]] = []
+    for (project_id, minecraft_version, loader), pinned in sorted(groups.items()):
+        versions = _versions(
+            project_id,
+            minecraft_version,
+            loader,
+            include_beta=include_beta,
+        )
+        if not versions:
+            raise AcquisitionError(
+                f"No compatible Modrinth versions for {pinned[0].project_slug} "
+                f"on {minecraft_version}/{loader}"
+            )
+        latest = versions[0]
+        latest_id = str(latest.get("id", ""))
+        latest_number = str(latest.get("version_number", ""))
+        if not latest_id or not latest_number:
+            raise AcquisitionError(
+                f"Latest Modrinth version metadata is incomplete for {pinned[0].project_slug}"
+            )
+        results.append({
+            "project": pinned[0].project_slug,
+            "project_id": project_id,
+            "minecraft_version": minecraft_version,
+            "loader": loader,
+            "channel_policy": "release-or-prerelease" if include_beta else "release",
+            "latest": {
+                "version_id": latest_id,
+                "version_number": latest_number,
+                "version_type": latest.get("version_type"),
+                "published_at": latest.get("date_published"),
+            },
+            "pins": [
+                {
+                    "artifact_id": artifact.id,
+                    "version_id": artifact.version_id,
+                    "version_number": artifact.version_number,
+                    "is_latest": artifact.version_id == latest_id,
+                }
+                for artifact in sorted(pinned, key=lambda value: value.id)
+            ],
+        })
+    return {
+        "channel_policy": "release-or-prerelease" if include_beta else "release",
+        "groups": results,
+    }
+
+
 def _select_version(
     versions: list[dict[str, Any]],
     *,

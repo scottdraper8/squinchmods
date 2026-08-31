@@ -1,0 +1,37 @@
+schema_version = 1
+name = "FTF + Oh The Biomes We've Gone spatial compatibility — biome size 225"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-compatibility"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-corgilib-5.0.0.9", "mc1.21.1-fabric-oh-the-trees-youll-grow-5.3.2", "mc1.21.1-fabric-oh-the-biomes-weve-gone-2.6.0"]
+runtime_absent_files = ["config/biomeswevegone/world_generation.json"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 1200
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "biomeswevegone"]
+
+[[probes]]
+id = "squinch:rtf-spatial-compatibility"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 24000, sample_min_block_x = -2048, sample_max_block_x = 2040, sample_min_block_z = -2048, sample_max_block_z = 2040, sample_step_blocks = 8 }
+
+[[steps]]
+id = "measure-spatial-ownership"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 0, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-spatial-compatibility"
+expect = { terminal_state = "pass" }

@@ -1,0 +1,33 @@
+schema_version = 1
+name = "FTF worldgen normalization census — YUNG's Cave Biomes"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+companion_artifacts = ["mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-yungs-api-5.1.8", "mc1.21.1-fabric-cloth-config-15.0.140", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-yungs-cave-biomes-3.1.1"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 360
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "yungscavebiomes"]
+
+[[probes]]
+id = "squinch:rtf-worldgen-normalization-census"
+version = "1"
+config = {}
+
+[[steps]]
+id = "census-normalizable-worldgen-graph"
+type = "probe"
+probe = "squinch:rtf-worldgen-normalization-census"
+expect = { terminal_state = "pass" }

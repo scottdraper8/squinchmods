@@ -1,0 +1,16 @@
+[general]
+	# Controlled native TerraBlender scale used by retained compatibility scenarios.
+	overworld_region_size = 4
+	vanilla_nether_region_weight = 10
+	nether_region_size = 2
+	vanilla_overworld_region_weight = 10
+
+[end]
+	edge_biome_size = 3
+	highlands_biome_size = 4
+	vanilla_end_barrens_weight = 10
+	island_biome_size = 2
+	vanilla_end_highlands_weight = 10
+	vanilla_end_midlands_weight = 10
+	midlands_biome_size = 4
+	vanilla_small_end_islands_weight = 10

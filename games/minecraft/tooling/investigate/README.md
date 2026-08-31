@@ -32,9 +32,13 @@ tooling/squinch mc-investigate scenario \
 
 Scenario schema version 1 requires an exact seed and ordered steps. It supports command, generation,
 and selected-probe steps; multiple datapacks; server properties; startup/step/shutdown timeouts;
-retention; required runtime mods; and response/region/terminal expectations. A generation step has
-`generation` authority unless it names a selected terminal probe and explicitly requests
-`finished-chunk` authority. Force-load acknowledgment alone is never labeled finished-chunk proof.
+retention; required runtime mods; managed `[[runtime_files]]` inputs copied from repository-relative
+sources to targets below the loader's `config/` directory; managed `runtime_absent_files` paths for
+first-start behavior; and response/region/terminal expectations. Managed files are fingerprinted
+where applicable, backed up, installed or removed before launch, and restored on every cleanup path.
+A generation step has `generation` authority unless it names a selected terminal probe and
+explicitly requests `finished-chunk` authority. Force-load acknowledgment alone is never labeled
+finished-chunk proof.
 
 For an isolated generation benchmark, set `repeat` and a nonzero `offset = [x, z]` on a generation
 step. The parser requires every translated coordinate window to be disjoint and caps one step at 20

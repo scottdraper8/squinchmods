@@ -62,19 +62,19 @@ required_dependencies = ["mc1.21.1-neoforge-biolith-3.0.14"]
 source_id = "source-no-mans-land"
 
 [[artifacts]]
-id = "mc1.21.1-neoforge-biolith-3.0.11"
-project_slug = "biolith"
-project_id = "iGEl6Crx"
+id = "mc1.21.1-neoforge-no-mans-land-1.5.12-embedded-biolith-control"
+project_slug = "no-mans-land"
+project_id = "kjZCvAn6"
 minecraft_version = "1.21.1"
 loader = "neoforge"
-version_number = "3.0.11"
-version_id = "1ZfKhpFg"
-filename = "biolith-neoforge-3.0.11.jar"
-sha256 = "9a30b36cdb396b6a986f51a6fb6c11c4df0d246cdae4c7841668f7d89ff05c94"
-status = "approved"
-reason = "Exact NeoForge 21.1.219 biome preview parity stack"
+version_number = "1.5.12"
+version_id = "bcszfrVc"
+filename = "nomansland-1.5.12.jar"
+sha256 = "7c79f329a28be69b9cc8308f2cc2360874e95752086768008b81b3f75c90d8a6"
+status = "diagnostic-only"
+reason = "Current No Man's Land artifact with no external override; verifies its required bundled Biolith path"
 required_dependencies = []
-source_id = "source-biolith"
+source_id = "source-no-mans-land"
 
 [[artifacts]]
 id = "mc1.21.1-neoforge-biomes-o-plenty-21.1.0.14"
@@ -122,6 +122,21 @@ required_dependencies = []
 source_id = "source-terrablender"
 
 [[artifacts]]
+id = "mc1.21.1-neoforge-natures-spirit-2.2.5"
+project_slug = "natures-spirit"
+project_id = "WBvnqHfV"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "2.2.5-1.21.1"
+version_id = "MGjl80vc"
+filename = "natures_spirit-2.2.5-1.21.1.jar"
+sha256 = "d6dcc323e389c2687bacec1457d677ef69be0f1d32ce08d448242c479e57b074"
+status = "diagnostic-only"
+reason = "Latest 1.21.1-compatible Nature's Spirit release for worldgen lifecycle and ownership audit"
+required_dependencies = ["mc1.21.1-neoforge-terrablender-4.1.0.8"]
+source_id = "source-natures-spirit-1.21.1"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-cloth-config-15.0.140"
 project_slug = "cloth-config"
 project_id = "9s6osm5g"
@@ -163,6 +178,21 @@ filename = "fabric-api-0.116.15+1.21.1.jar"
 sha256 = "a61a10f730ab8aa45ff42486ee65699e6e51c28a0c168deb161e7d4029473aa3"
 status = "approved"
 reason = "Explicit Fabric runtime dependency for the approved matrix"
+required_dependencies = []
+source_id = "source-fabric-api"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-fabric-api-0.116.8+1.21.1"
+project_slug = "fabric-api"
+project_id = "P7dR8mSH"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.116.8+1.21.1"
+version_id = "3wZtvzew"
+filename = "fabric-api-0.116.8+1.21.1.jar"
+sha256 = "78bae319e7fdc531e94ad3d885f2f35613fc126645a1cbb49e8456b90835491b"
+status = "diagnostic-only"
+reason = "Exact Fabric API dependency pinned by Regions Unexplored 0.6.2 for Minecraft 1.21.1"
 required_dependencies = []
 source_id = "source-fabric-api"
 
@@ -257,21 +287,6 @@ required_dependencies = []
 source_id = "source-immersive-engineering"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-lithostitched-1.7.13"
-project_slug = "lithostitched"
-project_id = "XaDC71GB"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "1.7.13-fabric-21.1"
-version_id = "JWtSqSeY"
-filename = "lithostitched-1.7.13-fabric-21.1.jar"
-sha256 = "206c086604bcfea5b2862e90069470352cbf4b4d7088b55cdfa8f3452bedc270"
-status = "diagnostic-only"
-reason = "Required by the legacy Regions Unexplored compatibility diagnostic"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
-source_id = "source-lithostitched"
-
-[[artifacts]]
 id = "mc1.21.1-neoforge-mekanism-10.7.19.85"
 project_slug = "mekanism"
 project_id = "Ce6I4WUE"
@@ -287,21 +302,6 @@ required_dependencies = []
 source_id = "source-mekanism"
 
 [[artifacts]]
-id = "mc1.21.1-neoforge-lithostitched-1.7.13"
-project_slug = "lithostitched"
-project_id = "XaDC71GB"
-minecraft_version = "1.21.1"
-loader = "neoforge"
-version_number = "1.7.13-neoforge-21.1"
-version_id = "qPASucBM"
-filename = "lithostitched-1.7.13-neoforge-21.1.jar"
-sha256 = "a90b1d485b138328ceaa156b7897b0829eb1ee1522b997870a53129ae65e5512"
-status = "diagnostic-only"
-reason = "The published jar targets a different NeoForge Beardifier method layout and fails its own mixin before the RTF preview adapter can run"
-required_dependencies = []
-source_id = "source-lithostitched"
-
-[[artifacts]]
 id = "mc1.21.1-neoforge-regions-unexplored-0.6.2"
 project_slug = "regions-unexplored"
 project_id = "Tkikq67H"
@@ -312,8 +312,8 @@ version_id = "5A8LFnXX"
 filename = "regions-unexplored-0.6.2-neoforge-21.1.jar"
 sha256 = "ccf32ed714f2724f54406b9e02a8d6f94d87dc5c72397bc39b3d6ed8f32412ea"
 status = "diagnostic-only"
-reason = "Depends on the diagnostic-only NeoForge Lithostitched release whose upstream mixin is incompatible with the repository NeoForge runtime"
-required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.7.13"]
+reason = "Current NeoForge Regions Unexplored/Lithostitched opaque-source mechanism boundary"
+required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta4"]
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
@@ -332,6 +332,21 @@ required_dependencies = []
 source_id = "source-lithostitched-upstream"
 
 [[artifacts]]
+id = "mc1.21.1-fabric-lithostitched-1.8.0-beta5"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.8.0+beta5-fabric-21.1"
+version_id = "vPyJwd70"
+filename = "lithostitched-1.8.0+beta5-fabric-21.1.jar"
+sha256 = "8758556cf0832429d56865717007330c6f7f503f5126f6cf801657f8166de9e3"
+status = "diagnostic-only"
+reason = "Current Fabric public biome-injector and opaque-source mechanism audit target"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-lithostitched-upstream"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-platform-1.3.3"
 project_slug = "platform"
 project_id = "i6fiqm5y"
@@ -347,21 +362,6 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
 source_id = "source-platform"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-regions-unexplored-0.5.9"
-project_slug = "regions-unexplored"
-project_id = "Tkikq67H"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "0.5.9"
-version_id = "dJhMqyV3"
-filename = "regions_unexplored-fabric-1.21.1-0.5.9.jar"
-sha256 = "f2c4a00ff4bbb36a0ed2c5e2d0f69cdc55122d843cca7ef1bfc7748ebdc874b6"
-status = "approved"
-reason = "Regions Unexplored compatibility investigation"
-required_dependencies = []
-source_id = "source-regions-unexplored"
-
-[[artifacts]]
 id = "mc1.21.1-fabric-regions-unexplored-0.6.2"
 project_slug = "regions-unexplored"
 project_id = "Tkikq67H"
@@ -372,8 +372,8 @@ version_id = "SffwLsGY"
 filename = "regions-unexplored-0.6.2-fabric-21.1.jar"
 sha256 = "c0c2f1a83cbdc1f252255823e33230ace9db6f5fd6da010a739f46f7a6d3a6a7"
 status = "diagnostic-only"
-reason = "Hash-matched legacy compatibility diagnostic release"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.7.13"]
+reason = "Current Fabric release: generation executes its realized opaque source, while preview requires a public request-owned source factory"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.8.0-beta5"]
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
@@ -392,6 +392,81 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
 source_id = "source-terrablender"
 
 [[artifacts]]
+id = "mc1.21.1-fabric-natures-spirit-2.2.5"
+project_slug = "natures-spirit"
+project_id = "WBvnqHfV"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "2.2.5-1.21.1"
+version_id = "TRMapjpU"
+filename = "naturespirit-2.2.5-1.21.1.jar"
+sha256 = "a5edd567e1348ccfd63b75668d919ed7ff2003a9dd428e5d403ffa5096508ff3"
+status = "diagnostic-only"
+reason = "Latest 1.21.1-compatible Nature's Spirit release for worldgen lifecycle and ownership audit"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8"]
+source_id = "source-natures-spirit-1.21.1"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-lithosphere-1.8.2"
+project_slug = "lithosphere"
+project_id = "iv9jp2k9"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.8.2+mod"
+version_id = "aatZx6pq"
+filename = "lithosphere-1.8.2.jar"
+sha256 = "4da964238943a510e620e8cac6b08dd9430ca904dc72642d85135b466be87c20"
+status = "diagnostic-only"
+reason = "Latest 1.21.1-compatible Lithosphere release required by the Still Life ownership audit"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-lithosphere-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-lithosphere-1.8.1"
+project_slug = "lithosphere"
+project_id = "iv9jp2k9"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.8.1+mod"
+version_id = "Cu9qQGut"
+filename = "lithosphere-1.8.1.jar"
+sha256 = "54f594090ea529477351711ddc479329a3bc6861804b86819150fca757880fd6"
+status = "diagnostic-only"
+reason = "Older Lithosphere regression control; not a substitute for the latest Still Life ownership result"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-lithosphere-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-still-life-0.1.1"
+project_slug = "still-life"
+project_id = "fK6aflho"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.1.1+mod"
+version_id = "Jerfht2T"
+filename = "still-life-0.1.1.jar"
+sha256 = "0838e42c151cd4118b2baadc9fe933cc5015c611d00a54846601eb1e8b66deab"
+status = "diagnostic-only"
+reason = "Latest 1.21.1-compatible Still Life beta release for worldgen ownership audit"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithosphere-1.8.2"]
+source_id = "source-still-life-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-still-life-0.1"
+project_slug = "still-life"
+project_id = "fK6aflho"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.1+mod"
+version_id = "lYmXmwwj"
+filename = "still-life-0.1.jar"
+sha256 = "d04088a48dd6a62c044879422492780f5b2d9aaa38b2c70a7b2352d187085b4f"
+status = "diagnostic-only"
+reason = "Earlier 1.21.1-compatible Still Life beta for the worldgen ownership audit"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithosphere-1.8.1"]
+source_id = "source-still-life-unavailable"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-terralith-2.6.2"
 project_slug = "terralith"
 project_id = "8oi3bsk5"
@@ -401,9 +476,9 @@ version_number = "2.6.2"
 version_id = "eWDLFabb"
 filename = "Terralith_1.21.x_v2.6.2.jar"
 sha256 = "9cd4d402fde0f523e5b430ac8fd479ce05aea7a50fe0c8c26901f5f769272214"
-status = "excluded"
-reason = "Explicitly outside the active FreeTerraForged ore investigation matrix"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.7.13"]
+status = "diagnostic-only"
+reason = "Coupled biome, density, surface, structure, and feature ownership investigation"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-lithostitched-1.8.0-beta5"]
 source_id = "source-terralith"
 
 [[artifacts]]
@@ -437,15 +512,15 @@ required_dependencies = ["mc1.21.1-fabric-platform-1.3.3"]
 source_id = "source-vanillabackport"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-yungs-api-5.1.6"
+id = "mc1.21.1-fabric-yungs-api-5.1.8"
 project_slug = "yungs-api"
 project_id = "Ua7DFN59"
 minecraft_version = "1.21.1"
 loader = "fabric"
-version_number = "1.21.1-Fabric-5.1.6"
-version_id = "9aZPNrZC"
-filename = "YungsApi-1.21.1-Fabric-5.1.6.jar"
-sha256 = "36fb903a1ebcf1511745be2da9e5144f1d2465bff7a5c17beffd347399acd1ba"
+version_number = "1.21.1-Fabric-5.1.8"
+version_id = "okaPlkwI"
+filename = "YungsApi-1.21.1-Fabric-5.1.8.jar"
+sha256 = "f0cc5322fb2dbb97290dc431b475b814c05a8fd0d2a60a9bc9f48d9a3ab15970"
 status = "diagnostic-only"
 reason = "Required by the YUNG's Cave Biomes diagnostic stack"
 required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
@@ -463,8 +538,98 @@ filename = "YungsCaveBiomes-1.21.1-Fabric-3.1.1.jar"
 sha256 = "965d5cd4da7297c5b2c17e37ccb9060291670f742febda9a1121cd83bad3048c"
 status = "diagnostic-only"
 reason = "Underground biome composition compatibility diagnostic"
-required_dependencies = ["mc1.21.1-fabric-cloth-config-15.0.140", "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-yungs-api-5.1.6"]
+required_dependencies = ["mc1.21.1-fabric-cloth-config-15.0.140", "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-yungs-api-5.1.8"]
 source_id = "source-yungs-cave-biomes"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-corgilib-5.0.0.9"
+project_slug = "corgilib"
+project_id = "ziOp6EO8"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.21.1-5.0.0.9-Fabric"
+version_id = "ltZXAkMW"
+filename = "Corgilib-Fabric-1.21.1-5.0.0.9.jar"
+sha256 = "aba14ed834db4703cb7e584f7b3d8c5a5d54490b77ba7f307ef102e9a770b79e"
+status = "diagnostic-only"
+reason = "Required by the Oh The Biomes We've Gone diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-corgilib-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-oh-the-trees-youll-grow-5.3.2"
+project_slug = "oh-the-trees-youll-grow"
+project_id = "g8NOG5OR"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.21.1-5.3.2-Fabric"
+version_id = "v41ubCi1"
+filename = "Oh-The-Trees-Youll-Grow-fabric-1.21.1-5.3.2.jar"
+sha256 = "584277ba83f9178ee123725be3156b4f51320721627216a93772ae7008620d93"
+status = "diagnostic-only"
+reason = "Required by the Oh The Biomes We've Gone diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-oh-the-trees-youll-grow-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-oh-the-biomes-weve-gone-2.6.0"
+project_slug = "oh-the-biomes-weve-gone"
+project_id = "NTi7d3Xc"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "2.6.0-Fabric"
+version_id = "ICd7oSmA"
+filename = "Oh-The-Biomes-Weve-Gone-Fabric-2.6.0.jar"
+sha256 = "a9d30f20483107681eebc5f6550940bf318cd1bf031154e5598ab38701246984"
+status = "diagnostic-only"
+reason = "TerraBlender biome, surface, feature, and transition compatibility investigation"
+required_dependencies = ["mc1.21.1-fabric-corgilib-5.0.0.9", "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-geckolib-4.9.2", "mc1.21.1-fabric-oh-the-trees-youll-grow-5.3.2", "mc1.21.1-fabric-terrablender-4.1.0.8"]
+source_id = "source-oh-the-biomes-weve-gone"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-frozenlib-2.2.4"
+project_slug = "frozenlib"
+project_id = "9KawNmQc"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "2.2.4-mc1.21.1"
+version_id = "GdadG0oj"
+filename = "FrozenLib-2.2.4-mc1.21.1.jar"
+sha256 = "183613ec3172b410cab5245cf04c55c73576d6b5dff99eb13c046031676d73f5"
+status = "diagnostic-only"
+reason = "Required by the Wilder Wild diagnostic stack"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-frozenlib-unavailable"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-wilder-wild-4.2.1"
+project_slug = "wilder-wild"
+project_id = "AtHRJSUW"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "4.2.1-mc1.21.1"
+version_id = "LGumUR4U"
+filename = "WilderWild-4.2.1-mc1.21.1.jar"
+sha256 = "689d7207b022c952add32c99e455e4988cae42a544e4485012049f4e8aa04d15"
+status = "diagnostic-only"
+reason = "Vanilla-biome modification, surface, feature, and transition compatibility investigation"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-frozenlib-2.2.4"]
+source_id = "source-wilder-wild"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-moderner-beta-4.1.10"
+project_slug = "moderner-beta"
+project_id = "xkrdwmh2"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "4.1.10+1.21.1-fabric"
+version_id = "bBp9EtU0"
+filename = "moderner-beta-fabric-4.1.10+1.21.1.jar"
+sha256 = "6d2739b8aaf2283a87a6c5270cadd8943354c95e6c58b7e34870855122ec84e5"
+status = "approved"
+reason = "Custom biome-source and chunk-generator normalization mechanism coverage"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+source_id = "source-moderner-beta"
 
 [[sources]]
 id = "source-biolith"
@@ -551,18 +716,6 @@ blob_filter = true
 sparse_paths = ["src/main/java", "src/main/resources"]
 
 [[sources]]
-id = "source-lithostitched"
-repository = "git@github.com:Apollounknowndev/lithostitched.git"
-requested_ref = "1.21"
-resolved_commit = "5629216757723f196306416a0d3341c8be22f4fa"
-minecraft_version = "1.21.1"
-checkout = "games/minecraft/reference/sources/1.21.1/mods/lithostitched"
-status = "available"
-shallow = true
-blob_filter = true
-sparse_paths = ["common/src/main/java", "common/src/main/resources"]
-
-[[sources]]
 id = "source-lithostitched-upstream"
 repository = "git@github.com:Apollounknowndev/lithostitched.git"
 requested_ref = "21.1"
@@ -633,6 +786,30 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources"]
+
+[[sources]]
+id = "source-oh-the-biomes-weve-gone"
+repository = "https://github.com/Potion-Studios/Oh-The-Biomes-Weve-Gone.git"
+requested_ref = "2.6.0"
+resolved_commit = "ef8dd6981a6a14f582fbed590a5b7375a8c99b67"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/oh-the-biomes-weve-gone"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["Common/src/main/java", "Common/src/main/resources", "Fabric/src/main/java", "Fabric/src/main/resources"]
+
+[[sources]]
+id = "source-wilder-wild"
+repository = "https://github.com/FrozenBlock/WilderWild.git"
+requested_ref = "4.2.1-mc1.21.1"
+resolved_commit = "ba9172309ec6a26700c5b84eb45d2b0a95e5e77d"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/wilder-wild"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
 
 [[sources]]
 id = "source-cloth-config"
@@ -719,6 +896,42 @@ blob_filter = false
 sparse_paths = []
 
 [[sources]]
+id = "source-natures-spirit-1.21.1"
+repository = "https://github.com/Team-Hibiscus/NaturesSpirit.git"
+requested_ref = "1.21.1"
+resolved_commit = "7934d93b349a72f74606486aa9783278ce0867ab"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/natures-spirit"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-lithosphere-unavailable"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-still-life-unavailable"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
 id = "source-yungs-cave-biomes"
 repository = "https://github.com/YUNG-GANG/YUNGs-Cave-Biomes.git"
 requested_ref = "1.21.1"
@@ -729,3 +942,51 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources"]
+
+[[sources]]
+id = "source-moderner-beta"
+repository = "https://codeberg.org/Nostalgica-Reverie/moderner-beta.git"
+requested_ref = "4.1.10"
+resolved_commit = "9fe230d11460c4132693098a5c4f8fb095ea238f"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/moderner-beta"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["src/main/java", "src/main/resources", "fabric/src/main/java", "fabric/src/main/resources"]
+
+[[sources]]
+id = "source-corgilib-unavailable"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-oh-the-trees-youll-grow-unavailable"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []
+
+[[sources]]
+id = "source-frozenlib-unavailable"
+repository = ""
+requested_ref = ""
+resolved_commit = ""
+minecraft_version = "1.21.1"
+checkout = ""
+status = "unavailable"
+shallow = false
+blob_filter = false
+sparse_paths = []

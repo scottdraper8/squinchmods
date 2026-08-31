@@ -1,0 +1,57 @@
+schema_version = 1
+name = "FTF worldgen lifecycle — owner-preserving Fabric tag reload"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-lifecycle"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 240
+step = 240
+shutdown = 90
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:ftf-worldgen-lifecycle"
+version = "1"
+config = { max_wait_ticks = 1200 }
+
+[[probes]]
+id = "squinch:finished-chunks"
+version = "1"
+config = { max_wait_ticks = 1200 }
+
+[[steps]]
+id = "capture-worldgen-epoch"
+type = "probe"
+probe = "squinch:ftf-worldgen-lifecycle"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "remove-tag-bearing-resource-layer"
+type = "command"
+command = "datapack disable \"file/vanilla-depth-maximum-ocean.zip\""
+
+[[steps]]
+id = "verify-atomic-plan-rebind"
+type = "probe"
+probe = "squinch:ftf-worldgen-lifecycle"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "generate-after-rebind"
+type = "generate"
+unit = "chunk"
+bounds = [96, 96, 97, 97]
+authority = "finished-chunk"
+terminal_probe = "squinch:finished-chunks"
+expect = { region_count = 1 }
