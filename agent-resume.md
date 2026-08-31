@@ -93,6 +93,16 @@ Serial/parallel equivalence is `20260831T095058Z-24a7a965b4`; finished-chunk par
 ownership is `20260831T100956Z-27afb0d091`. Clean packaged no-TerraBlender starts are
 `20260831T101937Z-197d3ca27b` on Fabric and `20260831T102031Z-e601c7afec` on NeoForge.
 
+Upstream PR 208 is a pending landing gate, not a patch to cherry-pick. At reviewed draft head
+`cb654424b2d8b4d848aafd866c3d5280f4f2666e`, its only net change bypasses
+`MultiNoiseBiomeSource.possibleBiomes()` through the raw parameter field. When it lands, inspect the
+final diff, keep the compatibility branch's deleted legacy source Mixin deleted, retain pre-server
+Lithostitched acquisition and plan-owned possible outputs, reacquire latest exact dependencies, and
+rerun actual no-server Biolith + Lithostitched + RU previews on both loaders plus the mixed
+TerraBlender/Terrestria stack. NML cave/sub-biome behavior remains explicitly unavailable until NML
+or Biolith publishes a complete stable snapshot/factory contract; the PR's NML screenshot does not
+change that boundary.
+
 ### Flow-settings ownership benchmark
 
 The completed comparable benchmark covers the serialization and runtime cost of three historical

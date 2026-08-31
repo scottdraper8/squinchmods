@@ -271,6 +271,38 @@ dependency boundary. Verify the latest exact-version release and retain the fail
 evidence, but do not describe it as an FTF runtime failure or add a workaround that guesses private
 mechanism state.
 
+### Upstream PR 208 landing gate
+
+FreeTerraForged PR 208 was reviewed at draft head `cb654424b2d8b4d848aafd866c3d5280f4f2666e`. Its
+net change intercepts `MultiNoiseBiomeSource.possibleBiomes()` and reads the raw parameter field.
+The reported blank-preview symptom is relevant, but Mojang 1.21.1 does not perform the described
+registry-lookup cast in that method. The source-supported interaction is that Lithostitched calls
+the delegate's `possibleBiomes()` during finalization and Biolith uses that query to trigger lazy
+point injection. The PR changes that trigger order, but its global raw-field interception, repeated
+set construction, and silent exception fallback are not a compatibility-runtime contract.
+
+When PR 208 lands on upstream `1.21.1`:
+
+- inspect the final merged commits rather than assuming the reviewed draft is unchanged;
+- merge or rebase the upstream history, but keep the compatibility branch's deletion of the old
+  `MixinMultiNoiseBiomeSource` preview-ownership path and do not port the raw-field
+  `possibleBiomes()` interceptor;
+- preserve pre-server Lithostitched finalization, immutable mechanism snapshots, and
+  `WorldgenBiomeSelection.possibleBiomes()` as the sole runtime possible-output authority;
+- reacquire the then-current exact Biolith, Lithostitched, RU, TerraBlender, and Terrestria
+  releases;
+- run actual no-server `WorldCreationContext` previews with Biolith plus Lithostitched and RU on
+  both supported loaders, then add TerraBlender and Terrestria to exercise mixed provider and
+  decorator ordering; and
+- require RU pixels, complete plan possible outputs, deterministic repeated previews, finished-chunk
+  parity, locate/query/stored-biome parity, feature-sort closure, and no `ClassCastException` before
+  accepting the upstream merge.
+
+PR 208's No Man's Land screenshot is not evidence that NML's cave/sub-biome semantics are captured.
+NML remains the private third-party patch boundary described above. It becomes supported only when
+NML publishes a stable registration/factory contract or Biolith exposes a complete immutable final
+selection snapshot; until then the runtime must retain the bounded unavailable diagnostic.
+
 ## Preview contract
 
 The preview frontend supplies creation-graph identity, registry and tag epochs, preset, seed,
