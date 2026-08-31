@@ -1,6 +1,10 @@
 package org.squinchmods.investigate.rtf;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -10,10 +14,16 @@ import com.google.gson.JsonObject;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.QuartPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Climate;
+import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.levelgen.Heightmap;
 import org.squinchmods.investigate.FinishedChunkSelection;
 import org.squinchmods.investigate.MinecraftProbeHelpers;
 import org.squinchmods.investigate.ProbeExecution;
@@ -33,6 +43,8 @@ import raccoonman.reterraforged.world.worldgen.cell.Cell;
 import raccoonman.reterraforged.world.worldgen.densityfunction.tile.Tile;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlans;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlan;
+import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenFingerprints;
 
 /** Finished-chunk comparison for the exact resolver used by the preset previews. */
 public final class RtfBiomePreviewParityProbePack implements ProbePack {
@@ -41,6 +53,104 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
         ProbeRegistry.register("squinch:rtf-biome-preview-parity", "1", PreviewParity::new);
         ProbeRegistry.register("squinch:rtf-biome-preview-batch-parity", "1", PreviewParity::new);
         ProbeRegistry.register("squinch:rtf-biome-preview-batch-equivalence", "1", BatchEquivalence::new);
+        ProbeRegistry.register("squinch:rtf-runtime-biome-ownership", "1", RuntimeBiomeOwnership::new);
+    }
+
+    private static final class RuntimeBiomeOwnership implements ProbeExecution {
+        private final java.util.List<ResourceLocation> targets;
+        private final int radius;
+
+        private RuntimeBiomeOwnership(ProbeRequest request) {
+            JsonObject config = request.config();
+            this.targets = config.getAsJsonArray("target_biomes").asList().stream()
+                .map(value -> ResourceLocation.parse(value.getAsString()))
+                .toList();
+            this.radius = config.has("radius") ? config.get("radius").getAsInt() : 6400;
+            if (this.targets.isEmpty() || this.radius <= 0) {
+                throw new IllegalArgumentException("target_biomes must be non-empty and radius must be positive");
+            }
+        }
+
+        @Override
+        public ProbeResult tick(net.minecraft.server.MinecraftServer server) {
+            ServerLevel level = server.overworld();
+            var generator = level.getChunkSource().getGenerator();
+            var source = generator.getBiomeSource();
+            var sampler = level.getChunkSource().randomState().sampler();
+            var biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
+            BlockPos origin = level.getSharedSpawnPos();
+            JsonArray results = new JsonArray();
+            boolean passed = generator instanceof TerraForgedChunkGenerator;
+            for (ResourceLocation id : this.targets) {
+                Holder<Biome> target = biomes.getHolderOrThrow(ResourceKey.create(Registries.BIOME, id));
+                var located = level.findClosestBiome3d(target::equals, origin, this.radius, 32, 64);
+                JsonObject result = new JsonObject();
+                result.addProperty("target", id.toString());
+                result.addProperty("possible_output", source.possibleBiomes().contains(target));
+                if (located == null) {
+                    result.addProperty("found", false);
+                    passed = false;
+                    results.add(result);
+                    continue;
+                }
+                BlockPos locatedPos = located.getFirst();
+                Holder<Biome> locatedQuery = source.getNoiseBiome(
+                    QuartPos.fromBlock(locatedPos.getX()),
+                    QuartPos.fromBlock(locatedPos.getY()),
+                    QuartPos.fromBlock(locatedPos.getZ()),
+                    sampler
+                );
+                level.getChunk(
+                    Math.floorDiv(locatedPos.getX(), 16),
+                    Math.floorDiv(locatedPos.getZ(), 16)
+                );
+                int surfaceY = level.getHeight(
+                    Heightmap.Types.WORLD_SURFACE,
+                    locatedPos.getX(),
+                    locatedPos.getZ()
+                );
+                BlockPos surfacePos = new BlockPos(locatedPos.getX(), surfaceY, locatedPos.getZ());
+                Holder<Biome> surfaceQuery = source.getNoiseBiome(
+                    QuartPos.fromBlock(surfacePos.getX()),
+                    QuartPos.fromBlock(surfacePos.getY()),
+                    QuartPos.fromBlock(surfacePos.getZ()),
+                    sampler
+                );
+                Holder<Biome> surfaceStored = level.getBiome(surfacePos);
+                boolean targetAtLocate = target.equals(located.getSecond()) && target.equals(locatedQuery);
+                boolean targetAtSurface = target.equals(surfaceQuery) && target.equals(surfaceStored);
+                result.addProperty("found", true);
+                result.addProperty("x", locatedPos.getX());
+                result.addProperty("y", locatedPos.getY());
+                result.addProperty("z", locatedPos.getZ());
+                result.addProperty("surface_y", surfaceY);
+                result.addProperty("located_biome", MinecraftProbeHelpers.biomeId(located.getSecond()));
+                result.addProperty("located_query_biome", MinecraftProbeHelpers.biomeId(locatedQuery));
+                result.addProperty("surface_query_biome", MinecraftProbeHelpers.biomeId(surfaceQuery));
+                result.addProperty("surface_stored_biome", MinecraftProbeHelpers.biomeId(surfaceStored));
+                result.addProperty("target_at_located_coordinate", targetAtLocate);
+                result.addProperty("target_at_surface_coordinate", targetAtSurface);
+                passed &= source.possibleBiomes().contains(target) && targetAtLocate && targetAtSurface;
+                results.add(result);
+            }
+            JsonObject data = new JsonObject();
+            data.addProperty("runtime_generator_class", generator.getClass().getName());
+            data.addProperty("runtime_biome_source_class", source.getClass().getName());
+            if (generator instanceof TerraForgedChunkGenerator terraForged) {
+                data.addProperty(
+                    "acquisition_biome_source_class",
+                    terraForged.acquisitionBiomeSource().getClass().getName()
+                );
+                passed &= source != terraForged.acquisitionBiomeSource();
+            }
+            data.add("targets", results);
+            return ProbeResult.complete(
+                passed ? TerminalState.PASS : TerminalState.FAIL,
+                ProbePhase.FINISHED_CHUNK,
+                data,
+                this.targets.size()
+            );
+        }
     }
 
     private static final class BatchEquivalence implements ProbeExecution {
@@ -48,6 +158,7 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
         private final int centerZ;
         private final int zoom;
         private final int exampleLimit;
+        private final java.util.List<String> requiredNamespaces;
 
         private BatchEquivalence(ProbeRequest request) {
             JsonObject config = request.config();
@@ -57,8 +168,16 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             this.exampleLimit = config.has("example_limit")
                 ? config.get("example_limit").getAsInt()
                 : 64;
+            this.requiredNamespaces = config.has("required_namespaces")
+                ? config.getAsJsonArray("required_namespaces").asList().stream()
+                    .map(value -> value.getAsString())
+                    .toList()
+                : java.util.List.of();
             if (this.zoom <= 0 || this.exampleLimit < 0 || this.exampleLimit > 1024) {
                 throw new IllegalArgumentException("zoom must be positive and example_limit must be 0..1024");
+            }
+            if (this.requiredNamespaces.stream().anyMatch(String::isBlank)) {
+                throw new IllegalArgumentException("required_namespaces must contain non-empty namespace IDs");
             }
         }
 
@@ -92,16 +211,21 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             int sampledPixels;
             TreeSet<String> palette = new TreeSet<>();
             boolean parallelEnabled;
+            MessageDigest gridDigest = sha256();
 
             try (
                 BiomePreviewResolver resolver = BiomePreviewResolver.create(
                     server.registryAccess(),
                     previewProvider,
+					LevelStem.OVERWORLD,
                     level.dimensionTypeRegistration(),
                     level.getChunkSource().getGenerator(),
                     preset,
                     context,
-                    level.getSeed()
+                    level.getSeed(),
+                    level.dimension().location().toString(),
+                    "server-registry-access",
+                    WorldgenFingerprints.tags(server.registryAccess())
                 );
                 Tile tile = context.generator.generateZoomed(
                     this.centerX, this.centerZ, this.zoom, true, () -> false
@@ -141,25 +265,30 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                         int quartX = QuartPos.fromBlock(blockX);
                         int quartY = QuartPos.fromBlock(surfaceY);
                         int quartZ = QuartPos.fromBlock(blockZ);
-                        Holder<Biome> expected = serial.resolveQuart(quartX, quartY, quartZ);
-                        Holder<Biome> actual = parallel.biomeAt(x, z);
-                        Holder<Biome> repeatedValue = repeated.biomeAt(x, z);
-                        palette.add(MinecraftProbeHelpers.biomeId(actual));
-                        if (!actual.equals(expected)) {
-                            mismatches++;
-                            if (mismatchExamples.size() < this.exampleLimit) {
-                                mismatchExamples.add(example(
-                                    blockX,
-                                    surfaceY,
-                                    blockZ,
-                                    MinecraftProbeHelpers.biomeId(expected),
-                                    MinecraftProbeHelpers.biomeId(actual)
-                                ));
-                            }
-                        }
-                        if (!actual.equals(repeatedValue)) {
-                            repeatMismatches++;
-                        }
+						Holder<Biome> expected = serial.resolveQuart(quartX, quartY, quartZ);
+						Holder<Biome> actual = parallel.biomeAt(x, z);
+						Holder<Biome> repeatedValue = repeated.biomeAt(x, z);
+						String actualId = MinecraftProbeHelpers.biomeId(actual);
+						String expectedId = MinecraftProbeHelpers.biomeId(expected);
+						String repeatedId = MinecraftProbeHelpers.biomeId(repeatedValue);
+						palette.add(actualId);
+						gridDigest.update(actualId.getBytes(StandardCharsets.UTF_8));
+						gridDigest.update((byte) 0);
+						if (!actualId.equals(expectedId)) {
+							mismatches++;
+							if (mismatchExamples.size() < this.exampleLimit) {
+								mismatchExamples.add(example(
+									blockX,
+									surfaceY,
+									blockZ,
+									expectedId,
+									actualId
+								));
+							}
+						}
+						if (!actualId.equals(repeatedId)) {
+							repeatMismatches++;
+						}
                     }
                 }
                 serialNanos = System.nanoTime() - started;
@@ -178,13 +307,22 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             data.addProperty("speedup", (double) serialNanos / (double) parallelNanos);
             data.addProperty("mismatch_count", mismatches);
             data.addProperty("repeat_mismatch_count", repeatMismatches);
+            data.addProperty("grid_sha256", HexFormat.of().formatHex(gridDigest.digest()));
             data.addProperty("palette_size", palette.size());
             JsonArray paletteValues = new JsonArray();
             palette.forEach(paletteValues::add);
             data.add("palette", paletteValues);
+            JsonObject namespacePresence = new JsonObject();
+            boolean requiredNamespacesPresent = true;
+            for (String namespace : this.requiredNamespaces) {
+                boolean present = palette.stream().anyMatch(value -> value.startsWith(namespace + ":"));
+                namespacePresence.addProperty(namespace, present);
+                requiredNamespacesPresent &= present;
+            }
+            data.add("required_namespace_presence", namespacePresence);
             data.add("mismatch_examples", mismatchExamples);
             return ProbeResult.complete(
-                parallelEnabled && mismatches == 0L && repeatMismatches == 0L
+                parallelEnabled && mismatches == 0L && repeatMismatches == 0L && requiredNamespacesPresent
                     ? TerminalState.PASS
                     : TerminalState.FAIL,
                 ProbePhase.PREDICTION,
@@ -192,6 +330,14 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                 1
             );
         }
+
+		private static MessageDigest sha256() {
+			try {
+				return MessageDigest.getInstance("SHA-256");
+			} catch (NoSuchAlgorithmException exception) {
+				throw new IllegalStateException(exception);
+			}
+		}
 
         private static JsonObject example(
             int blockX,
@@ -287,18 +433,24 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             BiomePreviewResolver resolver = BiomePreviewResolver.create(
                 server.registryAccess(),
                 previewProvider,
+				LevelStem.OVERWORLD,
                 level.dimensionTypeRegistration(),
                 level.getChunkSource().getGenerator(),
                 preset,
                 context,
-                level.getSeed()
+                level.getSeed(),
+                level.dimension().location().toString(),
+                "server-registry-access",
+                WorldgenFingerprints.tags(server.registryAccess())
             );
             long sampled = 0;
             long mismatches = 0;
             long undergroundPreviewSelections = 0;
             Map<String, Long> biomeCounts = new TreeMap<>();
             Map<String, Long> providerDomainCounts = new TreeMap<>();
+            Map<String, Long> selectionTransitionCounts = new TreeMap<>();
             long providerFallbacks = 0;
+            long selectionTransitions = 0;
             JsonArray mismatchExamples = new JsonArray();
             Cell cell = new Cell();
             Map<Long, Tile> tiles = new HashMap<>();
@@ -372,6 +524,12 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                                 providerDomainCounts.merge(selected.domain().toString(), 1L, Long::sum);
                                 if (selected.usedFallback()) {
                                     providerFallbacks++;
+                                }
+                                String before = MinecraftProbeHelpers.biomeId(selected.biome());
+                                String after = MinecraftProbeHelpers.biomeId(previewHolder);
+                                if (!before.equals(after)) {
+                                    selectionTransitions++;
+                                    selectionTransitionCounts.merge(before + " -> " + after, 1L, Long::sum);
                                 }
                             }
                             String preview = MinecraftProbeHelpers.biomeId(previewHolder);
@@ -484,11 +642,29 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                 "provider_authority",
                 this.useFullProvider ? "selected-graph-with-request-patches" : "patch-provider"
             );
-            data.addProperty("active_preview_integrations", String.join(",", resolver.activeIntegrations()));
             JsonObject providerDomains = new JsonObject();
             providerDomainCounts.forEach(providerDomains::addProperty);
             data.add("selected_provider_domain_counts", providerDomains);
             data.addProperty("provider_selection_fallbacks", providerFallbacks);
+            data.addProperty("selection_transition_count", selectionTransitions);
+            JsonObject transitions = new JsonObject();
+            selectionTransitionCounts.forEach(transitions::addProperty);
+            data.add("selection_transition_counts", transitions);
+            JsonArray decorators = new JsonArray();
+            resolver.plan().selectionDecoration().orderedDecorators().forEach(value -> decorators.add(value.toString()));
+            data.add("ordered_selection_decorators", decorators);
+            JsonArray compositionStages = new JsonArray();
+            resolver.plan().biomeComposition().stages().forEach(value -> compositionStages.add(value.id().toString()));
+            data.add("pending_composition_stages", compositionStages);
+            data.addProperty("normalized_candidate_count", resolver.plan().biomeComposition().entries().size());
+            Map<String, Long> candidateNamespaces = new TreeMap<>();
+            resolver.plan().biomeComposition().entries().forEach(entry -> entry.getSecond().unwrapKey().ifPresent(key ->
+                candidateNamespaces.merge(key.location().getNamespace(), 1L, Long::sum)
+            ));
+            JsonObject namespaces = new JsonObject();
+            candidateNamespaces.forEach(namespaces::addProperty);
+            data.add("normalized_candidate_namespaces", namespaces);
+            data.add("capability_report", resolver.plan().report().toJson());
             String generatorContextMode = this.useServerGeneratorContext
                 ? "server-cached-context"
                 : "uncached-editor-factor-4";

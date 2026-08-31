@@ -1,0 +1,18 @@
+schema_version = 1
+id = "biolith-sub-biome-boundary"
+classification = "reusable-control"
+purpose = "Exercise Biolith's finalized sub-biome criterion boundary with only registered vanilla biome holders."
+applicable_questions = [
+  "Biolith sub-biome extraction completeness",
+  "bounded unsupported-facet diagnostics",
+  "failure isolation without a consumer-specific adapter",
+]
+known_limitations = [
+  "The fixture proves the mechanism boundary and does not supply the missing request-owned criterion contract",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+historical_archive_sha256 = "c1960ab015c97de2b8b5638913f613393225fab823d533cd3d6812563e8f3a7b"

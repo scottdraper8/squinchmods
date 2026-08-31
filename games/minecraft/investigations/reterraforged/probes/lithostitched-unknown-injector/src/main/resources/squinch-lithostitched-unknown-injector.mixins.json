@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.squinchmods.investigate.rtf.lithostitched.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinLithostitched"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "climate": {
+    "temperature": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "moisture": {
+      "min": 0.0,
+      "max": 0.0
+    }
+  }
+}

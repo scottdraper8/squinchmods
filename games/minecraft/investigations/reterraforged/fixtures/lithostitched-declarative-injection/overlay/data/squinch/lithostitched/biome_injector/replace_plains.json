@@ -1,0 +1,10 @@
+{
+  "type": "lithostitched:replace_fully",
+  "predicate": {
+    "type": "lithostitched:true"
+  },
+  "dimension": "minecraft:overworld",
+  "priority": 700,
+  "targets": "minecraft:plains",
+  "replacement": "minecraft:desert"
+}

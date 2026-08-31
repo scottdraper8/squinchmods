@@ -1,0 +1,37 @@
+schema_version = 1
+name = "FTF + declarative Lithostitched acquisition control (Fabric)"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/lithostitched-declarative-injection/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/lithostitched-snapshot"]
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+    "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "lithostitched"]
+
+[[probes]]
+id = "squinch:ftf-lithostitched-snapshot"
+version = "1"
+config = {}
+
+[[steps]]
+id = "capture-declarative-snapshot"
+type = "probe"
+probe = "squinch:ftf-lithostitched-snapshot"
+expect = { terminal_state = "pass" }

@@ -1,0 +1,29 @@
+schema_version = 1
+name = "FTF + Biolith unsupported sub-biome factory boundary"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/biolith-sub-biome-boundary/fixture.toml"
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+    "mc1.21.1-fabric-biolith-3.0.14",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "biolith"]
+
+[[steps]]
+id = "confirm-server-boundary"
+type = "command"
+command = "list"

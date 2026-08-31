@@ -75,6 +75,24 @@ displayName = "Squinch Investigation Probe"
             project.tasks.matching { it.name.startsWith("run") }.configureEach {
                 dependsOn(project.tasks.named(probeSourceSet.classesTaskName))
             }
+            def probeJar = project.tasks.register("squinchProbeJar", Jar) {
+                archiveBaseName.set("squinch-investigate-probe")
+                archiveVersion.set("1")
+                archiveClassifier.set(loaderProperty)
+                destinationDirectory.set(project.layout.buildDirectory.dir("squinchProbe"))
+                from(probeSourceSet.output)
+                dependsOn(project.tasks.named(probeSourceSet.classesTaskName))
+            }
+            project.tasks.matching { it.name == "prodServer" }.configureEach { task ->
+                dependsOn(probeJar)
+                task.doFirst {
+                    project.copy {
+                        from(probeJar.flatMap { it.archiveFile })
+                        into(project.file("run/mods"))
+                        rename { "squinch-investigate-probe.jar" }
+                    }
+                }
+            }
             return
         }
         sourceRoots.each { project.sourceSets.main.java.srcDir(it) }

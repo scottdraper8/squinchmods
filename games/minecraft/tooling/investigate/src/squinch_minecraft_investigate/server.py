@@ -629,9 +629,9 @@ def start_server(
             raise InvestigationError(
                 "invalid_launch_task", f"unsupported Gradle launch task: {launch_task}"
             )
-        if launch_task == "prodServer" and loader != "fabric":
+        if launch_task == "prodServer" and loader not in {"fabric", "neoforge"}:
             raise InvestigationError(
-                "invalid_launch_task", "prodServer is currently supported only for Fabric"
+                "invalid_launch_task", "prodServer requires Fabric or NeoForge"
             )
         command = [
             "bash",

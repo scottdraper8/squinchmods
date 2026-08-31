@@ -46,35 +46,14 @@ contract does not expose a trustworthy maximum write footprint for arbitrary con
 later blocks from a large feature can extend beyond the guarded origin. The check is not an
 unbounded enclosure or cave-connectivity test.
 
-The maximum-range Spider Nest control confirms that the mechanism addresses its intended case. In a
-2,048-block-tall Overworld, repeated 64-chunk runs place roughly 2,940 rescued origins, about 1,860
-above Y=256. With rescue disabled, the four affected Biomes O' Plenty decorations produce roughly
-1,300 biome-filter passes and 4,100-4,200 observed block-write operations; production rescue
-produces roughly 4,200 passes and 10,100-10,400 writes. Sparse windows can legitimately find almost
-no eligible surfaces and do not measure global usefulness.
+Surface rescue remains an independent placed-feature policy. It may enter a compatibility plan as an
+owner-scoped typed placement node only when exact eligibility, density, same-column, enclosure,
+downstream-success, and positional behavior are part of the proven contract.
 
-In the high control, all 2,948 returned rescues pass the downstream biome filter and invoke their
-configured feature; 2,288 configured placements return success. The 77.6% rescue-to-placement rate
-includes feature-internal rejection: corner and hanging cobwebs are effectively 100%, spider eggs
-are 95.2%, and stringy cobweb is 16.8%. In the sparse control, both returned rescues become
-successful configured placements.
-
-On the same 8-by-8 chunk high control, PR #202 produces 2,261 successful configured placements
-versus production's 2,288. The aggregate count changes by only 1.2%, while the exact-position probe
-shows that almost all rescue columns change. Placement volume and positional parity are therefore
-separate acceptance metrics.
-
-The production rescue mechanism is acceptable as the interim implementation. Normal feature RNG and
-chunk-completion order cause bounded repeat variation, but a compatibility change must remain inside
-that repeatability envelope rather than systematically replacing X/Z columns. The long-term runtime
-plan absorbs rescue as an owner-scoped typed placement node only after exact eligibility, density,
-same-column, enclosure, downstream-success, and positional parity are proven.
-
-The current probe's elapsed intervals include instrumentation and are not a production benchmark.
-Five fresh-server production versus rescue-disabled observations with the same lightweight placement
-probe show no generation-time difference above run noise. A warmed in-process benchmark and
-allocation profile are still required for a tight performance bound. The focused retained runs and
-counter definitions are linked from the canonical worldgen-compatibility plan.
+Validation must distinguish policy entries, budget skips, physical scans, cache reuse, biome-filter
+passes, configured-feature invocation, successful placement, block writes, and exact X/Z positions.
+Sparse windows do not measure global usefulness, and probe elapsed intervals are not production
+benchmarks. Focused measurements belong in retained investigation artifacts.
 
 ## Dynamic ordinary ores
 

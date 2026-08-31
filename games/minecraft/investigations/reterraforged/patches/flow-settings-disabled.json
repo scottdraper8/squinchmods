@@ -1,0 +1,7 @@
+{
+  "flow": {
+    "boatFlowDynamics": false,
+    "flowParticles": false,
+    "navigableWaterfalls": false
+  }
+}

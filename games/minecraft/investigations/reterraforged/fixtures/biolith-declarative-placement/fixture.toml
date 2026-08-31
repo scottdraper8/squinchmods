@@ -1,0 +1,18 @@
+schema_version = 1
+id = "biolith-declarative-placement"
+classification = "reusable-control"
+purpose = "Exercise finalized Biolith additions, removals, and direct replacements without a consumer-specific adapter."
+applicable_questions = [
+  "Biolith declarative extraction completeness",
+  "candidate addition and removal normalization",
+  "direct replacement weight and finalization semantics",
+]
+known_limitations = [
+  "Uses registered vanilla biome holders so the fixture isolates the placement mechanism",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "../_base"
+overlay = "overlay"
+resolved_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+historical_archive_sha256 = "c245c16519dc1eb8786cc63473cb26e461ca43d817c698483ce36fa3c355b7a0"

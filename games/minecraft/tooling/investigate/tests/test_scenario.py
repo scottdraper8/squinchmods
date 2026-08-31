@@ -108,7 +108,7 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     assert scenario.steps[0].values["bounds"] == [0, 0, 16, 16]
 
 
-def test_production_launch_task_is_explicit_and_fabric_only(
+def test_production_launch_task_is_explicit_and_loader_scoped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = tmp_path / "games/minecraft/project"
@@ -130,7 +130,10 @@ def test_production_launch_task_is_explicit_and_fabric_only(
     assert load_scenario(scenario_path).launch_task == "prodServer"
 
     scenario_path.write_text(scenario_path.read_text().replace('loader = "fabric"', 'loader = "neoforge"'))
-    with pytest.raises(InvestigationError, match="only for Fabric"):
+    assert load_scenario(scenario_path).launch_task == "prodServer"
+
+    scenario_path.write_text(scenario_path.read_text().replace('loader = "neoforge"', 'loader = "forge"'))
+    with pytest.raises(InvestigationError, match="requires Fabric or NeoForge"):
         load_scenario(scenario_path)
 
 

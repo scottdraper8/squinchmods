@@ -1,0 +1,26 @@
+schema_version = 1
+name = "Packaged FTF NeoForge startup without TerraBlender"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[steps]]
+id = "verify-production-server"
+type = "command"
+command = "list"

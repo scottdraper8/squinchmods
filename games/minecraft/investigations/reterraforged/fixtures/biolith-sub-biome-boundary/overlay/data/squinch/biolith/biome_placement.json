@@ -1,0 +1,15 @@
+{
+  "sub_biomes": [
+    {
+      "dimension": "minecraft:overworld",
+      "target": "minecraft:plains",
+      "biome": "minecraft:sunflower_plains",
+      "criterion": {
+        "type": "biolith:value",
+        "parameter": "temperature",
+        "min": -1.0,
+        "max": 1.0
+      }
+    }
+  ]
+}

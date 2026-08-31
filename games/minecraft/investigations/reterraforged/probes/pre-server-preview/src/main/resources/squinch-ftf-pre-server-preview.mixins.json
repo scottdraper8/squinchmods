@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.rtf.preview.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MixinMinecraft",
+    "MixinWorldCreationUiState"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

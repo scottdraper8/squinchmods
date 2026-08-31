@@ -194,8 +194,8 @@ def load_scenario(path: str | Path) -> Scenario:
     launch_task = raw.get("launch_task", "runServer")
     if launch_task not in LAUNCH_TASKS:
         raise _error(f"launch_task must be one of {sorted(LAUNCH_TASKS)}")
-    if launch_task == "prodServer" and loader != "fabric":
-        raise _error("prodServer launch_task is currently supported only for Fabric")
+    if launch_task == "prodServer" and loader not in {"fabric", "neoforge"}:
+        raise _error("prodServer launch_task requires Fabric or NeoForge")
     seed_value = raw.get("seed")
     if isinstance(seed_value, bool) or not isinstance(seed_value, (str, int)):
         raise _error("seed must be an exact string or integer")

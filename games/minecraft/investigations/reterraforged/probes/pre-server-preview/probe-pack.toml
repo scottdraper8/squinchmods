@@ -1,0 +1,8 @@
+schema_version = 1
+id = "ftf-pre-server-preview"
+version = "1"
+target_adapter = "reterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-ftf-pre-server-preview.mixins.json"]
+capabilities = ["client-world-creation-context", "pre-server-preview-compilation"]

@@ -1,0 +1,59 @@
+schema_version = 1
+name = "FTF actual-editor grid and finished parity with Terrestria"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+launch_task = "prodServer"
+seed = -4684407561222073891
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-biolith-3.0.14",
+    "mc1.21.1-fabric-terrestria-7.0.3",
+]
+retention = "keep"
+
+[rtf_ephemeral]
+id = "actual-editor-default-preset"
+purpose = "Match Presets.makeRTFDefault used by the actual pre-server editor probe"
+base_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+base_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+patch_file = "games/minecraft/investigations/reterraforged/patches/default-ocean-depth.json"
+
+[server_properties]
+view-distance = 5
+simulation-distance = 5
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "biolith", "terrestria"]
+
+[[probes]]
+id = "squinch:rtf-biome-preview-batch-equivalence"
+version = "1"
+config = { center_x = 0, center_z = 0, zoom = 64, example_limit = 64, required_namespaces = ["terrestria"] }
+
+[[probes]]
+id = "squinch:rtf-biome-preview-parity"
+version = "1"
+config = { bounds = [-4, -4, 4, 4], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, example_limit = 64 }
+
+[[steps]]
+id = "reproduce-actual-editor-grid"
+type = "probe"
+probe = "squinch:rtf-biome-preview-batch-equivalence"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "compare-preview-to-finished-chunks"
+type = "generate"
+unit = "chunk"
+bounds = [-4, -4, 4, 4]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-biome-preview-parity"
+expect = { terminal_state = "pass" }

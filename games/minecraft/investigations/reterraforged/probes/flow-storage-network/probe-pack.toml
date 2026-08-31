@@ -1,0 +1,9 @@
+schema_version = 1
+id = "rtf-flow-storage-network"
+version = "1"
+target_adapter = "reterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-rtf-flow-storage-network.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["chunk-serializer", "network-codec", "storage-counterfactual", "flow-grid-digest"]

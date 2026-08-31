@@ -1,0 +1,49 @@
+schema_version = 1
+name = "Final packaged FTF NeoForge startup without TerraBlender"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/flow-settings-acceptance"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-flow-settings-acceptance"
+version = "1"
+config = { expected_overworld_settings = 7 }
+
+[[steps]]
+id = "verify-production-server"
+type = "command"
+command = "list"
+
+[[steps]]
+id = "capture-flow-settings-before-reload"
+type = "probe"
+probe = "squinch:rtf-flow-settings-acceptance"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "reload-packaged-server"
+type = "command"
+command = "reload"
+
+[[steps]]
+id = "verify-packaged-flow-settings-sync"
+type = "probe"
+probe = "squinch:rtf-flow-settings-acceptance"
+expect = { terminal_state = "pass" }

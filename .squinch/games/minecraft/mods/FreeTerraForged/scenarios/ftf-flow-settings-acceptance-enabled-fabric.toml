@@ -1,0 +1,95 @@
+schema_version = 1
+name = "FTF world-owned flow settings acceptance — enabled Fabric"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = [
+    "games/minecraft/investigations/reterraforged/probes/flow-settings-acceptance",
+    "games/minecraft/investigations/reterraforged/probes/flow-storage-network",
+]
+companion_artifacts = [
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-glitchcore-2.1.0.2",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+network-compression-threshold = 256
+
+[timeouts]
+startup = 360
+step = 1200
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender"]
+
+[[probes]]
+id = "squinch:rtf-flow-settings-acceptance"
+version = "1"
+config = { expected_overworld_settings = 7 }
+
+[[probes]]
+id = "squinch:rtf-flow-storage-network-arm"
+version = "1"
+config = { windows = [[0, 0, 15, 15], [20, 0, 35, 15], [40, 0, 55, 15], [60, 0, 75, 15], [80, 0, 95, 15]] }
+
+[[probes]]
+id = "squinch:rtf-flow-storage-network-report"
+version = "1"
+config = { windows = [[0, 0, 15, 15], [20, 0, 35, 15], [40, 0, 55, 15], [60, 0, 75, 15], [80, 0, 95, 15]] }
+
+[[probes]]
+id = "squinch:finished-chunks"
+version = "1"
+config = { max_wait_ticks = 2400 }
+
+[[steps]]
+id = "capture-level-ownership-before-reload"
+type = "probe"
+probe = "squinch:rtf-flow-settings-acceptance"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "reload-resources"
+type = "command"
+command = "reload"
+
+[[steps]]
+id = "verify-reload-player-and-dimension-sync"
+type = "probe"
+probe = "squinch:rtf-flow-settings-acceptance"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "arm-serializer-capture"
+type = "probe"
+probe = "squinch:rtf-flow-storage-network-arm"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "generate-flow-windows"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 15, 15]
+repeat = 5
+offset = [20, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:finished-chunks"
+expect = { region_count = 5, terminal_state = "pass" }
+
+[[steps]]
+id = "flush-chunk-storage"
+type = "command"
+command = "save-all flush"
+expect = { response_contains = "Saved the game" }
+
+[[steps]]
+id = "verify-flow-parity-and-persistence"
+type = "probe"
+probe = "squinch:rtf-flow-storage-network-report"
+expect = { terminal_state = "pass" }

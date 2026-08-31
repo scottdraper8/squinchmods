@@ -225,6 +225,53 @@ def analyze(path: Path) -> dict:
         version, width, height, records, terminal["biome_dictionary"]
     )
     region_counts = Counter(record[2] for record in records)
+    replacement_counts = Counter(
+        (
+            terminal["original_biome_dictionary"][record[1]],
+            terminal["biome_dictionary"][record[0]],
+        )
+        for record in records
+    )
+    replacements = {}
+    for (original, selected), count in replacement_counts.items():
+        replacements.setdefault(original, {})[selected] = count
+    replacements = {
+        original: {
+            "samples": sum(selected.values()),
+            "selected": dict(sorted(selected.items())),
+            "fractions": {
+                biome: count / sum(selected.values())
+                for biome, count in sorted(selected.items())
+            },
+        }
+        for original, selected in sorted(replacements.items())
+    }
+    cell_replacement_sets = {}
+    for record in records:
+        original = terminal["original_biome_dictionary"][record[1]]
+        selected = terminal["biome_dictionary"][record[0]]
+        cell_replacement_sets.setdefault((original, record[3]), set()).add(selected)
+    cell_replacement_counts = Counter()
+    conflicting_cell_targets = 0
+    for (original, _), selected in cell_replacement_sets.items():
+        if len(selected) != 1:
+            conflicting_cell_targets += 1
+        for biome in selected:
+            cell_replacement_counts[(original, biome)] += 1
+    cell_replacements = {}
+    for (original, selected), count in cell_replacement_counts.items():
+        cell_replacements.setdefault(original, {})[selected] = count
+    cell_replacements = {
+        original: {
+            "cell_targets": sum(selected.values()),
+            "selected": dict(sorted(selected.items())),
+            "fractions": {
+                biome: count / sum(selected.values())
+                for biome, count in sorted(selected.items())
+            },
+        }
+        for original, selected in sorted(cell_replacements.items())
+    }
     probe_transitions = terminal["transition_ownership"]
     transition_matches = all(
         transition_summary[name]["edges"] == probe_transitions[name]["adjacent_edges"]
@@ -254,15 +301,63 @@ def analyze(path: Path) -> dict:
         "namespace_components": namespace_components,
         "biome_adjacency_pairs": pair_summary,
         "provider_domain_samples": dict(sorted(region_counts.items())),
+        "replacement_distribution": replacements,
+        "cell_replacement_distribution": cell_replacements,
+        "conflicting_cell_target_selections": conflicting_cell_targets,
         "transitions": transition_summary,
+    }
+
+
+def compare(left_path: Path, right_path: Path) -> dict:
+    left_terminal = terminal_record(left_path)
+    right_terminal = terminal_record(right_path)
+    left_header, left_records = decode(left_terminal)
+    right_header, right_records = decode(right_terminal)
+    if left_header != right_header:
+        raise ValueError(f"grid headers differ: {left_header} != {right_header}")
+    left_biomes = left_terminal["biome_dictionary"]
+    right_biomes = right_terminal["biome_dictionary"]
+    left_original = left_terminal["original_biome_dictionary"]
+    right_original = right_terminal["original_biome_dictionary"]
+    fields = {
+        "selected_biome": sum(
+            left_biomes[left[0]] != right_biomes[right[0]]
+            for left, right in zip(left_records, right_records)
+        ),
+        "original_biome": sum(
+            left_original[left[1]] != right_original[right[1]]
+            for left, right in zip(left_records, right_records)
+        ),
+        "provider": sum(left[2] != right[2] for left, right in zip(left_records, right_records)),
+        "ftf_cell": sum(left[3] != right[3] for left, right in zip(left_records, right_records)),
+        "ftf_edge": sum(left[4] != right[4] for left, right in zip(left_records, right_records)),
+        "surface_y": sum(left[5] != right[5] for left, right in zip(left_records, right_records)),
+    }
+    samples = len(left_records)
+    return {
+        "left": str(left_path.resolve()),
+        "right": str(right_path.resolve()),
+        "samples": samples,
+        "mismatches": fields,
+        "fractions": {name: count / samples for name, count in fields.items()},
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("probe_jsonl", type=Path)
+    parser.add_argument("probe_jsonl", type=Path, nargs="+")
     arguments = parser.parse_args()
-    print(json.dumps(analyze(arguments.probe_jsonl), indent=2, sort_keys=True))
+    if len(arguments.probe_jsonl) == 1:
+        result = analyze(arguments.probe_jsonl[0])
+    else:
+        result = {
+            "analyses": [analyze(path) for path in arguments.probe_jsonl],
+            "comparisons": [
+                compare(arguments.probe_jsonl[0], path)
+                for path in arguments.probe_jsonl[1:]
+            ],
+        }
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

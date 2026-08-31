@@ -28,7 +28,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Climate;
 import org.squinchmods.investigate.FinishedChunkSelection;
 import org.squinchmods.investigate.MinecraftProbeHelpers;
@@ -83,7 +82,6 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
             FinishedChunkSelection.Snapshot snapshot = this.selection.poll(level);
             if (snapshot == null) return null;
 
-            BiomeSource biomeSource = level.getChunkSource().getGenerator().getBiomeSource();
             RTFRandomState randomState = (RTFRandomState) (Object) level.getChunkSource().randomState();
             GeneratorContext context = randomState.generatorContext();
             if (context == null) {
@@ -100,9 +98,9 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
                 .sorted(Comparator.comparingInt(WorldgenPlans.ProviderDomain::registrationOrder))
                 .toList();
 
-            Grid grid = sample(level, biomeSource, context, plan, providerDomains);
+            Grid grid = sample(level, generator, context, plan, providerDomains);
             JsonObject data = new JsonObject();
-            data.addProperty("authority", "direct-biome-source-grid-with-finished-chunk-parity");
+            data.addProperty("authority", "ftf-generator-plan-grid-with-finished-chunk-parity");
             data.addProperty("surface_y_authority", "ftf-cell-height");
             data.addProperty("provider_contract_active", !providerDomains.isEmpty());
             data.add("provider_dictionary", strings(providerDomains.stream()
@@ -113,14 +111,14 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
             data.add("component_topology", components(grid));
             data.add("transition_ownership", transitions(grid));
             data.add("provider_distribution", providerDistribution(grid));
-            data.add("finished_chunk_parity", finishedParity(snapshot, level, biomeSource, context));
+            data.add("finished_chunk_parity", finishedParity(snapshot, level, generator, context));
             data.add("raw_grid", rawGrid(grid));
             return this.selection.result(snapshot, data);
         }
 
         private Grid sample(
             ServerLevel level,
-            BiomeSource biomeSource,
+            TerraForgedChunkGenerator generator,
             GeneratorContext context,
             WorldgenPlan plan,
             List<WorldgenPlans.ProviderDomain> providerDomains
@@ -150,7 +148,7 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
                     int quartY = QuartPos.fromBlock(surfaceY);
                     int quartZ = QuartPos.fromBlock(blockZ);
                     Climate.TargetPoint target = sampler.sample(quartX, quartY, quartZ);
-                    Holder<Biome> selected = biomeSource.getNoiseBiome(quartX, quartY, quartZ, sampler);
+                    Holder<Biome> selected = generator.resolveBiome(quartX, quartY, quartZ, sampler);
                     String biome = MinecraftProbeHelpers.biomeId(selected);
                     int providerIndex = -1;
                     String original = biome;
@@ -345,7 +343,7 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
         private static JsonObject finishedParity(
             FinishedChunkSelection.Snapshot snapshot,
             ServerLevel level,
-            BiomeSource biomeSource,
+            TerraForgedChunkGenerator generator,
             GeneratorContext context
         ) {
             Climate.Sampler sampler = level.getChunkSource().randomState().sampler();
@@ -371,7 +369,7 @@ public final class RtfSpatialCompatibilityProbePack implements ProbePack {
                             ready.chunk().getNoiseBiome(quartX, quartY, quartZ)
                         );
                         String direct = MinecraftProbeHelpers.biomeId(
-                            biomeSource.getNoiseBiome(quartX, quartY, quartZ, sampler)
+                            generator.resolveBiome(quartX, quartY, quartZ, sampler)
                         );
                         sampled++;
                         if (!stored.equals(direct)) {

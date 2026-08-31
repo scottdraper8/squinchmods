@@ -1,9 +1,11 @@
 package org.squinchmods.investigate.rtf;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -82,6 +84,8 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
             boolean sameEpoch = current.epoch().id().equals(baseline.epoch().id());
             boolean advancedOnce = current.epoch().tagEpoch().sequence()
                 == baseline.epoch().tagEpoch().sequence() + 1L;
+            boolean contributionSequenceStable = current.epoch().contributionSequence()
+                == baseline.epoch().contributionSequence();
             boolean fingerprintChanged = !current.epoch().tagEpoch().fingerprint()
                 .equals(baseline.epoch().tagEpoch().fingerprint());
             boolean planReplaced = current.plan() != baseline.plan();
@@ -95,9 +99,10 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
                     .equals(baseline.epoch().resourceLayerFingerprint());
             boolean reportsPresent = !baseline.plan().report().nodes().isEmpty()
                 && !current.plan().report().nodes().isEmpty();
+            boolean mechanismReportsStable = mechanismNodes(current.plan()).equals(mechanismNodes(baseline.plan()));
             boolean passed = sameEpoch && advancedOnce && fingerprintChanged && planReplaced
                 && generatorOwnerAligned && randomStateOwnerAligned && immutableBootstrapInputs
-                && reportsPresent;
+                && contributionSequenceStable && reportsPresent && mechanismReportsStable;
 
             JsonObject data = new JsonObject();
             data.add("before", snapshot("before", baseline));
@@ -105,11 +110,13 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
             data.addProperty("same_worldgen_epoch_id", sameEpoch);
             data.addProperty("tag_epoch_advanced_once", advancedOnce);
             data.addProperty("tag_fingerprint_changed", fingerprintChanged);
+            data.addProperty("contribution_sequence_stable", contributionSequenceStable);
             data.addProperty("plan_replaced", planReplaced);
             data.addProperty("generator_owner_aligned", generatorOwnerAligned);
             data.addProperty("random_state_owner_aligned", randomStateOwnerAligned);
             data.addProperty("bootstrap_inputs_preserved", immutableBootstrapInputs);
             data.addProperty("capability_reports_present", reportsPresent);
+            data.addProperty("mechanism_reports_stable", mechanismReportsStable);
             BASELINES.remove(this.runId, baseline);
             return ProbeResult.complete(
                 passed ? TerminalState.PASS : TerminalState.FAIL,
@@ -133,6 +140,7 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
         data.addProperty("owner_type", snapshot.plan().owner().type().name().toLowerCase());
         data.addProperty("tag_sequence", snapshot.epoch().tagEpoch().sequence());
         data.addProperty("tag_fingerprint", snapshot.epoch().tagEpoch().fingerprint());
+        data.addProperty("contribution_sequence", snapshot.epoch().contributionSequence());
         data.addProperty("plan_identity", System.identityHashCode(snapshot.plan()));
         data.addProperty("report_nodes", snapshot.plan().report().nodes().size());
         data.addProperty("feature_pipelines", snapshot.plan().placedFeatures().pipelines().size());
@@ -140,7 +148,20 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
         data.addProperty("structures", snapshot.plan().structures().structures().size());
         data.addProperty("random_state_epoch_same_instance", snapshot.randomStateEpoch() == snapshot.epoch());
         data.addProperty("random_state_plan_same_instance", snapshot.randomStatePlan() == snapshot.plan());
+        JsonArray mechanisms = new JsonArray();
+        mechanismNodes(snapshot.plan()).forEach(mechanisms::add);
+        data.add("mechanism_nodes", mechanisms);
         return data;
+    }
+
+    private static List<String> mechanismNodes(WorldgenPlan plan) {
+        return plan.report().nodes().stream()
+            .filter(node -> node.id().getNamespace().equals("reterraforged"))
+            .filter(node -> node.id().getPath().equals("biolith_placements")
+                || node.id().getPath().equals("lithostitched_injectors"))
+            .map(node -> node.id() + ":" + node.facet() + ":" + node.state()
+                + node.firstCause().map(failure -> ":" + failure.code()).orElse(""))
+            .toList();
     }
 
     private record Snapshot(

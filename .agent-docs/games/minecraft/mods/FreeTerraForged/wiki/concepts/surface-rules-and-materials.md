@@ -2,13 +2,15 @@
 
 ## Surface-rule ownership
 
-Preset-derived RTF surface rules affect generated blocks through the actual Overworld noise settings
-and TerraBlender surface integration. A codec or GUI field disconnected from generated surface-rule
-data has no world-generation effect.
+Preset-derived FTF surface rules affect generated blocks through the surface-rule root in the
+selected Overworld noise settings. The compatibility plan retains and executes that selected graph
+as an independent facet. A codec or GUI field disconnected from the selected surface-rule data has
+no world-generation effect.
 
-With TerraBlender active, the preset-derived Overworld rule and other initialization features share
-one resolved preset context. Modded namespace dispatch remains semantically relevant for every
-namespace set except the exactly vanilla-only case.
+Biome-provider support does not imply surface-rule support. A third-party wrapper participates only
+when it is already part of the selected public rule graph or a supported surface capability supplies
+it. FTF does not infer surface dispatch from biome namespaces or from the presence of TerraBlender,
+Lithostitched, or Biolith.
 
 ## Strata concepts
 
