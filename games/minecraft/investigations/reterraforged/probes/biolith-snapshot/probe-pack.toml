@@ -5,4 +5,4 @@ target_adapter = "reterraforged-1.21.1"
 sources = ["src/main/java"]
 resources = ["src/main/resources"]
 mixins = []
-capabilities = ["server-thread", "finalized-placement-snapshot", "ordering", "normalization"]
+capabilities = ["server-thread", "immutable-registration-snapshot", "criterion-normalization", "plan-normalization"]

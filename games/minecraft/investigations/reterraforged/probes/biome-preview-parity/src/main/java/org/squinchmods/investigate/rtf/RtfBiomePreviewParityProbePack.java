@@ -159,6 +159,7 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
         private final int zoom;
         private final int exampleLimit;
         private final java.util.List<String> requiredNamespaces;
+        private final java.util.List<String> requiredTransitions;
 
         private BatchEquivalence(ProbeRequest request) {
             JsonObject config = request.config();
@@ -173,11 +174,19 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                     .map(value -> value.getAsString())
                     .toList()
                 : java.util.List.of();
+            this.requiredTransitions = config.has("required_transitions")
+                ? config.getAsJsonArray("required_transitions").asList().stream()
+                    .map(value -> value.getAsString())
+                    .toList()
+                : java.util.List.of();
             if (this.zoom <= 0 || this.exampleLimit < 0 || this.exampleLimit > 1024) {
                 throw new IllegalArgumentException("zoom must be positive and example_limit must be 0..1024");
             }
             if (this.requiredNamespaces.stream().anyMatch(String::isBlank)) {
                 throw new IllegalArgumentException("required_namespaces must contain non-empty namespace IDs");
+            }
+            if (this.requiredTransitions.stream().anyMatch(String::isBlank)) {
+                throw new IllegalArgumentException("required_transitions must contain non-empty transitions");
             }
         }
 
@@ -210,6 +219,7 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             long serialNanos;
             int sampledPixels;
             TreeSet<String> palette = new TreeSet<>();
+            Map<String, Long> selectionTransitions = new TreeMap<>();
             boolean parallelEnabled;
             MessageDigest gridDigest = sha256();
 
@@ -269,6 +279,12 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
 						Holder<Biome> actual = parallel.biomeAt(x, z);
 						Holder<Biome> repeatedValue = repeated.biomeAt(x, z);
 						String actualId = MinecraftProbeHelpers.biomeId(actual);
+						String baseId = MinecraftProbeHelpers.biomeId(
+							serial.inspectProviderSelection(quartX, quartY, quartZ).biome()
+						);
+						if (!baseId.equals(actualId)) {
+							selectionTransitions.merge(baseId + " -> " + actualId, 1L, Long::sum);
+						}
 						String expectedId = MinecraftProbeHelpers.biomeId(expected);
 						String repeatedId = MinecraftProbeHelpers.biomeId(repeatedValue);
 						palette.add(actualId);
@@ -320,9 +336,20 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                 requiredNamespacesPresent &= present;
             }
             data.add("required_namespace_presence", namespacePresence);
+            JsonObject transitions = new JsonObject();
+            selectionTransitions.forEach(transitions::addProperty);
+            data.add("selection_transition_counts", transitions);
+            boolean requiredTransitionsPresent = this.requiredTransitions.stream()
+                .allMatch(selectionTransitions::containsKey);
+            JsonObject transitionPresence = new JsonObject();
+            this.requiredTransitions.forEach(value -> transitionPresence.addProperty(
+                value, selectionTransitions.containsKey(value)
+            ));
+            data.add("required_transition_presence", transitionPresence);
             data.add("mismatch_examples", mismatchExamples);
             return ProbeResult.complete(
-                parallelEnabled && mismatches == 0L && repeatMismatches == 0L && requiredNamespacesPresent
+                parallelEnabled && mismatches == 0L && repeatMismatches == 0L
+                    && requiredNamespacesPresent && requiredTransitionsPresent
                     ? TerminalState.PASS
                     : TerminalState.FAIL,
                 ProbePhase.PREDICTION,

@@ -241,28 +241,37 @@ Data-origin registrations are cleared before Biolith re-registers them. Code reg
 process-owned, exact duplicates are removed, and tag reload recompiles an immutable owner copy.
 Preview requests read snapshots without consuming registration or changing later server startup.
 
-Sub-biome registrations are detected but unavailable because the public criterion object is not an
-immutable request-owned factory for its world access, neighbor lookup, alternate output, seed/noise,
-ordering, reload, and concurrency behavior.
+Built-in sub-biome criteria are normalized immediately into an immutable FTF-owned tree using the
+qualified version's public accessors. The tree represents boolean composition, climate value and
+deviation ranges, center/edge ratios, original and next-distinct candidate tests, alternate direct
+replacement results, biome keys or tags, and ocean-relative depth from immutable owner bounds and
+sea level. Evaluation uses the selected provider's immutable candidate table and target point; it
+does not retain or call a Biolith criterion, world, callback, holder cache, placement object, or
+noise generator. Sub-biome request order is the mechanism's stable biome-key order. Replacement
+range adjustments deliberately do not import Biolith's local-noise policy because direct placement
+is owned by FTF-cell rendezvous.
 
 ## Remaining external boundaries
 
-### Biolith sub-biomes
+### Custom Biolith criteria
 
-The smallest sufficient API is an immutable criterion snapshot or pure owner-scoped factory that
-covers world and neighbor access, alternate results, seed/noise state, order, reload, cancellation,
-and concurrency. Until then, a captured sub-biome registration fails only selection decoration with
-`biolith_sub_biome_factory_missing`.
+An unrecognized criterion implementation has no complete immutable FTF evaluation contract. The
+qualified adapter rejects it during acquisition and fails only selection decoration with
+`biolith_criterion_contract_unsupported`; it does not serialize ambiguous codec output, invoke the
+criterion later, or inspect private state. A future custom criterion requires a stable immutable
+snapshot or pure owner-scoped factory covering all of its inputs, ordering, reload, cancellation,
+and concurrency.
 
 ### Third-party patches inside mechanism selection
 
-No Man's Land `1.5.12` adds its cave outputs by injecting directly into Biolith's internal
-`DimensionBiomePlacement.getReplacement` return. It does not register a placement, replacement, or
-sub-biome criterion that Biolith or FTF can snapshot, and the behavior depends on Biolith fittest
-nodes plus private return-local state. The public Biolith codec and registration surface therefore
-cannot represent this contribution. Supporting it requires NML to publish a stable registration or
-factory contract, or Biolith to expose a complete final selection-plan snapshot. FTF does not add a
-per-mod Mixin or silently claim those cave outputs.
+No Man's Land `1.5.12` uses Biolith built-in criteria for its ordinary replacements and sub-biomes,
+which the qualified adapter can represent. Separately, NML adds cave outputs by injecting directly
+into Biolith's internal `DimensionBiomePlacement.getReplacement` return. It does not register a
+placement, replacement, or sub-biome criterion that Biolith or FTF can snapshot, and the behavior
+depends on Biolith fittest nodes plus private return-local state. The public Biolith codec and
+registration surface therefore cannot represent this contribution. Supporting it requires NML to
+publish a stable registration or factory contract, or Biolith to expose a complete final
+selection-plan snapshot. FTF does not add a per-mod Mixin or silently claim those cave outputs.
 
 ### Failures before FTF ownership
 
@@ -298,10 +307,11 @@ When PR 208 lands on upstream `1.21.1`:
   parity, locate/query/stored-biome parity, feature-sort closure, and no `ClassCastException` before
   accepting the upstream merge.
 
-PR 208's No Man's Land screenshot is not evidence that NML's cave/sub-biome semantics are captured.
-NML remains the private third-party patch boundary described above. It becomes supported only when
-NML publishes a stable registration/factory contract or Biolith exposes a complete immutable final
-selection snapshot; until then the runtime must retain the bounded unavailable diagnostic.
+PR 208's No Man's Land screenshot is not evidence that NML's private cave semantics are captured.
+NML's ordinary Biolith replacements and sub-biomes are covered by the qualified built-in contract;
+the cave return-value patch remains the private third-party boundary described above. It becomes
+supported only when NML publishes a stable registration/factory contract or Biolith exposes a
+complete immutable final selection snapshot.
 
 ## Preview contract
 
@@ -382,6 +392,15 @@ includes:
 - `20260831T095315Z-52330c3942`: owner-preserving tag reload with complete cleanup.
 - `20260831T100956Z-27afb0d091`: final mixed Lithostitched/Biolith runtime ownership and
   stored-chunk checks.
+- `20260831T185704Z-68168af357`: Fabric Biolith built-in sub-biome acceptance; immutable acquisition
+  and plan-output coverage, 65,536 repeatable serial/parallel preview selections, and 3,540 required
+  plains-to-void transitions.
+- `20260831T183416Z-dd3f8208eb`: exact latest NeoForge NML/Biolith dependency-boundary failure;
+  Biolith's required `MixinNoiseHypercube` does not apply before an FTF world or plan exists.
+- `20260831T185501Z-de3ed1b110`: final packaged Fabric control; reload and flow ownership pass, and
+  256 finished-chunk surface samples have zero preview mismatches.
+- `20260831T185552Z-a02c491715`: final packaged NeoForge control; production start, reload, flow
+  ownership, and cleanup pass.
 - `20260831T101937Z-197d3ca27b`: clean packaged Fabric start without TerraBlender, including 16
   finished chunks and zero preview mismatches.
 - `20260831T102031Z-e601c7afec`: clean packaged NeoForge start without TerraBlender, including

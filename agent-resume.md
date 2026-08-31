@@ -37,18 +37,21 @@ warp. Carvers and placed features compile from the final possible-biome closure.
   pre-server creation-graph boundary. Its stable public event output and finalized injectors become
   an immutable graph-bound snapshot; preview reads it without callbacks, and later server
   finalization for the same graph consumes the frozen emissions instead of invoking listeners again.
-- Biolith additions, removals, and direct replacements are captured when accepted and are available
-  to pre-server preview. Data-origin registrations are replaced on data reload; code registrations
-  remain process-owned without duplicate accumulation.
+- Biolith additions, removals, direct replacements, and qualified built-in sub-biome criteria are
+  captured when accepted and are available to pre-server preview. The `3.0.14` bridge immediately
+  normalizes criterion trees into immutable FTF records; neither Biolith criteria nor server/world
+  state crosses acquisition. Data-origin registrations are replaced on data reload; code
+  registrations remain process-owned without duplicate accumulation.
 - Applicability is selected-creation-graph and facet scoped. An installed mechanism with no
   applicable contribution does not claim or fail a facet.
 
 ### External API boundaries
 
-- Biolith sub-biomes lack an immutable request-owned criterion snapshot or factory covering world
-  access, neighbor queries, alternate output, seed/noise, ordering, reload, and concurrency.
+- Custom Biolith criteria remain unavailable because their behavior cannot be represented by the
+  qualified built-in snapshot contract. Their selection facet fails closed with a typed diagnostic.
 - No Man's Land `1.5.12` cave placement patches Biolith's internal replacement return and exposes no
-  stable registration or finalized-plan snapshot. It remains unsupported without a per-mod Mixin.
+  stable registration or finalized-plan snapshot. NML's ordinary Biolith replacements and sub-biomes
+  are representable; only this separate cave patch remains unsupported without a per-mod Mixin.
 - A third-party failure before FTF owns the selected world remains a dependency boundary, not an FTF
   capability failure.
 - Support for biome selection does not imply support for density, surface, carver, feature, or
@@ -93,15 +96,24 @@ Serial/parallel equivalence is `20260831T095058Z-24a7a965b4`; finished-chunk par
 ownership is `20260831T100956Z-27afb0d091`. Clean packaged no-TerraBlender starts are
 `20260831T101937Z-197d3ca27b` on Fabric and `20260831T102031Z-e601c7afec` on NeoForge.
 
+Biolith built-in criterion normalization is covered by the full common test suite and Fabric run
+`20260831T185704Z-68168af357`: its acquisition probe reports one normalized built-in criterion,
+complete possible-output coverage, and no criterion failures; 65,536 preview selections are
+repeatable and serial/parallel equivalent, and 3,540 make the required
+`minecraft:plains -> minecraft:the_void` sub-biome transition. The exact latest NeoForge NML/Biolith
+stack fails before FTF ownership in `20260831T183416Z-dd3f8208eb` because Biolith `3.0.14` cannot
+apply its required `MixinNoiseHypercube`; that run is a dependency-boundary failure, not evidence
+about the FTF plan.
+
 Upstream PR 208 is a pending landing gate, not a patch to cherry-pick. At reviewed draft head
 `cb654424b2d8b4d848aafd866c3d5280f4f2666e`, its only net change bypasses
 `MultiNoiseBiomeSource.possibleBiomes()` through the raw parameter field. When it lands, inspect the
 final diff, keep the compatibility branch's deleted legacy source Mixin deleted, retain pre-server
 Lithostitched acquisition and plan-owned possible outputs, reacquire latest exact dependencies, and
 rerun actual no-server Biolith + Lithostitched + RU previews on both loaders plus the mixed
-TerraBlender/Terrestria stack. NML cave/sub-biome behavior remains explicitly unavailable until NML
-or Biolith publishes a complete stable snapshot/factory contract; the PR's NML screenshot does not
-change that boundary.
+TerraBlender/Terrestria stack. NML's ordinary Biolith registrations use supported built-in criteria;
+its separate cave return-value patch remains explicitly unavailable until NML or Biolith publishes a
+complete stable snapshot/factory contract. The PR's NML screenshot does not change that boundary.
 
 ### Flow-settings ownership benchmark
 

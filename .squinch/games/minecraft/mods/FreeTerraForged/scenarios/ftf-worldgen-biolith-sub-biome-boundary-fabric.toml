@@ -1,10 +1,14 @@
 schema_version = 1
-name = "FTF + Biolith unsupported sub-biome factory boundary"
+name = "FTF + Biolith immutable sub-biome criterion acceptance"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 launch_task = "prodServer"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/biolith-sub-biome-boundary/fixture.toml"
+probe_packs = [
+    "games/minecraft/investigations/reterraforged/probes/biolith-snapshot",
+    "games/minecraft/investigations/reterraforged/probes/biome-preview-parity",
+]
 companion_artifacts = [
     "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
     "mc1.21.1-fabric-biolith-3.0.14",
@@ -18,12 +22,30 @@ max-tick-time = -1
 
 [timeouts]
 startup = 600
+step = 900
 shutdown = 120
 
 [expectations]
 required_mods = ["minecraft", "reterraforged", "biolith"]
 
+[[probes]]
+id = "squinch:ftf-biolith-snapshot"
+version = "1"
+config = {}
+
+[[probes]]
+id = "squinch:rtf-biome-preview-batch-equivalence"
+version = "1"
+config = { center_x = 0, center_z = 0, zoom = 64, example_limit = 64, required_transitions = ["minecraft:plains -> minecraft:the_void"] }
+
 [[steps]]
-id = "confirm-server-boundary"
-type = "command"
-command = "list"
+id = "prove-immutable-registration-and-plan-normalization"
+type = "probe"
+probe = "squinch:ftf-biolith-snapshot"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "prove-criterion-output-and-batch-equivalence"
+type = "probe"
+probe = "squinch:rtf-biome-preview-batch-equivalence"
+expect = { terminal_state = "pass" }

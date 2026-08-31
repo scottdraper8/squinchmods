@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +26,9 @@ import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.TerminalState;
 import raccoonman.reterraforged.world.worldgen.biolith.BiolithPlacementBridge;
+import raccoonman.reterraforged.world.worldgen.runtime.CapabilityState;
 import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenBiomeSelection;
 
 public final class BiolithSnapshotProbePack implements ProbePack {
 	@Override
@@ -52,17 +53,12 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 			JsonObject data = new JsonObject();
 			data.addProperty("mechanism_version", snapshot.mechanismVersion());
 			data.addProperty("dimension", snapshot.dimension().location().toString());
-			data.addProperty("sealed", snapshot.sealed());
-			data.addProperty("entries_complete", snapshot.entriesComplete());
-			snapshot.finalizedWorld().ifPresent(value -> data.addProperty("finalized_world", value));
-			snapshot.finalizedSeed().ifPresent(value -> data.addProperty("finalized_seed", value));
 			data.addProperty("placement_count", snapshot.placements().size());
 			data.addProperty("removal_count", snapshot.removals().size());
 			data.addProperty("replacement_target_count", snapshot.replacements().size());
 			data.addProperty("replacement_count", count(snapshot.replacements()));
 			data.addProperty("sub_biome_target_count", snapshot.subBiomes().size());
 			data.addProperty("sub_biome_count", count(snapshot.subBiomes()));
-			data.addProperty("final_entry_count", snapshot.finalEntries().size());
 
 			List<BiolithPlacementBridge.Placement> placements = snapshot.placements().stream()
 				.sorted(Comparator.comparing(BiolithSnapshotProbePack::placementKey))
@@ -95,37 +91,29 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 					requests.add(item);
 				}
 				target.add("requests", requests);
-				target.add("saved_order", strings(snapshot.savedOrders()
-					.getOrDefault(entry.getKey(), List.of()).stream()
-					.map(key -> key.location().toString())
-					.toList()));
 				replacements.add(target);
 			}
 			data.add("replacements", replacements);
 
 			JsonArray subBiomes = new JsonArray();
+			List<String> criterionFailures = new ArrayList<>();
 			for (var entry : sorted(snapshot.subBiomes())) {
 				for (var subBiome : entry.getValue()) {
 					JsonObject item = new JsonObject();
 					item.addProperty("target", subBiome.target().location().toString());
 					item.addProperty("biome", subBiome.biome().location().toString());
-					item.addProperty("criterion_type", subBiome.criterionType());
+					item.addProperty("criterion_type", subBiome.criterionType().toString());
+					item.addProperty("criterion_normalized", subBiome.criterionNormalized());
+					subBiome.criterionFailure().ifPresent(failure -> {
+						item.addProperty("criterion_failure", failure);
+						criterionFailures.add(failure);
+					});
 					item.addProperty("from_data", subBiome.fromData());
 					subBiomes.add(item);
 				}
 			}
 			data.add("sub_biomes", subBiomes);
-
-			JsonArray emitted = new JsonArray();
-			for (int index = 0; index < snapshot.finalEntries().size(); index++) {
-				var entry = snapshot.finalEntries().get(index);
-				JsonObject item = new JsonObject();
-				item.addProperty("encounter_order", index);
-				item.addProperty("biome", entry.biome().location().toString());
-				item.add("point", point(entry.point()));
-				emitted.add(item);
-			}
-			data.add("emitted_entries", emitted);
+			data.add("criterion_failures", strings(criterionFailures.stream().sorted().distinct().toList()));
 
 			Set<String> requestedOutputs = new TreeSet<>();
 			snapshot.placements().forEach(value -> requestedOutputs.add(value.biome().location().toString()));
@@ -140,26 +128,13 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 				.map(ResourceKey::location)
 				.map(Object::toString)
 				.forEach(requestedOutputs::add);
-			Set<String> emittedOutputs = snapshot.finalEntries().stream()
-				.map(BiolithPlacementBridge.FinalEntry::biome)
-				.map(ResourceKey::location)
-				.map(Object::toString)
-				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
-			boolean outputCoverageComplete = emittedOutputs.containsAll(requestedOutputs);
-			boolean placementCoverageComplete = snapshot.placements().stream().allMatch(placement ->
-				snapshot.finalEntries().contains(new BiolithPlacementBridge.FinalEntry(
-					placement.biome(), placement.point()
-				))
-			);
-			boolean savedOrdersComplete = snapshot.replacements().entrySet().stream().allMatch(entry ->
-				completeOrder(entry.getValue(), snapshot.savedOrders().get(entry.getKey()))
-			);
-			boolean ownerMatches = snapshot.finalizedSeed().filter(seed -> seed == server.overworld().getSeed()).isPresent()
-				&& snapshot.finalizedWorld().filter(LevelStem.OVERWORLD.location().toString()::equals).isPresent();
 			TerraForgedChunkGenerator generator = (TerraForgedChunkGenerator) server.overworld()
 				.getChunkSource().getGenerator();
 			var plan = generator.plan().orElseThrow();
 			var domains = plan.providerSelection().providers();
+			Set<String> possibleOutputs = WorldgenBiomeSelection.possibleBiomes(plan).stream()
+				.map(value -> value.unwrapKey().orElseThrow().location().toString())
+				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 			boolean normalizedPlacementCoverage = !domains.isEmpty() && snapshot.placements().stream()
 				.allMatch(placement -> domains.stream().allMatch(domain -> domain.candidates().values().stream()
 					.anyMatch(entry -> entry.getFirst().equals(placement.point())
@@ -167,18 +142,16 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 			boolean normalizedRemovalCoverage = snapshot.removals().stream().allMatch(removal ->
 				domains.stream().allMatch(domain -> domain.candidates().values().stream()
 					.noneMatch(entry -> entry.getSecond().is(removal.biome()))));
-			boolean normalizedOutputCoverage = requestedOutputs.stream().allMatch(output ->
-				domains.stream().allMatch(domain -> domain.candidates().values().stream()
-					.anyMatch(entry -> entry.getSecond().unwrapKey()
-						.map(key -> key.location().toString().equals(output)).orElse(false))));
+			boolean normalizedOutputCoverage = possibleOutputs.containsAll(requestedOutputs);
+			boolean criteriaNormalized = criterionFailures.isEmpty();
+			boolean selectionAvailable = plan.selectionDecoration().descriptor().state()
+				!= CapabilityState.UNAVAILABLE;
 			long normalizedCandidateCount = domains.stream()
 				.mapToLong(domain -> domain.candidates().values().size()).sum();
 			data.add("requested_outputs", strings(requestedOutputs));
-			data.add("emitted_outputs", strings(emittedOutputs));
-			data.addProperty("output_coverage_complete", outputCoverageComplete);
-			data.addProperty("placement_coverage_complete", placementCoverageComplete);
-			data.addProperty("saved_orders_complete", savedOrdersComplete);
-			data.addProperty("owner_matches", ownerMatches);
+			data.add("possible_outputs", strings(possibleOutputs));
+			data.addProperty("criteria_normalized", criteriaNormalized);
+			data.addProperty("selection_available", selectionAvailable);
 			data.addProperty("normalized_provider_count", domains.size());
 			data.addProperty("normalized_candidate_count", normalizedCandidateCount);
 			data.addProperty("normalized_candidate_sha256", normalizedDigest(domains));
@@ -186,8 +159,7 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 			data.addProperty("normalized_removal_coverage_complete", normalizedRemovalCoverage);
 			data.addProperty("normalized_output_coverage_complete", normalizedOutputCoverage);
 
-			boolean passed = snapshot.sealed() && snapshot.entriesComplete()
-				&& outputCoverageComplete && placementCoverageComplete && savedOrdersComplete && ownerMatches
+			boolean passed = criteriaNormalized && selectionAvailable
 				&& normalizedPlacementCoverage && normalizedRemovalCoverage && normalizedOutputCoverage;
 			return ProbeResult.complete(
 				passed ? TerminalState.PASS : TerminalState.FAIL,
@@ -224,23 +196,6 @@ public final class BiolithSnapshotProbePack implements ProbePack {
 
 	private static <T> long count(Map<?, List<T>> values) {
 		return values.values().stream().mapToLong(List::size).sum();
-	}
-
-	private static boolean completeOrder(
-		List<BiolithPlacementBridge.Replacement> requests,
-		List<ResourceKey<Biome>> order
-	) {
-		if (order == null) {
-			return false;
-		}
-		double maximum = requests.stream().mapToDouble(BiolithPlacementBridge.Replacement::proportion)
-			.max().orElse(0.0D);
-		if (maximum < 1.0D && order.stream().noneMatch(key -> key.location().toString().equals("biolith:vanilla"))) {
-			return false;
-		}
-		return requests.stream()
-			.filter(request -> request.proportion() > 0.0D)
-			.allMatch(request -> order.contains(request.biome()));
 	}
 
 	private static String placementKey(BiolithPlacementBridge.Placement placement) {

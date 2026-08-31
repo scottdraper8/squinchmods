@@ -174,15 +174,17 @@ Data-origin entries are replaced during data reload; code entries remain process
 duplicates are removed. Preview reads immutable snapshots without consuming registration or
 affecting later server startup.
 
-Sub-biome placement remains unavailable because Biolith exposes no immutable request-owned factory
-covering criterion world access, neighbor queries, alternate outputs, seed/noise, ordering, reload,
-and concurrency. The runtime reports that applicable facet rather than inferring private criterion
-state.
+For qualified built-in sub-biome criteria, acquisition copies the criterion tree into immutable
+FTF-owned records. Evaluation uses only the selected provider's candidate table and target, owner
+height bounds and sea level, and FTF's direct-replacement plan. Preview and generation never retain
+or invoke Biolith criteria, callbacks, placement objects, worlds, or local noise. Unknown custom
+criteria fail the applicable selection facet with a typed diagnostic instead of crossing the
+ownership boundary.
 
-No Man's Land `1.5.12` cave placement is a separate unsupported boundary: it patches Biolith's
-internal replacement return rather than registering snapshot-visible data. FTF cannot preserve that
-behavior from Biolith's public inputs and does not infer it from private locals or add a per-mod
-Mixin.
+No Man's Land `1.5.12` ordinary replacements and sub-biomes use the supported Biolith built-ins. Its
+cave placement is a separate unsupported boundary: it patches Biolith's internal replacement return
+rather than registering snapshot-visible data. FTF cannot preserve that behavior from Biolith's
+public inputs and does not infer it from private locals or add a per-mod Mixin.
 
 ## Capability and failure policy
 
