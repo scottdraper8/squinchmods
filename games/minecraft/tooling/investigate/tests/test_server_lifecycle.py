@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,27 @@ from squinch_minecraft_investigate import server
 from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate import processes
 from squinch_minecraft_investigate.processes import port_is_free
+
+
+def test_development_probe_cleanup_requires_marker_and_removes_owned_jar(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run"
+    probe = run_dir / "mods" / server.DEVELOPMENT_PROBE_JAR
+    probe.parent.mkdir(parents=True)
+    with zipfile.ZipFile(probe, "w") as archive:
+        archive.writestr(server.DEVELOPMENT_PROBE_MARKER, "development evidence only\n")
+
+    assert server._remove_development_probe_jar(run_dir) == []
+    assert not probe.exists()
+
+    with zipfile.ZipFile(probe, "w") as archive:
+        archive.writestr("unowned.txt", "preserve\n")
+    failures = server._remove_development_probe_jar(run_dir)
+
+    assert len(failures) == 1
+    assert "lacks the ownership marker" in failures[0]
+    assert probe.exists()
 
 
 def test_proc_scans_snapshot_entry_names_before_reading_process_state(

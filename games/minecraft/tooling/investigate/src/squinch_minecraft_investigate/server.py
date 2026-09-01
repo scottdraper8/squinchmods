@@ -11,6 +11,7 @@ import subprocess
 import time
 import tomllib
 import uuid
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -42,6 +43,8 @@ from .rcon import RconError, execute
 from .state import atomic_write_json, project_lock, read_json
 
 OWNERSHIP = "squinch-minecraft-investigate"
+DEVELOPMENT_PROBE_JAR = "squinch-investigate-probe.jar"
+DEVELOPMENT_PROBE_MARKER = "META-INF/squinch-development-probe"
 
 
 def new_run_id() -> str:
@@ -196,6 +199,26 @@ def _remove_companion_artifacts(state: dict) -> list[str]:
         except (OSError, ValueError) as exc:
             failures.append(f"companion artifact removal: {mod_path}: {exc}")
     return failures
+
+
+def _remove_development_probe_jar(run_dir: Path) -> list[str]:
+    """Remove only the probe-overlay JAR identified by its embedded ownership marker."""
+    path = run_dir / "mods" / DEVELOPMENT_PROBE_JAR
+    if not path.exists():
+        return []
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("development probe artifact is not a regular file")
+        try:
+            with zipfile.ZipFile(path) as archive:
+                if DEVELOPMENT_PROBE_MARKER not in archive.namelist():
+                    raise ValueError("reserved probe artifact lacks the ownership marker")
+        except zipfile.BadZipFile as exc:
+            raise ValueError("reserved probe artifact is not a valid JAR") from exc
+        path.unlink()
+    except (OSError, ValueError) as exc:
+        return [f"development probe artifact removal: {path}: {exc}"]
+    return []
 
 
 def _git_status(project: Path) -> str | None:
@@ -475,6 +498,12 @@ def start_server(
         artifact_dir = RUNS_ROOT / run_id
         run_dir = loader_dir / "run"
         run_dir.mkdir(parents=True, exist_ok=True)
+        probe_cleanup_failures = _remove_development_probe_jar(run_dir)
+        if probe_cleanup_failures:
+            raise InvestigationError(
+                "probe_artifact_conflict",
+                probe_cleanup_failures[0],
+            )
         level_name = f"squinch-{run_id.lower()}"
         world_dir = run_dir / level_name
         log_path = artifact_dir / "server.log"
@@ -951,6 +980,7 @@ def stop_server(
         failures.extend(_remove_protocol_files(state))
         failures.extend(_restore_managed_files(state))
         failures.extend(_remove_companion_artifacts(state))
+        failures.extend(_remove_development_probe_jar(Path(state["run_dir"])))
         retained_world: str | None = None
         try:
             retained_world = _cleanup_world(state, successful and not failures)
@@ -1036,6 +1066,7 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         failures = _remove_protocol_files(state)
         failures.extend(_restore_managed_files(state))
         failures.extend(_remove_companion_artifacts(state))
+        failures.extend(_remove_development_probe_jar(Path(state["run_dir"])))
         try:
             retained_world = _cleanup_world(state, successful=False)
         except CleanupError as exc:

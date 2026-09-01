@@ -325,6 +325,51 @@ bounded caching, cancellation, and approved parallel scheduling. A capability fa
 generic unavailable state while the backend report retains the responsible owner, mechanism, facet,
 and missing contract.
 
+### Preview performance boundary
+
+The editor preview is entirely client-side and pre-server; it sends no preview payload over the
+network. Its first request currently fingerprints the preset, selected level stem, tags, and biome
+keys, compiles the purpose-scoped plan, generates the terrain tile, resolves 65,536 biome pixels,
+and builds a rendering sidecar. Density, surface-rule, carver, feature, and structure plans are not
+materialized for `BIOME_PREVIEW`.
+
+The compatibility branch's measured multi-second regression is not compatibility acquisition,
+network transfer, raster upload, or rendering. Its sampler decoration installs underground banding
+and a surface context for `BIOME_PREVIEW`. Each surface-preview climate query consequently runs
+`UndergroundBiomeSurfaceProtection` over a 12-by-12 block neighborhood even though the final preview
+selection policy rejects underground-only outputs. At 65,536 pixels this performs 9,437,184
+unnecessary height samples. A serial stage probe attributed 38.143 seconds and 2,073,078,064
+allocated bytes to that sampler alone; all remaining selection stages took about 53 milliseconds.
+
+The runtime compiles an explicit immutable, purpose-owned surface-preview climate query policy. It
+omits underground banding adjustment and the generation sampler cache while retaining the FTF
+sampler context and final surface-biome filter. Normal worldgen compiles the separate policy that
+retains both behaviors. Capability providers cannot override the owner's purpose policy. Preview,
+generation, diagnostics, and third-party providers remain zero-knowledge: the frontend consumes only
+the compiled plan and immutable resolved tile.
+
+The generic query kernel also compiles constant single-provider dispatch, provider-domain lookup,
+and rendezvous identifier hashes once; reuses prepared tile cells instead of repeating spatial
+lookups; omits the quart cache when every preview pixel has a unique quart coordinate; fills the
+typed result array directly; and stores unsigned 16-bit palette indices plus one color per palette
+entry in the rendering sidecar. The final vanilla profile resolves the full 65,536-pixel query in
+14.896 milliseconds parallel or 44.488 milliseconds serial with 16,777,744 allocated bytes and zero
+decomposition or parallel mismatches. The complete resolver, including context, plan, terrain tile,
+and biome query, takes 294.714 milliseconds in that retained run. At zoom one, the exact same grid
+hash as the clean baseline resolves in 16.464 rather than 72.411 milliseconds parallel and 56.120
+rather than 524.606 milliseconds serial.
+
+The complete preset, selected-stem, tag, and biome-key fingerprint remains the cache identity. The
+current creation API exposes no complete owner-issued revision token, so replacing that fingerprint
+with a narrower key would permit stale plans. Its measured tens-of-milliseconds cost is outside the
+hot query and is cached for the screen-scoped request owner. Further cursor or cache specialization
+is not justified by the measured residual path and must not weaken immutable plan data merely to
+remove small allocations.
+
+These changes belong in runtime plan compilation and its generic execution kernel. They must not
+introduce mod-specific preview paths, downstream mechanism inspection, callback replay, or private
+state access.
+
 ## Requalification gates
 
 Run every affected gate when the branch, upstream base, exact-version dependency, extraction
@@ -395,6 +440,43 @@ includes:
 - `20260831T185704Z-68168af357`: Fabric Biolith built-in sub-biome acceptance; immutable acquisition
   and plan-output coverage, 65,536 repeatable serial/parallel preview selections, and 3,540 required
   plains-to-void transitions.
+- `20260831T214702Z-b49ef2dc1f`: compatibility-tip vanilla preview baseline; 3,280.612-millisecond
+  parallel resolution and grid hash
+  `6c4856c5e74c58581d033a5b6ebd4b6445a5dfc06430426338b5e99bd08374d5`.
+- `20260831T215307Z-86005a822d`: clean live-upstream vanilla control; the same grid hash in 28.278
+  milliseconds on the first parallel pass and 17.609 milliseconds on repeat.
+- `20260831T215706Z-4556b98394`: compatibility-tip stage and allocation attribution; the decorated
+  sampler accounts for 38.143 seconds and 2,073,078,064 bytes of the 38.758-second serial query.
+- `20260831T220307Z-c21156fbae`: isolated purpose-scoped sampler candidate; 16.763-millisecond
+  parallel and 49.827-millisecond serial vanilla resolution with zero decomposition mismatch.
+- `20260831T220553Z-d7d504b238`: latest Biolith `3.0.14` candidate validation; 99.418-millisecond
+  parallel resolution, the baseline's exact grid hash, all 3,540 required transitions, and complete
+  normalized snapshot/output coverage.
+- `20260831T220648Z-65b041b8c8`: latest BOP/TerraBlender mixed-provider candidate validation;
+  47.733-millisecond first and 14.455-millisecond repeat resolution with zero mismatches.
+- `20260901T025148Z-e56b2506a1`: final zoom-one equivalence; exact clean-baseline hash, zero
+  mismatches, 16.464-millisecond parallel and 56.120-millisecond serial resolution.
+- `20260901T025414Z-8b5e866882`: final vanilla stage and allocation profile; 14.896-millisecond
+  parallel and 44.488-millisecond serial resolution, 16,777,744 serial allocated bytes, and zero
+  decomposition or parallel mismatches.
+- `20260901T025459Z-ed620ba973`: latest Fabric Biolith `3.0.14` preview-to-finished-chunk parity;
+  all 256 surface quart columns match.
+- `20260901T025603Z-1dcddcff71`: latest Fabric RU `0.6.2` plus Lithostitched `1.8.0+beta5` parity;
+  all 256 columns and all 64 desert-to-outback transitions match finished chunks.
+- `20260901T030343Z-64894b829d`: RU/Lithostitched owner-preserving reload; tag epoch advances once,
+  the immutable plan is atomically replaced inside the same worldgen epoch, and post-rebind chunks
+  finish successfully.
+- `20260901T030814Z-0f4f9f8058`: NeoForge vanilla preview-to-finished-chunk parity after eliminating
+  a stale development-probe artifact from the investigation runtime.
+- `20260901T030908Z-ad28ef0a37`: latest NeoForge BOP `21.1.0.14` and TerraBlender `4.1.0.8`; 3,721
+  finished chunks, 59,536 surface quart samples, all four provider domains, and zero mismatches.
+- `20260901T031428Z-7c05bc1a8b` and `20260901T031523Z-925a860828`: final packaged Fabric and
+  NeoForge starts without TerraBlender; reload/flow ownership pass on both, and Fabric's finished
+  surface parity has zero mismatches.
+- `20260901T025657Z-13ee011d76`: current NeoForge Biolith `3.0.14` fails its own refmap-less
+  `MixinNoiseHypercube` before FTF initialization; this is an upstream dependency boundary.
+- `20260901T030306Z-b8d4dcabcb`: NeoForge Lithostitched `1.8.0+beta4` reaches generation but its
+  `ChunkMap` integration fails with `Parent chunk missing`; this is outside preview acquisition.
 - `20260831T183416Z-dd3f8208eb`: exact latest NeoForge NML/Biolith dependency-boundary failure;
   Biolith's required `MixinNoiseHypercube` does not apply before an FTF world or plan exists.
 - `20260831T185501Z-de3ed1b110`: final packaged Fabric control; reload and flow ownership pass, and

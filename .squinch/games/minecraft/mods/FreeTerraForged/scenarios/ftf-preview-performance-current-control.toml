@@ -1,0 +1,32 @@
+schema_version = 1
+name = "FTF compatibility biome preview performance control"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/preview-performance-current"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 300
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-current-preview-performance"
+version = "1"
+config = { center_x = 0, center_z = 0, zoom = 150 }
+
+[[steps]]
+id = "measure-compatibility-preview-stages"
+type = "probe"
+probe = "squinch:rtf-current-preview-performance"
+expect = { terminal_state = "pass" }
