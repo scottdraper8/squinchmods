@@ -35,6 +35,11 @@ registry/stem ownership, generator-root epoch detection, and diagnostic optional
 Plan/capability diagnostics use schema version 3 and include the independent resource revision.
 Common source tests and both production loaders must remain green as this state is refined.
 
+Density-function visitors must preserve holder/reference nodes as graph edges. In vanilla 1.21.1,
+`DensityFunctions.HolderHolder.codec()` deliberately throws; its referenced value is the semantic
+node and is already visited by `mapAll`. Type recognition, seed rebinding, and acquisition may
+inspect the visited value, but must never attempt codec dispatch on the holder edge.
+
 Program completion is still gated on the runtime matrix below. Do not launch another Minecraft
 process while retained Fabric JVMs `54343` or `91098` remain in uninterruptible kernel teardown;
 their presence makes cleanup and lifecycle evidence invalid. Continue source, unit, build, artifact,
@@ -42,6 +47,15 @@ documentation, and acquisition gates meanwhile. Once the host is healthy, rerun 
 Fabric/C2ME, reload, mixed-stack, packaged-start, custom-source, and finished-chunk scenario and
 retain its clean teardown state. A source-complete implementation is not a substitute for those
 runtime gates.
+
+In particular, the healthy-host matrix must execute the real client world-creation preview path, not
+only source-level negotiator tests. With the current RU/Lithostitched artifacts it must prepare and
+regenerate a preview, cancel work, change selected dimensions and datapacks, then create a server
+from the previewed graph. It must also exercise current-source custom-source factories, owner-serial
+sampler stages under concurrent queries, positive and negative generator-root ownership, independent
+multi-dimension reload publication, installed-unused mechanisms, bounded bad-provider and
+unknown-injector failures, tall-world C2ME generation, and packaged starts with optional mechanisms
+absent and with the supported mixed stack present.
 
 ## Program shape
 
@@ -110,6 +124,9 @@ For each behavior-bearing change:
 8. Generate real tiles or finished chunks when a graph probe cannot establish execution parity.
 9. Run clean production builds and inspect the final JARs for probes, development sentinels, stale
    Mixins, deleted implementations, and accidentally bundled optional dependencies.
+10. Exercise client-only acquisition and cache ownership through the actual world-creation UI;
+    directly invoking a resolver or compiler in a source test is supporting evidence, not runtime
+    proof of preview lifecycle behavior.
 
 Named mods are falsification cases, not the proof of generality. Every mechanism claim also needs a
 synthetic or otherwise independent case that uses the same contract without relying on a known

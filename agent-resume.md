@@ -49,6 +49,15 @@ documentation, and other non-runtime work may continue. Once the host is healthy
 runtime gate whose retained run did not complete cleanup; a generated chunk followed by failed
 process cleanup is not a complete lifecycle pass.
 
+The healthy-host rerun must include the actual `WorldCreationUiState` client preview path with the
+current RU/Lithostitched stack. Exercise repeated regeneration, cancellation, dimension/datapack
+changes, and server creation after preview. A source test that invokes the negotiator directly does
+not prove this lifecycle. The same current-source matrix must exercise custom-source factories,
+owner-serial sampler stages, generator-root ownership (including positive and negative controls),
+independent multi-dimension reload publication, installed-unused mechanisms, bounded provider and
+unknown-injector failures, C2ME tall-world generation, and packaged optional-absent/mixed-stack
+starts before runtime completion can be claimed.
+
 ### Resume procedure
 
 1. Inspect parent and compatibility-worktree status, branch/remote tips, upstream, dependency
@@ -77,6 +86,9 @@ process cleanup is not a complete lifecycle pass.
   literal level-stem key.
 - Qualified Lithostitched acquisition resolves a completed creation graph into immutable snapshots;
   preview never invokes callbacks.
+- Density-function holder wrappers are graph edges, not dispatchable density-function values.
+  Acquisition visitors rebind the referenced value and never call the deliberately unsupported
+  `HolderHolder.codec()` method on the edge itself.
 - Qualified Biolith acquisition normalizes accepted additions, removals, replacements, and supported
   built-in sub-biome criteria.
 - Custom roots are supported through a request-owned `BiomeSourcePlanInput` or pure
