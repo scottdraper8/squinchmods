@@ -57,6 +57,7 @@ import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.TerminalState;
+import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
 
 /** Censuses final worldgen mechanisms and codec round-trip coverage without mod-specific access. */
 public final class WorldgenNormalizationCensusProbePack implements ProbePack {
@@ -74,6 +75,9 @@ public final class WorldgenNormalizationCensusProbePack implements ProbePack {
             ServerLevel level = server.overworld();
             ChunkGenerator generator = level.getChunkSource().getGenerator();
             BiomeSource biomeSource = generator.getBiomeSource();
+            BiomeSource acquisitionBiomeSource = generator instanceof TerraForgedChunkGenerator terraForged
+                ? terraForged.acquisitionBiomeSource()
+                : biomeSource;
             RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
 
             Map<String, Biome> biomes = new TreeMap<>();
@@ -199,7 +203,9 @@ public final class WorldgenNormalizationCensusProbePack implements ProbePack {
 
             JsonObject references = new JsonObject();
             references.add("chunk_generator", references(Map.of("active", generator), ChunkGenerator.CODEC, ops, knownReferences));
-            references.add("biome_source", references(Map.of("active", biomeSource), BiomeSource.CODEC, ops, knownReferences));
+            references.add("biome_source", references(
+                Map.of("acquisition", acquisitionBiomeSource), BiomeSource.CODEC, ops, knownReferences
+            ));
             references.add("biomes", references(biomes, Biome.DIRECT_CODEC, ops, knownReferences));
             references.add("placed_features", references(placed, PlacedFeature.DIRECT_CODEC, ops, knownReferences));
             references.add("configured_features", references(configured, ConfiguredFeature.DIRECT_CODEC, ops, knownReferences));
@@ -211,7 +217,9 @@ public final class WorldgenNormalizationCensusProbePack implements ProbePack {
 
             JsonObject codec = new JsonObject();
             codec.add("chunk_generator", roundTrip(Map.of("active", generator), ChunkGenerator.CODEC, ops));
-            codec.add("biome_source", roundTrip(Map.of("active", biomeSource), BiomeSource.CODEC, ops));
+            codec.add("biome_source", roundTrip(
+                Map.of("acquisition", acquisitionBiomeSource), BiomeSource.CODEC, ops
+            ));
             codec.add("biomes", roundTrip(biomes, Biome.DIRECT_CODEC, ops));
             codec.add("placed_features", roundTrip(placed, PlacedFeature.DIRECT_CODEC, ops));
             codec.add("configured_features", roundTrip(configured, ConfiguredFeature.DIRECT_CODEC, ops));

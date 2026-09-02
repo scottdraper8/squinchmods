@@ -1,5 +1,17 @@
 # Compatibility Invariants
 
+## Completion and internal compatibility
+
+Elapsed time is not a completion criterion. A compatibility workstream is complete only when its
+ownership and lifecycle model is sound, superseded paths are removed, and its source, probe,
+cross-loader, reload, concurrency, failure, and packaging gates pass.
+
+FTF is pre-release, so unsound internal APIs, plans, caches, Mixins, and serialized implementation
+details may be replaced in place. New code must not preserve or wrap a bad internal design merely to
+reduce the diff. The backward-compatibility contract for this refactor is that previously valid FTF
+preset inputs still decode and retain their documented meaning; obsolete internals are not a
+compatibility surface.
+
 ## Preset codecs
 
 An explicit codec default allows old presets to load when a setting is absent. A nested setting
@@ -40,6 +52,20 @@ complete owner-scoped data or public executable contracts, validates them, and n
 immutable FTF-owned containers and typed plans. Once normalized, FTF owns final selection, spatial
 assignment, ordering, and preset policy. TerraBlender, Lithostitched, Biolith, loader APIs, and
 vanilla/datapack registries are peer inputs rather than authorities.
+
+Mechanism identity, not mod identity, selects acquisition behavior. An unseen content mod using a
+supported registry, codec, event, or provider protocol works without an FTF code change. Named mods
+are coverage cases only. A namespace, class name, or mod ID must not become a semantic allowlist.
+
+A provider protocol is complete only when it defines discovery, stable identity, contribution kind,
+applicability, ordering, composition, ownership, revision, reload, removal, possible outputs, and
+failure isolation. Java extensibility without those semantics is an incomplete boundary. FTF copies
+provider publications into immutable owner-scoped plans and retains no provider object downstream.
+
+Contribution algebra distinguishes exactly one selected root from additive contributions and ordered
+transforms. Contributions compose once at their declared stage. Multiple roots, ambiguous
+replacement, or dependency cycles fail with a typed capability diagnostic unless the protocol
+defines deterministic resolution.
 
 Registry identity, codec availability, and observed generation are distinct from extraction
 completeness. A generated modded biome proves that a live pipeline can place it; it does not prove
@@ -103,14 +129,47 @@ Unspecified hash iteration is normalized by complete typed keys. Authored priori
 weights, proportions, and explicit conflict rules remain inputs; implementation accidents do not.
 Equal-priority or equal-distance decisions require a documented deterministic tie-break.
 
-FTF tag reload and mechanism contribution reload are distinct epochs. A tag reload may rebind an
-unchanged realized contribution snapshot. It must not pretend to reload a mechanism that explicitly
-finalizes placement only at server start. Such a mechanism enters changed contribution data through
-the next server worldgen epoch.
+Resource layers, tags, and mechanism contributions retain distinct revision identities, but reload
+publishes one owner-scoped state transition. A tag change may rebind an unchanged realized
+contribution snapshot. It must not pretend to reload a mechanism that explicitly finalizes placement
+only at server start; such a mechanism enters changed contribution data only through its declared
+revision/finalization lifecycle or the next server worldgen owner.
+
+Runtime ownership follows the selected FTF generator root, not a density-function implementation
+class or marker. Registered density codecs are data within that owner. A valid custom density graph
+therefore cannot suppress runtime initialization, and a density graph requiring FTF state beneath a
+different generator fails explicitly instead of running with an unowned context.
+
+Execution policy is behavior, not advisory metadata. If any participating query facet is
+`OWNER_SERIAL`, provider selection, spatial resolution, sampler transforms, and selection decorators
+share one owner-local gate. Preview cache owners retain the exact registry snapshot and selected
+stem used to construct them; structural fingerprints never authorize reading a newer live object.
 
 Two-dimensional surface placement, three-dimensional cave placement, density injection, surface
 rules, carvers, features, and structures remain separate facets. Supporting one facet through a
 mechanism never grants implicit support to the others.
+
+## Noise-fill extent
+
+One immutable request-owned extent controls noise-array allocation and loop traversal. The baseline
+extent is the complete configured noise height. Mutable shared state, thread locals, paired
+redirects, or separately recomputed bounds cannot define allocation safety.
+
+A smaller extent is permitted only when a conservative analyzer proves an upper bound over the
+finalized density-router graph, including holder resolution, recursive composition, cycles,
+structures, blending, and every active executable leaf. Unknown or unprovable semantics return full
+height. Analyzer extensions attach to density-function types or codecs rather than mod IDs, and an
+analysis failure disables only the optimization.
+
+Density bounds never clip biome sampling, surface rules, features, structures, or another worldgen
+facet. Each requires its own proven contract.
+
+## Generator-stage execution
+
+Public registration does not prove that the active FTF generator delegates through the registered
+method or graph. Each stage must be classified as delegated, captured, or bypassed and validated in
+generated chunks. Any necessary bridge belongs at the narrow mechanism or stage boundary, preserves
+the public executable graph, and does not reconstruct named-mod behavior.
 
 ## External worldgen wrappers
 
@@ -129,6 +188,8 @@ valid.
 
 ## Generated-world compatibility
 
-Changing terrain, biome scheduling, feature reach, or structure position changes new chunks.
-Existing chunks retain stored data. Exact coordinate stability is a separate compatibility property
-from successful old-world loading.
+Previously valid FTF preset inputs must continue to decode and retain their documented meaning.
+Exact coordinate output from pre-release internals, old runtime-plan serialization, and internal
+class or cache shape are not compatibility contracts. Changing terrain, biome scheduling, feature
+reach, or structure position changes new chunks, while existing chunks retain stored data; boundary
+tests must still reject corruption and uncontrolled failure when old and new chunks meet.

@@ -137,6 +137,21 @@ required_dependencies = ["mc1.21.1-neoforge-terrablender-4.1.0.8"]
 source_id = "source-natures-spirit-1.21.1"
 
 [[artifacts]]
+id = "mc1.21.1-fabric-c2me-0.4.0-alpha.0.27+1.21.1"
+project_slug = "c2me-fabric"
+project_id = "VSNURh3q"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.4.0-alpha.0.27+1.21.1"
+version_id = "gRm1ZAvc"
+filename = "c2me-fabric-mc1.21.1-0.4.0-alpha.0.27.jar"
+sha256 = "f0a488fa26a1d1c7668f644527c470941d41474da2d7d620620da13473509b84"
+status = "diagnostic-only"
+reason = "Latest Minecraft 1.21.1 C2ME backport for parallel chunk-generation correctness testing"
+required_dependencies = []
+source_id = "source-c2me"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-cloth-config-15.0.140"
 project_slug = "cloth-config"
 project_id = "9s6osm5g"
@@ -165,6 +180,21 @@ status = "approved"
 reason = "NeoForge ore-generation compatibility candidate"
 required_dependencies = []
 source_id = "source-create"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"
+project_slug = "fabric-api"
+project_id = "P7dR8mSH"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.116.17+1.21.1"
+version_id = "Mys3P7lK"
+filename = "fabric-api-0.116.17+1.21.1.jar"
+sha256 = "79ac44b40780acbd884b34c50be1e39af682847e5f5cb3b1fddeeaa768dce800"
+status = "approved"
+reason = "Latest compatible Fabric API release for the authoritative Minecraft 1.21.1 matrix"
+required_dependencies = []
+source_id = "source-fabric-api"
 
 [[artifacts]]
 id = "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"
@@ -725,7 +755,7 @@ checkout = "games/minecraft/reference/sources/1.21.1/mods/lithostitched-upstream
 status = "available"
 shallow = true
 blob_filter = true
-sparse_paths = ["common/src/main/java", "common/src/main/resources", "fabric/src/main/java", "fabric/src/main/resources", "neoforge/src/main/java", "neoforge/src/main/resources"]
+sparse_paths = ["src/main/java", "src/main/resources"]
 
 [[sources]]
 id = "source-mekanism"
@@ -810,6 +840,18 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["src/main/java", "src/main/resources"]
+
+[[sources]]
+id = "source-c2me"
+repository = "https://github.com/RelativityMC/C2ME-fabric.git"
+requested_ref = "backports/1.21.1"
+resolved_commit = "410ac356776431f537857d71edfca84a6a266c55"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/c2me"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["c2me-base/src", "c2me-rewrites-chunk-system/src", "c2me-opts-worldgen-vanilla/src", "c2me-opts-dfc/src", "src"]
 
 [[sources]]
 id = "source-cloth-config"

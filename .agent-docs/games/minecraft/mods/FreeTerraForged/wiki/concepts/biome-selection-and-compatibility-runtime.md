@@ -9,6 +9,25 @@ Preview, generation, diagnostics, locate, possible-biome enumeration, feature so
 predicates, and other consumers use the resulting FTF plan. They do not select a library path or
 inspect third-party registries, callbacks, providers, samplers, factories, namespaces, or versions.
 
+## Mechanism generality
+
+Compatibility is generic when an unseen content mod works because it uses a supported public
+mechanism. A mod name or namespace is never a dispatch key. Named mods are falsification cases for
+mechanism contracts, not members of an allowlist.
+
+An open Java service interface is not automatically a generic compatibility contract. A provider
+mechanism is usable only when it defines discovery, identity, ordering, composition, ownership,
+revision, reload, removal, failure isolation, and possible-output semantics. FTF normalizes those
+semantics into its own protocol; downstream consumers do not retain provider instances.
+
+Codec serialization proves that a custom biome source can cross a data boundary, but not that its
+runtime semantics are complete. An executable custom source requires either a complete immutable
+snapshot or a pure request-owned factory whose registry, seed, lifecycle, ordering, concurrency, and
+failure contracts are proven. FTF represents that seam as `BiomeSourcePlanInput` and
+`BiomeSourcePlanInputFactory`: the input declares a stable root identity, a complete possible-output
+closure, its query mode, and an owner-scoped query function. It cannot share provider or decorator
+candidate semantics unless a separate normalized contract supplies them.
+
 ## Selection model
 
 Minecraft multi-noise selection maps temperature, humidity, continentalness, erosion, depth,
@@ -70,16 +89,38 @@ execution.
 - A server `WorldgenEpoch` owns one selected creation graph and contribution epoch.
 - A `PreviewRequest` owns one registry view, selected stem, seed, sampler context, cancellation
   state, and request-local caches.
-- A `TagEpoch` owns tag-bound recompilation.
+- Resource-layer revision, `TagEpoch`, and contribution revisions independently identify acquired
+  inputs and are captured into one replacement transaction.
 - The plan, generation settings, and possible-biome set are replaced atomically.
 
 No mutable compatibility state is shared across server, reload, preview, or editor owners unless a
-public contract explicitly provides immutable owner-safe data. Tag reload recompiles from the same
-realized contribution snapshot. Contribution reload and tag reload are separate epochs.
+public contract explicitly provides immutable owner-safe data. Reload captures resource, tag, and
+contribution identities once, recompiles from the unchanged realized input graph, and publishes all
+dependent state together. A failed or regressing capture leaves the previous state visible and
+records the rejected input identities. Rejection is dimension-local; one failed owner does not stop
+independent dimensions from processing the same reload.
 
 Serial execution is the default. A plan may use parallel preview reads only when every executed
-facet declares isolated parallel behavior. Caches contain immutable results and include every
-semantic owner input in their key.
+facet declares isolated parallel behavior. Otherwise the complete biome query runs through an
+owner-local serial gate. Sampler contributions transform immutable target points at query time, so a
+reload may replace their ordered plan stages atomically without mutating or reconstructing the
+owner's climate sampler. Caches contain immutable results and include every semantic owner input in
+their key.
+
+The exact frozen registry view and selected stem are retained by the preview request key and used by
+the asynchronous factory. The worker never rereads a mutable `WorldCreationContext`. Server epoch
+creation is keyed by the selected `TerraForgedChunkGenerator` root rather than the presence of an
+FTF density node, allowing unseen density graphs to remain correct through full-height generation.
+
+Provider discovery and contribution publication use one owner-scoped protocol. A publication has a
+stable provider identity, revision, contribution kind, ordering metadata, applicability, possible
+outputs, and explicit removal or replacement behavior. A changed revision invalidates the complete
+dependent plan; independent facets are not rebuilt from a mixture of epochs.
+
+Composition distinguishes a root provider from additive contributions and ordered transforms. A root
+owns one candidate domain, additive contributions merge according to declared algebra, and
+transforms run once at their declared stage. Multiple roots, conflicting replacements, and cycles
+produce typed capability failures unless the protocol defines an unambiguous composition rule.
 
 ## Preview boundary
 
@@ -146,6 +187,10 @@ creation-graph boundary against codec-cloned dimension sources. It freezes natur
 through public codecs and holder keys, rejects non-repeatable output across the finalizer's
 dimension invocations, and normalizes the completed result immediately.
 
+The pre-server acquisition pass is gated by the presence of a selected FTF generator root. A graph
+without one does not load compatibility-provider implementations or invoke optional mechanism
+finalizers.
+
 The immutable snapshot is bound to the creation graph and contains no biome source, generator,
 registry, listener, or mutable mechanism object. Preview reads and rebinds it without invoking
 callbacks. If that graph later reaches server finalization, the bridge supplies the frozen emissions
@@ -196,9 +241,34 @@ An unknown behavior fails only its affected facet unless continuing would corrup
 Failures before an FTF generator and plan exist remain dependency failures. No capability failure
 may silently install another source, discard a valid peer facet, or render a vanilla-only result.
 
+An unknown executable registry leaf may still remain valid when Minecraft's public graph can execute
+it unchanged. Optional analysis or adaptation for that leaf is unavailable unless its semantics are
+proven; lack of an optimization must not be reported as lack of basic execution support.
+
 ## Surface-rule independence
 
 Biome selection and surface rules are separate facets. A TerraBlender or Lithostitched selection
 contract does not grant surface-rule support, and a surface-rule wrapper does not establish biome
 placement semantics. The surface facet executes the selected public rule graph as-is; it does not
 infer or bypass namespace dispatch from biome-selection state.
+
+## Density extent
+
+Each noise-fill request owns one immutable vertical extent used by both allocation and traversal.
+The authoritative fallback is the complete configured noise height. No mutable or thread-local
+height override may couple chunk allocation to a separate loop decision.
+
+A bounded extent is an optional optimization derived from the finalized density-router graph. The
+analyzer composes conservative, sign-aware proofs across recognized density-node semantics and
+holder references, handles cycles safely, and returns full height for every unknown or unprovable
+node. An extension is registered per density-function type or codec, never per content mod. A
+density proof cannot clip biome sampling because density and biome selection are independent facets.
+
+## Generator execution seams
+
+Acquisition preserves public executable graphs, but a generator may still bypass a public method by
+capturing an earlier graph or invoking a leaf directly. Compatibility audits therefore classify each
+worldgen stage as delegated, captured, or bypassed. A method-only hook is not considered supported
+until generated-chunk evidence proves that the active generator reaches it. A necessary adapter
+belongs at the narrow stage boundary and must preserve public graph identity rather than
+reconstructing mod behavior.

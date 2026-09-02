@@ -15,6 +15,15 @@ loom {
     }
 }
 
+tasks.register("prodServer", net.fabricmc.loom.task.prod.ServerProductionRunTask) {
+    group = "fabric"
+    description = "Runs the packaged-subject Fabric evidence harness"
+    loaderVersion = rootProject.fabric_loader_version
+    minecraftVersion = rootProject.minecraft_version
+    runDir = file("run")
+    jvmArgs.add("-Xmx4G")
+}
+
 processResources {
     inputs.property "version", "1.0.0"
     filesMatching("fabric.mod.json") {

@@ -81,11 +81,15 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
                 return ProbeResult.complete(TerminalState.FAIL, ProbePhase.RELOAD, data, 4);
             }
 
-            boolean sameEpoch = current.epoch().id().equals(baseline.epoch().id());
-            boolean advancedOnce = current.epoch().tagEpoch().sequence()
+			boolean sameEpoch = current.epoch().id().equals(baseline.epoch().id());
+			boolean resourceRevisionAdvancedOnce = current.epoch().resourceRevision()
+				== baseline.epoch().resourceRevision() + 1L;
+			boolean resourceFingerprintChanged = !current.epoch().resourceLayerFingerprint()
+				.equals(baseline.epoch().resourceLayerFingerprint());
+			boolean advancedOnce = current.epoch().tagEpoch().sequence()
                 == baseline.epoch().tagEpoch().sequence() + 1L;
-            boolean contributionSequenceStable = current.epoch().contributionSequence()
-                == baseline.epoch().contributionSequence();
+            boolean contributionRevisionStable = current.epoch().contributionRevision()
+                .equals(baseline.epoch().contributionRevision());
             boolean fingerprintChanged = !current.epoch().tagEpoch().fingerprint()
                 .equals(baseline.epoch().tagEpoch().fingerprint());
             boolean planReplaced = current.plan() != baseline.plan();
@@ -100,17 +104,20 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
             boolean reportsPresent = !baseline.plan().report().nodes().isEmpty()
                 && !current.plan().report().nodes().isEmpty();
             boolean mechanismReportsStable = mechanismNodes(current.plan()).equals(mechanismNodes(baseline.plan()));
-            boolean passed = sameEpoch && advancedOnce && fingerprintChanged && planReplaced
+			boolean passed = sameEpoch && resourceRevisionAdvancedOnce && resourceFingerprintChanged
+				&& advancedOnce && fingerprintChanged && planReplaced
                 && generatorOwnerAligned && randomStateOwnerAligned && immutableBootstrapInputs
-                && contributionSequenceStable && reportsPresent && mechanismReportsStable;
+                && contributionRevisionStable && reportsPresent && mechanismReportsStable;
 
             JsonObject data = new JsonObject();
             data.add("before", snapshot("before", baseline));
             data.add("after", snapshot("after", current));
-            data.addProperty("same_worldgen_epoch_id", sameEpoch);
+			data.addProperty("same_worldgen_epoch_id", sameEpoch);
+			data.addProperty("resource_revision_advanced_once", resourceRevisionAdvancedOnce);
+			data.addProperty("resource_fingerprint_changed", resourceFingerprintChanged);
             data.addProperty("tag_epoch_advanced_once", advancedOnce);
             data.addProperty("tag_fingerprint_changed", fingerprintChanged);
-            data.addProperty("contribution_sequence_stable", contributionSequenceStable);
+            data.addProperty("contribution_revision_stable", contributionRevisionStable);
             data.addProperty("plan_replaced", planReplaced);
             data.addProperty("generator_owner_aligned", generatorOwnerAligned);
             data.addProperty("random_state_owner_aligned", randomStateOwnerAligned);
@@ -140,7 +147,7 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
         data.addProperty("owner_type", snapshot.plan().owner().type().name().toLowerCase());
         data.addProperty("tag_sequence", snapshot.epoch().tagEpoch().sequence());
         data.addProperty("tag_fingerprint", snapshot.epoch().tagEpoch().fingerprint());
-        data.addProperty("contribution_sequence", snapshot.epoch().contributionSequence());
+        data.add("plan_diagnostics", snapshot.plan().diagnostics().toJson());
         data.addProperty("plan_identity", System.identityHashCode(snapshot.plan()));
         data.addProperty("report_nodes", snapshot.plan().report().nodes().size());
         data.addProperty("feature_pipelines", snapshot.plan().placedFeatures().pipelines().size());

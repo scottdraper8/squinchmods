@@ -1,0 +1,36 @@
+schema_version = 1
+name = "FTF generator-stage outer wrapper preservation — NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/generator-stage-wrapper"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 300
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:ftf-generator-stage-wrapper"
+version = "1"
+config = {}
+
+[[steps]]
+id = "generate-through-synthetic-outer-wrapper"
+type = "generate"
+unit = "chunk"
+bounds = [112, 112, 113, 113]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-generator-stage-wrapper"
+expect = { terminal_state = "pass" }

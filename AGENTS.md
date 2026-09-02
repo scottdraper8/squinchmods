@@ -4,8 +4,17 @@
 
 - Establish the truth from current source and reproducible runtime evidence. Correctness and
   completeness outrank speed, convenience, or agreement with a requested conclusion.
+- Elapsed time is not a completion metric. Within the authorized scope, continue through
+  investigation, implementation, and validation until every acceptance gate is satisfied or a
+  concrete external blocker makes further safe progress impossible. Do not stop at a plausible
+  diagnosis, partial implementation, green unit test, or intermediate milestone.
 - Prefer the smallest _correct_ design, not the quickest patch. A substantial refactor is acceptable
   when the existing ownership or lifecycle model cannot support a sound result.
+- Do not preserve, wrap, or layer new abstractions over an unsound internal design merely to reduce
+  the diff. FreeTerraForged is pre-release and its compatibility-runtime internals may be replaced
+  in place, with obsolete paths and tests removed. Preserve backward compatibility for previously
+  valid preset inputs; internal Java APIs, implementation classes, caches, plan representations,
+  Mixins, and historical pre-release runtime behavior are not compatibility contracts.
 - Do not write changelog-style narratives. Keep documentation current-state and forward-facing;
   retain raw run artifacts and calculations as evidence instead.
 - Continue safe, in-scope acquisition, probe construction, and information gathering autonomously;
@@ -60,6 +69,12 @@
 - Do not implement a production compatibility fix until the canonical plan's feasibility,
   extraction-completeness, ownership, ordering, reload, parity, failure, lifecycle, and cross-domain
   acceptance gates are supported by current-tip evidence.
+- Maintain one complete dependency-ordered compatibility plan, but execute one coherent vertical
+  workstream at a time. A workstream is complete only after obsolete implementation paths are
+  removed and its source, deterministic probes, loader coverage, reload/concurrency behavior,
+  failure boundaries, and production packaging gates pass. Shared evidence infrastructure may be
+  advanced when it is required to prove the active workstream; do not scatter partial production
+  changes across later workstreams.
 
 ## Context hygiene
 

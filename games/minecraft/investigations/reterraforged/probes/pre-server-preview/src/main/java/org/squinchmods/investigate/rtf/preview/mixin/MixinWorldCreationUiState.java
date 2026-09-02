@@ -182,7 +182,7 @@ public abstract class MixinWorldCreationUiState {
 					resolver.plan().providerSelection().rootCompositionDomain().orElseThrow().toString()
 				);
 				result.addProperty("composition_entry_count", resolver.plan().biomeComposition().entries().size());
-				result.addProperty("contribution_sequence", resolver.plan().owner().contributionSequence());
+				result.add("plan_diagnostics", resolver.plan().diagnostics().toJson());
 			}
 			JsonObject paletteJson = new JsonObject();
 			palette.forEach(paletteJson::addProperty);

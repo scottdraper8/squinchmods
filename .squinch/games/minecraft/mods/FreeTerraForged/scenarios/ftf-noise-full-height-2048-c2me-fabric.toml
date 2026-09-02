@@ -1,0 +1,48 @@
+schema_version = 1
+name = "FTF full-height noise generation — 2048 blocks — Fabric + C2ME"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"
+companion_artifacts = ["mc1.21.1-fabric-c2me-0.4.0-alpha.0.27+1.21.1"]
+retention = "keep"
+
+[[runtime_files]]
+source = "games/minecraft/investigations/reterraforged/inputs/c2me-ftf.toml"
+target = "config/c2me.toml"
+
+[server_properties]
+view-distance = 6
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 1800
+shutdown = 180
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "c2me"]
+
+[[probes]]
+id = "squinch:finished-chunks"
+version = "1"
+config = { max_wait_ticks = 24000 }
+
+[[steps]]
+id = "generate-full-height-parallel-window"
+type = "generate"
+unit = "chunk"
+bounds = [-4, -4, 3, 3]
+authority = "finished-chunk"
+terminal_probe = "squinch:finished-chunks"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "generate-second-full-height-parallel-window"
+type = "generate"
+unit = "chunk"
+bounds = [12, -4, 19, 3]
+authority = "finished-chunk"
+terminal_probe = "squinch:finished-chunks"
+expect = { terminal_state = "pass" }

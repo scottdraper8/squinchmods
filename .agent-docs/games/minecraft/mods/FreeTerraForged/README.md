@@ -14,6 +14,8 @@ code branch.
   session history.
 - [`wiki/README.md`](wiki/README.md) — current FTF engineering concepts: mental models, data flow,
   coordinate meanings, ownership boundaries, and compatibility invariants.
+- [`Compatibility-runtime completion plan`](plans/compatibility-runtime-completion.md) — the active
+  dependency-ordered nine-workstream plan and its implementation acceptance gates.
 - [`Minecraft reference`](../../wiki/README.md) — general Minecraft world-generation reference for
   reusable engine concepts such as extended height, placed features, structures, and biome climate.
 - [`plans/`](plans/) — only genuinely unfinished implementation work. Completed investigations and

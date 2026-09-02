@@ -1,0 +1,34 @@
+schema_version = 1
+name = "FTF full-height noise generation — 2048 blocks — NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 1200
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:finished-chunks"
+version = "1"
+config = { max_wait_ticks = 12000 }
+
+[[steps]]
+id = "generate-full-height-window"
+type = "generate"
+unit = "chunk"
+bounds = [-2, -2, 1, 1]
+authority = "finished-chunk"
+terminal_probe = "squinch:finished-chunks"
+expect = { terminal_state = "pass" }

@@ -691,7 +691,7 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             JsonObject namespaces = new JsonObject();
             candidateNamespaces.forEach(namespaces::addProperty);
             data.add("normalized_candidate_namespaces", namespaces);
-            data.add("capability_report", resolver.plan().report().toJson());
+            data.add("plan_diagnostics", resolver.plan().diagnostics().toJson());
             String generatorContextMode = this.useServerGeneratorContext
                 ? "server-cached-context"
                 : "uncached-editor-factor-4";

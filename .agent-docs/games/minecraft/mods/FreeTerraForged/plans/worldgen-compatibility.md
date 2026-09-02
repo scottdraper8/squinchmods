@@ -5,9 +5,14 @@ remaining external API boundaries, and requalification gates. Raw observations, 
 grids, source captures, calculations, and individual run results belong in retained investigation
 artifacts.
 
+The dependency-ordered implementation and acceptance program is
+`compatibility-runtime-completion.md`. That plan must be read completely before changing the
+runtime. This document remains the product and architecture authority when an implementation choice
+is ambiguous.
+
 The implementation is on `feat/worldgen-compatibility-runtime` in
-`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. The recorded head is
-`52fa36cad2dfea8a6db9d6a29d31bee905080ef3`, based on `upstream/1.21.1`
+`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. The published head is
+`2c2729c64912a297a76d619bcc2afd7bf719d565`, based on `upstream/1.21.1`
 `4a3ab1c5e8f680dc996761908e8904aaca350eb4`. Live Git and dependency state always win.
 
 ## Product contract
@@ -30,10 +35,58 @@ supported mechanism must work without consumer-specific code. An unsupported mec
 fail narrowly and diagnostically rather than corrupt a supported domain or produce a vanilla-looking
 substitute.
 
+Correctness and completeness are the completion criteria; elapsed time and diff size are not. This
+is a pre-release internal runtime, so replace unsound ownership, lifecycle, composition, or
+execution models in place and delete their obsolete paths. Do not preserve internal APIs, plan
+shapes, caches, Mixins, or historical implementation behavior by layering another abstraction over
+them. Previously valid presets remain the backward-compatibility boundary and must continue to
+decode, copy, and construct complete settings with intentional defaults.
+
 Preview, generation, diagnostics, locate, possible-biome enumeration, feature sorting, structure
 predicates, and future consumers are zero-knowledge. They consume FTF plans and results and never
 select a mechanism path, replay registration, inspect third-party mutable state, or interpret
 mechanism-specific failure terms.
+
+## Active generalization boundary
+
+The runtime is mechanism-generic where a mod finalizes behavior into an ordinary public multi-noise,
+registry, codec, generation-settings, surface-rule, carver, feature, or structure graph before
+acquisition. A custom biome-source root can additionally participate through a request-owned
+`BiomeSourcePlanInput` or pure `BiomeSourcePlanInputFactory` that declares its complete possible
+outputs and query mode. Roots without that complete contract fail before preview workers or runtime
+consumers start.
+
+Provider discovery is metadata-first, versioned, contribution-typed, deterministically ordered, and
+failure-contained before optional implementation classes load. Unique roots, ordered transforms, and
+additive contribution shapes are distinct plan contracts. Resource layers, tags, and mechanism
+contribution revisions are captured once per owner refresh and publish one replacement plan,
+possible-output closure, generation-settings map, execution policy, and diagnostic state atomically.
+
+Qualified Biolith and Lithostitched bridges remain deliberately version-bound where their public
+APIs do not expose a complete immutable final snapshot. Unknown criteria, injector kinds, or changed
+bridge versions fail at that mechanism facet; they do not create content-mod exceptions. Stable
+public loader mutations already materialized in biome/registry graphs and public executable leaves
+are acquired generically. A method-body-only private patch is not treated as a public contract.
+
+Stage acquisition is owner-boundary specific. Fabric biome modifications and NeoForge biome
+modifiers are complete in biome generation settings before either preview or server plans consume
+them. FrozenLib's public surface event is finalized by FrozenLib into
+`NoiseGeneratorSettings.surfaceRule()` during server level creation, before FTF compiles the server
+epoch; FTF captures the resulting rule graph and its registered condition leaves without knowing
+Wilder Wild or another event consumer. Biome preview deliberately does not compile or execute the
+surface facet. An arbitrary generator-method wrapper that has not produced a finalized graph is not
+silently claimed as a normalized input; only outer calls preserved by delegation continue as method
+hooks.
+
+Ore scaling, surface rescue, and underground roles are conservative optional adaptations. Their
+typed plan diagnostics report transformed, delegated, and pass-through inputs plus bounded
+inspection failures. Unsupported shapes execute unchanged. Applicability is based on the active FTF
+owner, vertical frame, tags, registered function type, and proven pipeline shape—not a content-mod
+namespace or literal `minecraft:overworld` key.
+
+Noise fill permanently uses the complete configured-height intersection. The finalized request
+expression does not currently justify a bounded analyzer, so unknown and custom density functions
+remain correct without integration code.
 
 ## Honest feasibility boundary
 
@@ -70,7 +123,8 @@ reuse are also guaranteed.
 - `WorldgenEpoch` owns one server creation graph and realized contribution epoch.
 - `PreviewRequest` owns one pre-server request graph, registry view, seed, sampler context,
   cancellation state, and request-local caches.
-- `TagEpoch` owns tag-bound recompilation independently of contribution registration.
+- Resource-layer revision, `TagEpoch`, and mechanism contribution revisions are independent input
+  identities captured into one transactional replacement.
 - `WorldgenRuntimeBinding` atomically publishes the plan, generation settings, and complete
   possible-biome set as one state.
 - Reload recompiles from the unchanged realized input graph; compiled output is never fed back as
@@ -78,44 +132,18 @@ reuse are also guaranteed.
 
 Mutable registries, callbacks, provider maps, samplers, noise chunks, and temporary mechanism state
 do not cross owners. Parallel queries are enabled only when every executed facet declares isolated
-parallel reads; otherwise execution remains owner-serial.
+parallel reads; otherwise the plan executes the complete query under one owner-local serial gate.
+The selected `TerraForgedChunkGenerator` root establishes server ownership independently of the
+shape of its density router. Density-function markers may require that owner, but do not decide
+whether the owner exists.
 
 `FlowSettings.CurrentPresetState` is not part of the runtime because a process-global current preset
-cannot belong to a specific worldgen owner. Commit `19571cafde0bf3409577a4ad9db13e664b83732a` stores
-one immutable flow-settings snapshot per `Level`, initialized from that world's `RTFRandomState`,
-while river flow grids remain chunk-owned. Settings are absent from chunk NBT and the per-chunk flow
-payload and are synchronized once per player and dimension or when they change. Preview and effect
-consumers read the FTF-owned Level snapshot and do not acquire settings from a process-global preset
-or a third-party runtime.
-
-The comparable Fabric benchmark supports that target. Across 1,280 finished chunks per variant, the
-runtime stored 23 settings tags for the same 23 river chunks for which upstream and the world-owned
-candidate stored none. The candidate removed 437 uncompressed flow-only NBT bytes, 19 bytes per
-river chunk, and reduced the pooled synthetic tag-plus-NBT-write median from 111.37720 to 74.63827
-ns/op. Five generation windows did not show a generation-speed improvement, and no object-layout
-measurement exists. The retained comparison is
-`games/minecraft/investigation-state/flow-settings-benchmark/comparison-20260831.md`; authoritative
-runs are `20260831T055219Z-9d36310059`, `20260831T055440Z-045904af9c`, and
-`20260831T055716Z-080b316913`, with NeoForge smoke `20260831T060024Z-1c0775185b`.
-
-Complete play-packet and persisted-chunk evidence is retained in `20260831T062824Z-069f7336bb`,
-`20260831T063052Z-69ab1b7f6c`, and `20260831T063318Z-e447085c6b`. All three produced the same
-ordered flow-grid digest. For 23 river packets, runtime used 2,032 threshold-256 wire bytes; the
-world-owned candidate used 2,009 flow bytes plus a 37-byte settings synchronization, 14 bytes more
-for the initial sample. It then saves one measured wire byte per flow packet while settings remain
-unchanged and breaks even on the 38th packet per synchronization. The chunk tag costs 437
-uncompressed and 289-294 deflated bytes across the 23 river chunks. Removing it reclaimed one 4 KiB
-Anvil sector in each candidate-context counterfactual, but that allocation result depends on whether
-a chunk lies near a sector boundary.
-
-This ownership change does not alter river geometry or flow-vector calculation. Enabled Fabric run
-`20260831T074811Z-68582b3abd`, disabled Fabric run `20260831T075047Z-87ef82b1ce`, and enabled
-NeoForge run `20260831T075648Z-e6d2a0292f` cover enabled and disabled presets, save/reload identity,
-old/no-settings NBT, real player payload dispatch, duplicate suppression, dimension transitions,
-independent Level settings, and unchanged river-grid data. Clean packaged runs
-`20260831T080025Z-ac5db66e9e` and `20260831T080311Z-4295c5db1d` repeat the loader-specific sync and
-reload gates from the promoted commit; the Fabric run also proves 256/256 preview-to-finished-chunk
-samples match.
+cannot belong to a specific worldgen owner. Each `Level` owns one immutable flow-settings snapshot
+initialized from its `RTFRandomState`, while river flow grids remain chunk-owned. Settings are
+absent from chunk NBT and the per-chunk flow payload and are synchronized once per player and
+dimension or when they change. Preview and effect consumers read the FTF-owned Level snapshot and do
+not acquire settings from a process-global preset or a third-party runtime. This ownership must not
+alter river geometry or flow-vector calculation.
 
 ### One runtime source
 
@@ -146,6 +174,28 @@ The immutable plan keeps independent contracts for:
 Supporting one facet never grants support to another. A selection failure does not silently replace
 a valid surface or feature graph, and a valid biome identity does not imply that its placement or
 generation settings were captured.
+
+### Noise-fill extent
+
+The configured noise/dimension intersection is the authoritative generation extent. FTF validates
+that immutable full-height request value and delegates allocation, cell counts, interpolation,
+traversal, section locking, blending, and structure density to the one transformed upstream
+`fillFromNoise` implementation. They never derive a smaller bound from an FTF terrain tile, a
+thread-local value, or independently walked structure state. The safe production value is the
+complete configured height.
+
+A bounded extent is an optional optimization, not a compatibility requirement. It may be selected
+only by conservative analysis of the finalized density router after holder resolution, runtime
+visitor transformation, interpolation/cache wrapping, structures, and blending. Numerical
+`minValue()` and `maxValue()` alone do not prove a vertical cutoff. Unknown functions, extension
+types, cycles, unresolved references, structures, blending, or composition rules return full height.
+An optional analyzer extension is keyed by density-function type/codec rather than mod ID. An unseen
+custom density function therefore remains correct without integration, but receives no clipping
+unless its type supplies a complete proof.
+
+Density extent never limits biome sampling. High-altitude biome selection can remain meaningful
+where the density result is air, and the density and selection facets retain independent ownership,
+reload, diagnostics, and acceptance gates.
 
 ### Selection pipeline
 
@@ -190,12 +240,38 @@ leaves. Namespace is identity, not provenance.
 Custom registered leaves remain opaque only through their public executable contract. A custom root
 whose lifecycle cannot be reproduced remains an opaque root and is not partially reconstructed.
 
+### Loader and library stage materialization
+
+Loader APIs and library events are input mechanisms only when their results are complete at the
+owner's acquisition boundary:
+
+- Fabric biome modifications and NeoForge biome modifiers produce final carver and feature lists in
+  biome generation settings. The compiler reads those realized settings and preserves registered
+  custom leaves, so an unseen content mod using those APIs needs no FTF integration.
+- FrozenLib's server-level finalizer invokes its public surface callbacks and exposes the composed
+  result from the selected noise settings' ordinary `surfaceRule()` getter. Server-epoch compilation
+  occurs after that finalization and retains the composed graph. The callback registry and mutable
+  FrozenLib storage do not enter the FTF plan.
+- A library callback that runs only after plan compilation, or a private Mixin that changes only a
+  method body or return local, has not supplied an acquirable input. It remains outside the affected
+  facet unless the mechanism publishes a stable snapshot, pure owner-scoped factory, or public typed
+  execution hook.
+
+This classification is by lifecycle and public contract, not library or content-mod name. A rule,
+feature, carver, structure, or placement implementation may remain an opaque executable leaf after
+its containing graph is acquired; downstream consumers still receive only the FTF-owned plan.
+
 ### TerraBlender
 
 The provider snapshots each public Overworld region's ID, positive weight, registration order, and
 climate table, plus the default-table fallback. Only exact duplicate `(parameter point, biome)`
 pairs are removed. Deterministic weighted rendezvous assigns one provider domain to each final FTF
 cell; provider boundaries are therefore a subset of FTF cell boundaries.
+
+Applicability follows TerraBlender's public Overworld-regions dimension-type tag and a selected
+multi-noise acquisition root. The literal level-stem key is not an applicability contract, so a
+custom tagged Overworld-like FTF dimension participates automatically. Nether regions remain outside
+FTF's documented TerraBlender provider-domain scope.
 
 TerraBlender contributes candidate-domain data only. Its native uniqueness noise does not execute on
 the FTF runtime path, it does not own the generic cave/surface policy, and it is not a required FTF
@@ -217,6 +293,10 @@ mutable source, registry, generator, callback, or criterion object. It then norm
 declarative and code contributions into an immutable snapshot bound to the original creation-graph
 source identity. Preview only reads and rebinds that snapshot; it never invokes a Lithostitched or
 RU callback.
+
+Pre-server provider discovery and finalization run only when the selected creation graph contains a
+`TerraForgedChunkGenerator` root. A graph with no FTF root does not load provider implementations or
+invoke mechanism finalizers merely because an optional library is installed.
 
 If the same generator graph reaches normal server startup, the version-qualified bridge supplies the
 frozen emissions to the real finalizer instead of invoking the listeners again. A dedicated server
@@ -333,14 +413,6 @@ keys, compiles the purpose-scoped plan, generates the terrain tile, resolves 65,
 and builds a rendering sidecar. Density, surface-rule, carver, feature, and structure plans are not
 materialized for `BIOME_PREVIEW`.
 
-The compatibility branch's measured multi-second regression is not compatibility acquisition,
-network transfer, raster upload, or rendering. Its sampler decoration installs underground banding
-and a surface context for `BIOME_PREVIEW`. Each surface-preview climate query consequently runs
-`UndergroundBiomeSurfaceProtection` over a 12-by-12 block neighborhood even though the final preview
-selection policy rejects underground-only outputs. At 65,536 pixels this performs 9,437,184
-unnecessary height samples. A serial stage probe attributed 38.143 seconds and 2,073,078,064
-allocated bytes to that sampler alone; all remaining selection stages took about 53 milliseconds.
-
 The runtime compiles an explicit immutable, purpose-owned surface-preview climate query policy. It
 omits underground banding adjustment and the generation sampler cache while retaining the FTF
 sampler context and final surface-biome filter. Normal worldgen compiles the separate policy that
@@ -352,19 +424,15 @@ The generic query kernel also compiles constant single-provider dispatch, provid
 and rendezvous identifier hashes once; reuses prepared tile cells instead of repeating spatial
 lookups; omits the quart cache when every preview pixel has a unique quart coordinate; fills the
 typed result array directly; and stores unsigned 16-bit palette indices plus one color per palette
-entry in the rendering sidecar. The final vanilla profile resolves the full 65,536-pixel query in
-14.896 milliseconds parallel or 44.488 milliseconds serial with 16,777,744 allocated bytes and zero
-decomposition or parallel mismatches. The complete resolver, including context, plan, terrain tile,
-and biome query, takes 294.714 milliseconds in that retained run. At zoom one, the exact same grid
-hash as the clean baseline resolves in 16.464 rather than 72.411 milliseconds parallel and 56.120
-rather than 524.606 milliseconds serial.
+entry in the rendering sidecar. Performance changes must retain selection parity, deterministic
+serial/parallel equivalence, and owner isolation.
 
-The complete preset, selected-stem, tag, and biome-key fingerprint remains the cache identity. The
-current creation API exposes no complete owner-issued revision token, so replacing that fingerprint
-with a narrower key would permit stale plans. Its measured tens-of-milliseconds cost is outside the
-hot query and is cached for the screen-scoped request owner. Further cursor or cache specialization
-is not justified by the measured residual path and must not weaken immutable plan data merely to
-remove small allocations.
+The cache identity retains the preset encoding, selected-stem encoding, tags, contribution revision,
+data configuration, seed, and exact frozen registry-view identity. It also retains the selected
+`LevelStem` object used by asynchronous construction, so a worker cannot combine an earlier cache
+key with a later live creation graph. The registry object is the owner-issued revision boundary;
+enumerating every biome ID is unnecessary and would duplicate registry data. Further cursor or cache
+specialization must not weaken this immutable ownership.
 
 These changes belong in runtime plan compilation and its generic execution kernel. They must not
 introduce mod-specific preview paths, downstream mechanism inspection, callback replay, or private
@@ -378,6 +446,8 @@ contract, or plan semantics changes.
 ### Extraction and lifecycle
 
 - Enumerate declarative, code-registration, event, wrapper, and reload contribution paths.
+- Exercise synthetic unseen providers, custom source factories, multiple additive contributors, and
+  unknown registered node types so named corpus mods are not the only proof of generality.
 - Exercise actual pre-server `WorldCreationContext` compilation before any server finalizer.
 - Prove installed-unused mechanisms are not applicable.
 - Cover repeated and concurrent previews, multiple seeds and dimensions, cancellation, cleanup,
@@ -385,6 +455,21 @@ contract, or plan semantics changes.
 - Prove snapshots match owner, dimension, seed, version, holder registry, contribution epoch, and
   output coverage, and retain no mutable mechanism source or registry.
 - Fail unknown or changed inputs once, at the applicable facet.
+
+### Density extent
+
+- Require one immutable extent identity and identical allocation/traversal bounds for every request.
+- Prove complete configured-height generation on default and 2,048-height presets on Fabric and
+  NeoForge, with and without C2ME, including structures, blending, aquifers, reload, and parallel
+  scheduling.
+- If bounded analysis is retained, enumerate every recognized vanilla and FTF node and prove its
+  conservative transfer rule; unknown, custom, cyclic, unresolved, or impure nodes must select full
+  height.
+- Require full-height and bounded paths to produce identical blocks, fluids, heightmaps, structures,
+  carvers, features, and errors over representative windows.
+- Keep bounded analysis only after healthy-host end-to-end measurements establish a stable material
+  benefit outside run variance. A proven no-go with permanent full height is an acceptable completed
+  outcome.
 
 ### Selection semantics
 
@@ -419,74 +504,14 @@ contract, or plan semantics changes.
 - Start packaged servers on both loaders without TerraBlender.
 - Record source tree, dirty patch, dependency manifest, scenario inputs, logs, grids, calculations,
   artifact paths, and SHA-256 values in retained artifacts.
+- Remove superseded internal paths, compatibility overloads, stale Mixins, dead tests, and alternate
+  runtime authorities before declaring a workstream complete.
 
-## Evidence index
+## Evidence locations
 
-Match retained manifests by source tree, dirty patch, and input fingerprints; commit IDs alone are
-not stable evidence keys after a history rewrite. Current pre-server and lifecycle evidence
-includes:
-
-- `20260831T103000Z-pre-server-ru-immutable-fabric`: actual Fabric world-creation context, seed
-  `12345`, no server, 19,211 RU pixels, normalized composition and decoration.
-- `20260831T103500Z-pre-server-ru-immutable-neoforge`: the equivalent NeoForge result with the same
-  grid hash.
-- `20260831T102500Z-pre-server-lithostitched-unused-final-fabric`: installed-unused control with no
-  Lithostitched capability nodes.
-- `20260831T095058Z-24a7a965b4`: 65,536-pixel serial/parallel equivalence with zero mismatches.
-- `20260831T095227Z-8bbae55c36`: preview versus 16 finished chunks with zero biome mismatches.
-- `20260831T095315Z-52330c3942`: owner-preserving tag reload with complete cleanup.
-- `20260831T100956Z-27afb0d091`: final mixed Lithostitched/Biolith runtime ownership and
-  stored-chunk checks.
-- `20260831T185704Z-68168af357`: Fabric Biolith built-in sub-biome acceptance; immutable acquisition
-  and plan-output coverage, 65,536 repeatable serial/parallel preview selections, and 3,540 required
-  plains-to-void transitions.
-- `20260831T214702Z-b49ef2dc1f`: compatibility-tip vanilla preview baseline; 3,280.612-millisecond
-  parallel resolution and grid hash
-  `6c4856c5e74c58581d033a5b6ebd4b6445a5dfc06430426338b5e99bd08374d5`.
-- `20260831T215307Z-86005a822d`: clean live-upstream vanilla control; the same grid hash in 28.278
-  milliseconds on the first parallel pass and 17.609 milliseconds on repeat.
-- `20260831T215706Z-4556b98394`: compatibility-tip stage and allocation attribution; the decorated
-  sampler accounts for 38.143 seconds and 2,073,078,064 bytes of the 38.758-second serial query.
-- `20260831T220307Z-c21156fbae`: isolated purpose-scoped sampler candidate; 16.763-millisecond
-  parallel and 49.827-millisecond serial vanilla resolution with zero decomposition mismatch.
-- `20260831T220553Z-d7d504b238`: latest Biolith `3.0.14` candidate validation; 99.418-millisecond
-  parallel resolution, the baseline's exact grid hash, all 3,540 required transitions, and complete
-  normalized snapshot/output coverage.
-- `20260831T220648Z-65b041b8c8`: latest BOP/TerraBlender mixed-provider candidate validation;
-  47.733-millisecond first and 14.455-millisecond repeat resolution with zero mismatches.
-- `20260901T025148Z-e56b2506a1`: final zoom-one equivalence; exact clean-baseline hash, zero
-  mismatches, 16.464-millisecond parallel and 56.120-millisecond serial resolution.
-- `20260901T025414Z-8b5e866882`: final vanilla stage and allocation profile; 14.896-millisecond
-  parallel and 44.488-millisecond serial resolution, 16,777,744 serial allocated bytes, and zero
-  decomposition or parallel mismatches.
-- `20260901T025459Z-ed620ba973`: latest Fabric Biolith `3.0.14` preview-to-finished-chunk parity;
-  all 256 surface quart columns match.
-- `20260901T025603Z-1dcddcff71`: latest Fabric RU `0.6.2` plus Lithostitched `1.8.0+beta5` parity;
-  all 256 columns and all 64 desert-to-outback transitions match finished chunks.
-- `20260901T030343Z-64894b829d`: RU/Lithostitched owner-preserving reload; tag epoch advances once,
-  the immutable plan is atomically replaced inside the same worldgen epoch, and post-rebind chunks
-  finish successfully.
-- `20260901T030814Z-0f4f9f8058`: NeoForge vanilla preview-to-finished-chunk parity after eliminating
-  a stale development-probe artifact from the investigation runtime.
-- `20260901T030908Z-ad28ef0a37`: latest NeoForge BOP `21.1.0.14` and TerraBlender `4.1.0.8`; 3,721
-  finished chunks, 59,536 surface quart samples, all four provider domains, and zero mismatches.
-- `20260901T031428Z-7c05bc1a8b` and `20260901T031523Z-925a860828`: final packaged Fabric and
-  NeoForge starts without TerraBlender; reload/flow ownership pass on both, and Fabric's finished
-  surface parity has zero mismatches.
-- `20260901T025657Z-13ee011d76`: current NeoForge Biolith `3.0.14` fails its own refmap-less
-  `MixinNoiseHypercube` before FTF initialization; this is an upstream dependency boundary.
-- `20260901T030306Z-b8d4dcabcb`: NeoForge Lithostitched `1.8.0+beta4` reaches generation but its
-  `ChunkMap` integration fails with `Parent chunk missing`; this is outside preview acquisition.
-- `20260831T183416Z-dd3f8208eb`: exact latest NeoForge NML/Biolith dependency-boundary failure;
-  Biolith's required `MixinNoiseHypercube` does not apply before an FTF world or plan exists.
-- `20260831T185501Z-de3ed1b110`: final packaged Fabric control; reload and flow ownership pass, and
-  256 finished-chunk surface samples have zero preview mismatches.
-- `20260831T185552Z-a02c491715`: final packaged NeoForge control; production start, reload, flow
-  ownership, and cleanup pass.
-- `20260831T101937Z-197d3ca27b`: clean packaged Fabric start without TerraBlender, including 16
-  finished chunks and zero preview mismatches.
-- `20260831T102031Z-e601c7afec`: clean packaged NeoForge start without TerraBlender, including
-  server-list, reload, and flow-settings acceptance checks.
+Match retained manifests by source tree, dirty patch, dependency hashes, scenario inputs, and output
+fingerprints. Commit IDs alone are not stable evidence keys after a history rewrite. Raw results
+remain in the following locations rather than this forward-facing plan:
 
 - Third-party catalog: `.squinch/games/minecraft/third-party/artifacts.toml`
 - Retained third-party sources: `games/minecraft/reference/sources/1.21.1/mods/`

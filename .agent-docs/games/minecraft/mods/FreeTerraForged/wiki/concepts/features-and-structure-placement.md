@@ -13,6 +13,18 @@ configured-feature logic run later. Distinguish:
 A configured feature can write outside its origin Y or reject an otherwise valid origin with its own
 absolute-height check. Changing an outer height provider cannot repair an internal rejection.
 
+Fabric biome modifications and NeoForge biome modifiers are visible to FTF through the final biome
+generation settings rather than through content-mod adapters. Registered custom configured-feature
+and placement leaves execute through their public contracts. This keeps the mechanism generic: an
+unseen mod using the loader API participates without its namespace or implementation class being
+recognized by FTF.
+
+Surface-rule libraries have a different boundary. A library such as FrozenLib that completes its
+callbacks into `NoiseGeneratorSettings.surfaceRule()` before server-epoch compilation is acquired as
+one composed surface graph. FTF does not retain or replay the callbacks. A hook that remains only a
+late method-body patch is not graph materialization and requires a stable typed execution seam
+before FTF can claim support for that facet.
+
 Vertical adaptation based on modifier semantics groups registrations by behavior rather than by
 registry name. Cave decoration, ores, springs, carvers, and structures have different density and
 balance meanings, so a global “scale with world height” transform changes them in different ways.
@@ -57,11 +69,11 @@ benchmarks. Focused measurements belong in retained investigation artifacts.
 
 ## Dynamic ordinary ores
 
-In a non-reference FTF Overworld, standard `minecraft:ore` and `minecraft:scattered_ore` placed
-features adapt their authored vertical probability mass and expected candidate count to the live
-geological frame. The mapping uses the dimension bottom, the fixed deepslate transition at Y `0..8`,
-sea level, and the dimension top. A reference frame of `-64..319` with sea level `63` delegates to
-the original path exactly.
+In a non-reference FTF generation owner, standard `minecraft:ore` and `minecraft:scattered_ore`
+placed features adapt their authored vertical probability mass and expected candidate count to the
+live geological frame. The mapping uses the dimension bottom, the fixed deepslate transition at Y
+`0..8`, sea level, and the dimension top. A reference frame of `-64..319` with sea level `63`
+delegates to the original path exactly.
 
 Eligibility comes from the final active placed-feature graph and the feature's public contract, not
 its namespace or supplying mod. A conventional modded ore can therefore participate without an
@@ -82,10 +94,11 @@ unsafe filter ordering, and unregistered direct features remain unchanged. Custo
 systems—including geodes, retrogen, striated formations, and other mechanisms that happen to write
 ore blocks—are outside this behavior. Noise-router large ore veins are also separate.
 
-The live plan is immutable and server-owned. It is activated only for an Overworld whose active
-random state is owned by FTF; installing FTF does not alter ordinary generation in another
-Overworld. Resource reload does not recreate the active worldgen registry graph, so it does not
-reclassify or mutate that plan.
+The live plan is immutable and server-owned. It is activated only when the active generator, random
+state, vertical frame, and placed-feature occurrence belong to the same FTF owner; it does not
+dispatch by a literal dimension key. Installing FTF does not alter another generator. Resource
+reload captures a new owner input revision and atomically replaces the plan only after successful
+reclassification.
 
 ## Structures use different authorities
 

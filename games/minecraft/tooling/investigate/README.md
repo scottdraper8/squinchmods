@@ -40,6 +40,17 @@ A generation step has `generation` authority unless it names a selected terminal
 explicitly requests `finished-chunk` authority. Force-load acknowledgment alone is never labeled
 finished-chunk proof.
 
+Packaged-subject scenarios may set `subject_artifact` to a repository-relative production JAR. The
+runner hashes it, installs it as an owned runtime companion, records the materialized path, and
+removes it during cleanup. When Fabric's production JAR is intermediary-mapped, pair it with a
+matching Mojang-named `subject_compile_artifact`; probes compile against that independently hashed
+view while the server executes only `subject_artifact`. `probe_compile_artifacts` may select catalog
+artifacts with an explicit loader and `named` or `loader` mapping when a probe needs an optional
+mechanism API that is not already on the subject project's compile classpath. These compile inputs
+are never copied to the runtime unless they are also listed in `companion_artifacts`. This boundary
+is intended for independent packaged-JAR harnesses, not as a substitute for source-worktree
+provenance.
+
 For an isolated generation benchmark, set `repeat` and a nonzero `offset = [x, z]` on a generation
 step. The parser requires every translated coordinate window to be disjoint and caps one step at 20
 observations. Each observation retains its exact bounds plus generation, probe, and total seconds;

@@ -23,9 +23,11 @@ import org.squinchmods.investigate.FinishedChunkSelection;
 import org.squinchmods.investigate.MinecraftProbeHelpers;
 import org.squinchmods.investigate.ProbeExecution;
 import org.squinchmods.investigate.ProbePack;
+import org.squinchmods.investigate.ProbePhase;
 import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
+import org.squinchmods.investigate.TerminalState;
 import org.squinchmods.investigate.rtf.mixin.AccessorMultiNoiseBiomeSource;
 import raccoonman.reterraforged.world.worldgen.biome.UndergroundBiomeBanding;
 import raccoonman.reterraforged.concurrent.Resource;
@@ -66,11 +68,21 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             FinishedChunkSelection.Snapshot snapshot = this.selection.poll(level);
             if (snapshot == null) return null;
 
-            BiomeSource biomeSource = level.getChunkSource().getGenerator().getBiomeSource();
-            if (!(biomeSource instanceof MultiNoiseBiomeSource mnbs)) {
+            BiomeSource runtimeSource = level.getChunkSource().getGenerator().getBiomeSource();
+            BiomeSource acquisitionSource = level.getChunkSource().getGenerator()
+                instanceof TerraForgedChunkGenerator generator
+                    ? generator.acquisitionBiomeSource()
+                    : runtimeSource;
+            if (!(acquisitionSource instanceof MultiNoiseBiomeSource mnbs)) {
                 JsonObject data = new JsonObject();
-                data.addProperty("error", "BiomeSource is not MultiNoiseBiomeSource");
-                return this.selection.result(snapshot, data);
+                data.addProperty(
+                    "error",
+                    "Acquisition BiomeSource is not MultiNoiseBiomeSource: "
+                        + acquisitionSource.getClass().getName()
+                );
+                return ProbeResult.complete(
+                    TerminalState.ERROR, ProbePhase.FINISHED_CHUNK, data, snapshot.ready().size()
+                );
             }
 
             Climate.ParameterList<Holder<Biome>> parameters =
@@ -78,7 +90,7 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             List<Pair<Climate.ParameterPoint, Holder<Biome>>> rawEntries = parameters.values();
 
             TreeAnalysis tree = analyzeTree(rawEntries);
-            biomeSource.possibleBiomes().stream()
+            runtimeSource.possibleBiomes().stream()
                 .map(MinecraftProbeHelpers::biomeId)
                 .forEach(tree.possibleBiomes::add);
             WorldgenPlan plan = level.getChunkSource().getGenerator() instanceof TerraForgedChunkGenerator generator
@@ -136,8 +148,8 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
                                     .resolve(cellX, cellZ, target)
                                     .orElseThrow();
                                 Holder<Biome> resolved = WorldgenBiomeSelection.resolve(
-                                    quartX, quartY, quartZ, sampler
-                                ).orElse(selection.biome());
+                                    plan, quartX, quartY, quartZ, sampler
+                                );
                                 survey.recordSelection(selection, resolved, biome);
                             }
                         }
@@ -300,7 +312,7 @@ public final class RtfCompositionAuditProbePack implements ProbePack {
             }
             providerJson.add("providers", providers);
             data.add("provider_plan", providerJson);
-            data.add("capability_report", plan.report().toJson());
+            data.add("plan_diagnostics", plan.diagnostics().toJson());
         }
 
         // === Duplicate registrations ===

@@ -1,7 +1,11 @@
 package org.squinchmods.investigate.rtf;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +74,7 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
                 .forEach(holder -> census.inspectBiome(holder.key().location().toString(), holder, plan));
 
             JsonObject data = census.toJson();
-            data.add("capability_report", worldgenPlan.report().toJson());
+            data.add("plan_diagnostics", worldgenPlan.diagnostics().toJson());
             return ProbeResult.complete(
                 TerminalState.PASS,
                 ProbePhase.GENERATION,
@@ -88,6 +92,7 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
         private final Map<String, Integer> namespaceActiveCounts = new TreeMap<>();
         private final JsonArray biomesJson = new JsonArray();
         private final JsonArray duplicateMemberships = new JsonArray();
+        private final MessageDigest graphDigest = sha256();
         private final WorldgenPlans.PlacedFeatures plan;
         private int biomeCount;
         private int totalOccurrences;
@@ -112,7 +117,7 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
             this.biomeCount++;
             JsonObject biomeJson = new JsonObject();
             biomeJson.addProperty("biome", biomeId);
-            JsonArray stepsJson = new JsonArray();
+            JsonObject stepCounts = new JsonObject();
             Map<String, List<JsonObject>> occurrencesById = new TreeMap<>();
             Set<String> uniqueBiomeIds = new TreeSet<>();
 
@@ -122,18 +127,17 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
                 .max()
                 .orElse(-1) + 1;
             for (int stepIndex = 0; stepIndex < stepCount; stepIndex++) {
-                JsonObject stepJson = new JsonObject();
-                stepJson.addProperty("step_index", stepIndex);
-                stepJson.addProperty("step", stepName(stepIndex));
-                JsonArray featuresJson = new JsonArray();
                 int occurrenceIndex = 0;
                 for (Holder<PlacedFeature> holder : plan.forBiome(biome, stepIndex)) {
                     String id = holderId(holder);
                     PlacedFeature placed = holder.value();
                     Contract contract = Contract.of(placed);
                     JsonObject occurrence = occurrence(id, stepIndex, occurrenceIndex, contract);
-                    featuresJson.add(occurrence);
                     occurrencesById.computeIfAbsent(id, ignored -> new ArrayList<>()).add(occurrence);
+                    this.graphDigest.update((
+                        biomeId + "|" + stepIndex + "|" + occurrenceIndex + "|" + id + "|"
+                            + contract.key + "\n"
+                    ).getBytes(StandardCharsets.UTF_8));
                     uniqueBiomeIds.add(id);
                     this.activeIds.add(id);
                     this.namespaceActiveCounts.merge(namespace(id), 1, Integer::sum);
@@ -142,9 +146,8 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
                     this.totalOccurrences++;
                     occurrenceIndex++;
                 }
-                stepJson.add("features", featuresJson);
                 if (occurrenceIndex > 0) {
-                    stepsJson.add(stepJson);
+                    stepCounts.addProperty(stepIndex + ":" + stepName(stepIndex), occurrenceIndex);
                 }
             }
 
@@ -170,7 +173,7 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
 
             biomeJson.addProperty("unique_feature_ids", uniqueBiomeIds.size());
             biomeJson.addProperty("feature_occurrences", totalOccurrences(occurrencesById));
-            biomeJson.add("steps", stepsJson);
+            biomeJson.add("step_occurrence_counts", stepCounts);
             this.biomesJson.add(biomeJson);
         }
 
@@ -191,6 +194,7 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
             data.addProperty("placed_feature_registry_count", this.registeredIds.size());
             data.addProperty("active_unique_feature_count", this.activeIds.size());
             data.addProperty("active_feature_occurrence_count", this.totalOccurrences);
+            data.addProperty("graph_sha256", HexFormat.of().formatHex(this.graphDigest.digest()));
             data.addProperty("duplicate_occurrence_count", this.duplicateOccurrenceCount);
             data.add("namespace_registry_counts", integerObject(this.namespaceRegistryCounts));
             data.add("namespace_active_occurrence_counts", integerObject(this.namespaceActiveCounts));
@@ -231,6 +235,14 @@ public final class FeatureGraphCensusProbePack implements ProbePack {
 
         private static int totalOccurrences(Map<String, List<JsonObject>> occurrencesById) {
             return occurrencesById.values().stream().mapToInt(List::size).sum();
+        }
+
+        private static MessageDigest sha256() {
+            try {
+                return MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException exception) {
+                throw new AssertionError("Required SHA-256 digest is unavailable", exception);
+            }
         }
 
         private static JsonObject occurrence(String id, int stepIndex, int occurrenceIndex, Contract contract) {

@@ -294,7 +294,11 @@ def _probe_pack_details(root: Path) -> dict:
     }
 
 
-def _probe_overlay_command(loader: str, probe_packs: tuple[Path, ...] = ()) -> tuple[list[str], dict]:
+def _probe_overlay_command(
+    loader: str,
+    probe_packs: tuple[Path, ...] = (),
+    compile_artifacts: tuple[tuple[ResolvedArtifact, str], ...] = (),
+) -> tuple[list[str], dict]:
     if loader not in {"fabric", "neoforge"}:
         raise InvestigationError(
             "probe_overlay_unsupported", f"the probe overlay does not support loader {loader!r}"
@@ -308,6 +312,15 @@ def _probe_overlay_command(loader: str, probe_packs: tuple[Path, ...] = ()) -> t
     if len(pack_ids) != len(set(pack_ids)):
         raise InvestigationError("probe_pack_invalid", "probe pack IDs must be unique")
     mixins = list(dict.fromkeys(mixin for pack in packs for mixin in pack["mixins"]))
+    compile_inputs = [
+        {
+            "id": artifact.id,
+            "path": str(artifact.path),
+            "sha256": artifact.sha256,
+            "mapping": mapping,
+        }
+        for artifact, mapping in compile_artifacts
+    ]
     details = {
         "overlay": str(PROBE_OVERLAY),
         "runtime": str(PROBE_RUNTIME_ROOT),
@@ -315,6 +328,7 @@ def _probe_overlay_command(loader: str, probe_packs: tuple[Path, ...] = ()) -> t
         "manifest_sha256": packs[0]["manifest_sha256"],
         "packs": packs,
         "mixins": mixins,
+        "compile_artifacts": compile_inputs,
         "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
     }
     arguments = [
@@ -324,6 +338,7 @@ def _probe_overlay_command(loader: str, probe_packs: tuple[Path, ...] = ()) -> t
         f"-PsquinchProbeLoader={loader}",
         f"-PsquinchProbePacksJson={json.dumps(packs, separators=(',', ':'))}",
         f"-PsquinchProbeMixinsJson={json.dumps(mixins, separators=(',', ':'))}",
+        f"-PsquinchProbeCompileArtifactsJson={json.dumps(compile_inputs, separators=(',', ':'))}",
     ]
     return arguments, details
 
@@ -465,6 +480,7 @@ def start_server(
     runtime_files: list[tuple[Path, str]] | None = None,
     runtime_absent_files: list[str] | None = None,
     companion_artifacts: list[ResolvedArtifact] | None = None,
+    probe_compile_artifacts: list[tuple[ResolvedArtifact, str]] | None = None,
     properties: dict[str, str],
     timeout: float,
     retention: str,
@@ -475,7 +491,16 @@ def start_server(
 ) -> dict:
     startup_started = time.monotonic()
     loader_dir = validate_loader(project, loader)
-    overlay_arguments, overlay_details = _probe_overlay_command(loader, probe_packs)
+    compile_artifacts = probe_compile_artifacts
+    if compile_artifacts is None:
+        compile_artifacts = [(artifact, "loader") for artifact in companion_artifacts or ()]
+    if any(mapping not in {"named", "loader"} for _artifact, mapping in compile_artifacts):
+        raise InvestigationError(
+            "probe_compile_artifact_invalid", "probe compile artifact mapping must be named or loader"
+        )
+    overlay_arguments, overlay_details = _probe_overlay_command(
+        loader, probe_packs, tuple(compile_artifacts)
+    )
     tracked_status_before = _git_status(project)
     active = active_path(project, loader)
     with project_lock(lock_path(project, loader)):
@@ -753,6 +778,7 @@ def start_server(
             raise
 
     deadline = time.monotonic() + timeout
+    protocol_without_listener_since: float | None = None
     try:
         while time.monotonic() < deadline:
             before = len(state["owned_processes"])
@@ -765,6 +791,21 @@ def start_server(
                     f"server process exited with code {process.returncode} before RCON readiness",
                     details={"log_path": str(log_path)},
                 )
+            protocol_created = Path(state["protocol_root"]).exists()
+            listeners_bound = any(
+                not port_is_free(int(port)) for port in state["ports"].values()
+            )
+            if protocol_created and not listeners_bound:
+                if protocol_without_listener_since is None:
+                    protocol_without_listener_since = time.monotonic()
+                elif time.monotonic() - protocol_without_listener_since >= 5.0:
+                    raise InvestigationError(
+                        "startup_exited",
+                        "Minecraft initialized the probe boundary and exited before RCON readiness",
+                        details={"log_path": str(log_path)},
+                    )
+            else:
+                protocol_without_listener_since = None
             try:
                 execute(
                     "127.0.0.1",

@@ -7,12 +7,12 @@ before relying on this summary.
 
 ## Branches
 
-| Branch                                | Remote  | Status                                                                                                                                                                                                                        |
-| ------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `1.21.1`                              | tracked | Current production branch. Local, `origin`, and `upstream` are aligned at `4a3ab1c`, and the in-repository worktree is checked out here.                                                                                      |
-| `feat/worldgen-compatibility-runtime` | tracked | Runtime Compat Layer MVP with Level-owned flow settings and pre-server Lithostitched acquisition at `52fa36c`, based on `4a3ab1c`; the current contract and external mechanism boundaries are recorded in the canonical plan. |
-| `feat/configurable-strata`            | tracked | Configurable strata/deepslate-band work is pushed, divergent from current production, and requires product QA plus rebasing.                                                                                                  |
-| `feat/configurable-shorelines`        | tracked | Configurable shoreline work is pushed, divergent from current production, and requires visual/product QA plus rebasing.                                                                                                       |
+| Branch                                | Remote  | Current state                                                                                                        |
+| ------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `1.21.1`                              | tracked | Local and `upstream` are aligned at `4a3ab1c`; the in-repository worktree is checked out here.                       |
+| `feat/worldgen-compatibility-runtime` | tracked | Local and `origin` are aligned at `2c2729c`, based on `4a3ab1c`. Continue through the canonical compatibility plans. |
+| `feat/configurable-strata`            | tracked | Pushed, divergent from production, and awaiting product QA and rebase.                                               |
+| `feat/configurable-shorelines`        | tracked | Pushed, divergent from production, and awaiting visual/product QA and rebase.                                        |
 
 The in-repository `FreeTerraForged` worktree and the parent repository's submodule pointer are on
 current `1.21.1`.

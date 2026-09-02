@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .catalog import resolve_artifacts
+from .catalog import ResolvedArtifact, resolve_artifacts
 from .errors import CleanupError, InvestigationError
 from .generation import generate_regions
 from .fixtures import load_fixture, materialize_ephemeral_fixture, materialize_fixture
@@ -65,6 +65,13 @@ class RTFEphemeralPreset:
 
 
 @dataclass(frozen=True)
+class ProbeCompileSelection:
+    artifact_id: str
+    loader: str
+    mapping: str
+
+
+@dataclass(frozen=True)
 class ScenarioStep:
     step_id: str
     kind: str
@@ -86,7 +93,10 @@ class Scenario:
     datapacks: tuple[Path, ...]
     runtime_files: tuple[tuple[Path, str], ...]
     runtime_absent_files: tuple[str, ...]
+    subject_artifact: Path | None
+    subject_compile_artifact: Path | None
     companion_artifacts: tuple[str, ...]
+    probe_compile_artifacts: tuple[ProbeCompileSelection, ...]
     probe_packs: tuple[Path, ...]
     server_properties: dict[str, str]
     retention: str
@@ -171,7 +181,10 @@ def load_scenario(path: str | Path) -> Scenario:
             "datapacks",
             "runtime_files",
             "runtime_absent_files",
+            "subject_artifact",
+            "subject_compile_artifact",
             "companion_artifacts",
+            "probe_compile_artifacts",
             "probe_packs",
             "retention",
             "server_properties",
@@ -315,6 +328,40 @@ def load_scenario(path: str | Path) -> Scenario:
     ):
         raise _error("companion_artifacts must be an array of catalog artifact IDs")
     companion_artifacts = tuple(companion_artifact_values)
+    subject_artifact = None
+    if "subject_artifact" in raw:
+        subject_artifact = _scenario_path(
+            scenario_path, raw["subject_artifact"], "subject_artifact"
+        )
+        if subject_artifact.suffix != ".jar":
+            raise _error("subject_artifact must be a repository-root-relative JAR path")
+    subject_compile_artifact = None
+    if "subject_compile_artifact" in raw:
+        if subject_artifact is None:
+            raise _error("subject_compile_artifact requires subject_artifact")
+        subject_compile_artifact = _scenario_path(
+            scenario_path, raw["subject_compile_artifact"], "subject_compile_artifact"
+        )
+        if subject_compile_artifact.suffix != ".jar":
+            raise _error("subject_compile_artifact must be a repository-root-relative JAR path")
+    probe_compile_values = raw.get("probe_compile_artifacts", [])
+    if not isinstance(probe_compile_values, list):
+        raise _error("probe_compile_artifacts must be an array of tables")
+    probe_compile_artifacts: list[ProbeCompileSelection] = []
+    for index, value in enumerate(probe_compile_values):
+        if not isinstance(value, dict):
+            raise _error(f"probe_compile_artifacts[{index}] must be a table")
+        _known_keys(value, {"id", "loader", "mapping"}, f"probe_compile_artifacts[{index}]")
+        artifact_id = value.get("id")
+        compile_loader = value.get("loader")
+        mapping = value.get("mapping")
+        if not isinstance(artifact_id, str) or not artifact_id or Path(artifact_id).name != artifact_id:
+            raise _error(f"probe_compile_artifacts[{index}].id must be a catalog artifact ID")
+        if compile_loader not in {"fabric", "neoforge"}:
+            raise _error(f"probe_compile_artifacts[{index}].loader must be fabric or neoforge")
+        if mapping not in {"named", "loader"}:
+            raise _error(f"probe_compile_artifacts[{index}].mapping must be named or loader")
+        probe_compile_artifacts.append(ProbeCompileSelection(artifact_id, compile_loader, mapping))
     probe_pack_values = raw.get("probe_packs", [])
     if not isinstance(probe_pack_values, list):
         raise _error("probe_packs must be an array of paths")
@@ -516,7 +563,10 @@ def load_scenario(path: str | Path) -> Scenario:
         datapacks,
         tuple(runtime_files),
         tuple(runtime_absent_files),
+        subject_artifact,
+        subject_compile_artifact,
         companion_artifacts,
+        tuple(probe_compile_artifacts),
         probe_packs,
         server_properties,
         retention,
@@ -655,6 +705,21 @@ def capture_provenance(
         raise InvestigationError(
             "runtime_file_not_found", f"runtime file not found: {missing_runtime_files[0]}"
         )
+    if scenario.subject_artifact is not None and (
+        not scenario.subject_artifact.is_file() or scenario.subject_artifact.is_symlink()
+    ):
+        raise InvestigationError(
+            "subject_artifact_not_found",
+            f"subject artifact is not a regular file: {scenario.subject_artifact}",
+        )
+    if scenario.subject_compile_artifact is not None and (
+        not scenario.subject_compile_artifact.is_file()
+        or scenario.subject_compile_artifact.is_symlink()
+    ):
+        raise InvestigationError(
+            "subject_compile_artifact_not_found",
+            f"subject compile artifact is not a regular file: {scenario.subject_compile_artifact}",
+        )
     missing_candidates = [
         str(step.values["candidate_file"])
         for step in scenario.steps
@@ -720,6 +785,16 @@ def capture_provenance(
             for source, target in scenario.runtime_files
         ],
         "runtime_absent_files": list(scenario.runtime_absent_files),
+        "subject_artifact": None if scenario.subject_artifact is None else {
+            "path": str(scenario.subject_artifact),
+            "sha256": _sha256(scenario.subject_artifact),
+            "size": scenario.subject_artifact.stat().st_size,
+        },
+        "subject_compile_artifact": None if scenario.subject_compile_artifact is None else {
+            "path": str(scenario.subject_compile_artifact),
+            "sha256": _sha256(scenario.subject_compile_artifact),
+            "size": scenario.subject_compile_artifact.stat().st_size,
+        },
         "candidate_inputs": [
             {
                 "step_id": step.step_id,
@@ -1111,6 +1186,36 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             # Deliberate bounded generation is controlled by the scenario step timeout and
             # teardown path, not Minecraft's ordinary tick-stall watchdog.
             server_properties.setdefault("max-tick-time", "-1")
+        catalog_artifacts = list(resolve_artifacts(
+            scenario.companion_artifacts,
+            expected_loader=scenario.loader,
+        ))
+        resolved_artifacts = list(catalog_artifacts)
+        probe_compile_artifacts = []
+        selections = scenario.probe_compile_artifacts
+        if selections:
+            for selection in selections:
+                artifact = resolve_artifacts(
+                    (selection.artifact_id,), expected_loader=selection.loader
+                )[0]
+                probe_compile_artifacts.append((artifact, selection.mapping))
+        else:
+            probe_compile_artifacts.extend((artifact, "loader") for artifact in catalog_artifacts)
+        if scenario.subject_artifact is not None:
+            subject_hash = _sha256(scenario.subject_artifact)
+            resolved_artifacts.insert(0, ResolvedArtifact(
+                "local-subject", "local-subject", "1.21.1", scenario.loader,
+                scenario.subject_artifact.name, subject_hash, scenario.subject_artifact,
+            ))
+            if scenario.subject_compile_artifact is None:
+                probe_compile_artifacts.insert(0, (resolved_artifacts[0], "loader"))
+        if scenario.subject_compile_artifact is not None:
+            compile_hash = _sha256(scenario.subject_compile_artifact)
+            probe_compile_artifacts.insert(0, (ResolvedArtifact(
+                "local-subject-compile", "local-subject", "1.21.1", scenario.loader,
+                scenario.subject_compile_artifact.name, compile_hash,
+                scenario.subject_compile_artifact,
+            ), "named"))
         state = start_server(
             scenario.project,
             scenario.loader,
@@ -1118,10 +1223,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             datapacks=list(effective_scenario.datapacks),
             runtime_files=list(scenario.runtime_files),
             runtime_absent_files=list(scenario.runtime_absent_files),
-            companion_artifacts=list(resolve_artifacts(
-                scenario.companion_artifacts,
-                expected_loader=scenario.loader,
-            )),
+            companion_artifacts=resolved_artifacts,
+            probe_compile_artifacts=probe_compile_artifacts,
             properties=server_properties,
             timeout=scenario.startup_timeout,
             retention=scenario.retention,

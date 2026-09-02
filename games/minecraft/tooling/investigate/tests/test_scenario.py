@@ -137,6 +137,46 @@ def test_production_launch_task_is_explicit_and_loader_scoped(
         load_scenario(scenario_path)
 
 
+def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "games/minecraft/project"
+    project.mkdir(parents=True)
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "probe.json").write_text("{}\n")
+    subject = project / "build/libs/subject.jar"
+    subject.parent.mkdir(parents=True)
+    subject.write_bytes(b"jar")
+    subject_compile = project / "build/libs/subject-named.jar"
+    subject_compile.write_bytes(b"named jar")
+    scenario_path = tmp_path / ".squinch/subject.toml"
+    scenario_path.parent.mkdir()
+    _write_scenario(scenario_path)
+    scenario_path.write_text(
+        scenario_path.read_text().replace(
+            'seed = 12345',
+            'seed = 12345\n'
+            'subject_artifact = "games/minecraft/project/build/libs/subject.jar"\n'
+            'subject_compile_artifact = "games/minecraft/project/build/libs/subject-named.jar"\n'
+            'probe_compile_artifacts = [{ id = "api", loader = "neoforge", mapping = "named" }]',
+        )
+    )
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+
+    loaded = load_scenario(scenario_path)
+    assert loaded.subject_artifact == subject.resolve()
+    assert loaded.subject_compile_artifact == subject_compile.resolve()
+    assert loaded.probe_compile_artifacts[0].artifact_id == "api"
+    assert loaded.probe_compile_artifacts[0].loader == "neoforge"
+    assert loaded.probe_compile_artifacts[0].mapping == "named"
+
+    scenario_path.write_text(scenario_path.read_text().replace("subject.jar", "subject.zip"))
+    with pytest.raises(InvestigationError, match="must be a repository-root-relative JAR"):
+        load_scenario(scenario_path)
+
+
 def test_runtime_files_are_repository_inputs_confined_to_run_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

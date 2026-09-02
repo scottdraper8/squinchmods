@@ -203,6 +203,46 @@ def test_startup_timeout_cleans_process_and_provisional_state(
 
 
 @pytest.mark.slow
+def test_probe_boundary_without_listeners_detects_crashed_minecraft_before_wrapper_exit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches a production Gradle wrapper hiding a crashed Minecraft child until full timeout."""
+    project = tmp_path / "project"
+    run_dir = project / "fabric" / "run"
+    run_dir.mkdir(parents=True)
+    gradlew = project / "gradlew"
+    gradlew.write_text(
+        "#!/usr/bin/env bash\n"
+        "mkdir -p fabric/run/.squinch-investigate\n"
+        "sleep 60\n"
+    )
+    gradlew.chmod(0o644)
+
+    state_root = tmp_path / "state"
+    monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
+    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
+    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+
+    started = time.monotonic()
+    with pytest.raises(InvestigationError, match="exited before RCON readiness") as failure:
+        server.start_server(
+            project.resolve(),
+            "fabric",
+            seed=None,
+            datapacks=[],
+            properties={},
+            timeout=30,
+            retention="discard",
+        )
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 15
+    assert failure.value.code == "startup_exited"
+    assert failure.value.details["cleanup_complete"] is True
+    assert not (state_root / "active.json").exists()
+
+
+@pytest.mark.slow
 def test_listener_free_gradle_boundary_does_not_consume_full_shutdown_timeout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
