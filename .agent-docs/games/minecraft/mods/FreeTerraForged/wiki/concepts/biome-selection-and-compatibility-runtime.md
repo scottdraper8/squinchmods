@@ -79,10 +79,10 @@ fall back to a vanilla generator. Mechanism finalizers may populate the acquisit
 cannot replace the FTF runtime source after normalization.
 
 The final provider tables, fallback table, transformed root candidates, and every decorator's
-declared outputs form the possible-biome closure. Registry-backed carvers and placed features
-compile once from that closure. A biome introduced only through Biolith or Lithostitched therefore
-retains its registered generation settings without giving those mechanisms authority over feature
-execution.
+declared outputs form the possible-biome closure. Registry-backed carver and placed-feature
+execution plans compile once from that closure. The immutable decoration snapshot retains final
+generation settings for every registered biome so local structure placement can decorate a biome
+outside the selection closure without widening selection or feature sorting.
 
 ## Ownership and lifecycle
 

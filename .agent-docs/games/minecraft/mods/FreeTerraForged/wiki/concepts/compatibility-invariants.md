@@ -120,6 +120,10 @@ from the earlier acquisition source. Provider candidates, fallback and compositi
 declared decorator outputs all participate. These graph-dependent facets materialize once after
 selection planning, while an explicit provider-owned facet replacement remains independent.
 
+Final generation settings for every registered biome are part of the same immutable decoration
+snapshot. This preserves structure-local biome decoration without adding that biome to selection or
+feature sorting.
+
 Placement execution consumes identity-indexed classifications and ore transforms from that plan; it
 does not recover feature identity from a live registry. Missing, direct, or conflicting identity
 retains vanilla placement. The structure plan likewise owns FTF rule order and tag-derived jigsaw

@@ -80,8 +80,10 @@ tables once. Replacement and region mechanisms receive immutable normalized posi
 source, and ordering inputs. Mechanism decorators run before the final FTF policy.
 
 Possible-biome closure includes provider tables, fallback tables, transformed roots, and every
-declared decorator output. Carvers and placed features compile from that closure so a biome
-introduced only by a supported mechanism retains its registered generation settings.
+declared decorator output. Carver and placed-feature execution plans compile from that closure. The
+immutable decoration snapshot separately retains final generation settings for every registered
+biome so structures that place against a locally selected biome remain valid without widening
+selection or feature sorting.
 
 Density and biome selection remain separate. High-altitude biome queries may be meaningful where
 density is air; density bounds never clip biome sampling.
@@ -110,7 +112,7 @@ Public registries and codecs supply candidate tables, settings, density graphs, 
 carvers, biome generation settings, placed features, structures, and FTF structure rules during
 acquisition. Feature IDs, structure tags, and structure-rule order become immutable plan data;
 generation never re-queries their registries. Fabric biome modifications and NeoForge biome
-modifiers are accepted after they materialize into selected biome generation settings.
+modifiers are accepted after they materialize into registered biome generation settings.
 Loader/library hooks attached to public generator stages are preserved by delegating to those stages
 while substituting immutable plan inputs.
 
