@@ -1,0 +1,9 @@
+schema_version = 1
+id = "rtf-preview-performance-upstream"
+version = "2"
+target_adapter = "reterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = []
+configuration_schema = "probe-config-v1.json"
+capabilities = ["server-thread", "preview-performance", "upstream-control"]

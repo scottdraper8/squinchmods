@@ -270,6 +270,7 @@ class TestCommandScript:
             target_id="forge-1.20.1",
             config={
                 "server_runtime": "gradle-dev",
+                "level_seed": -7829413372109845,
                 "commands": ["tick freeze", "tick step 1", "tick query"],
                 "expect_output": [
                     "The game is frozen",
@@ -285,6 +286,27 @@ class TestCommandScript:
         assert result.status == "pass"
         log = (ctx.job_dir / "logs" / "server.stdout.log").read_text()
         assert "The game is frozen" in log
+        properties = (ctx.mod_dir / "forge/run/server.properties").read_text()
+        assert "level-seed=-7829413372109845" in properties
+
+    @pytest.mark.parametrize("value", ["", True, [], {}])
+    def test_command_script_rejects_invalid_level_seed(self, value, make_job_context):
+        ctx = make_job_context(
+            test_id="seeded-control",
+            target_id="forge-1.20.1",
+            config={
+                "commands": ["seed"],
+                "expect_output": ["Seed"],
+                "level_seed": value,
+            },
+        )
+        ctx.adapter = {"type": "command-script"}
+
+        result = CommandScriptExecutor().run(ctx)
+
+        assert result.status == "error"
+        assert result.failure.reason == "invalid-command-script-config"
+        assert "level_seed" in result.failure.detail
 
     @pytest.mark.slow
     def test_command_script_fails_when_expected_output_is_missing(
@@ -349,6 +371,7 @@ class TestCommandScript:
             test_id="tick-freeze",
             target_id="forge-1.20.1",
             config={
+                "level_seed": "release-case-seed",
                 "commands": ["tick freeze"],
                 "expect_output": ["The game is frozen"],
             },
@@ -385,6 +408,8 @@ class TestCommandScript:
         assert calls
         assert calls[0]["tool_jar"] is None
         assert calls[0]["forge_version"] == "47.4.0"
+        assert calls[0]["server_properties"]["level-seed"] == "release-case-seed"
+        assert calls[0]["server_properties"]["level-name"].startswith("qa-")
 
 
 # ── Class 2: Pregen success/fallback paths ───────────────────────────────────

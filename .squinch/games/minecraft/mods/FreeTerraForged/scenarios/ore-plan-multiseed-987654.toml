@@ -1,6 +1,6 @@
 schema_version = 1
 name = "Ore plan verification: additional seed 987654 inland control"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 987654
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"

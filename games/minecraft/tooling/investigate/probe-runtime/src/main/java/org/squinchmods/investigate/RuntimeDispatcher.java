@@ -117,7 +117,12 @@ public final class RuntimeDispatcher {
         Files.createDirectories(PROCESSING);
         Files.createDirectories(RESULTS);
         initialized = true;
-        System.out.println("[squinch-investigate] protocol ready at " + ROOT);
+        String runId = System.getenv("SQUINCH_INVESTIGATE_RUN_ID");
+        if (runId == null || runId.isBlank()) {
+            throw new IllegalStateException("missing SQUINCH_INVESTIGATE_RUN_ID");
+        }
+        System.out.println("[squinch-investigate] protocol ready run=" + runId
+                + " pid=" + ProcessHandle.current().pid() + " root=" + ROOT);
     }
 
     private static void claimRequests() throws IOException {

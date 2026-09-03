@@ -12,12 +12,21 @@ from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.processes import port_is_free
 from squinch_minecraft_investigate.scenario import (
     _candidate_coordinates,
+    _fatal_log_pattern,
     _java_seed,
     _measurement_summary,
     load_scenario,
     parse_mod_list,
     run_scenario,
 )
+
+
+def test_fatal_log_policy_distinguishes_terminal_failures_from_recoverable_errors() -> None:
+    assert _fatal_log_pattern(
+        "[Server thread/ERROR] Too many chained neighbor updates. Skipping the rest."
+    ) is None
+    assert _fatal_log_pattern("Exception in server tick loop") is not None
+    assert _fatal_log_pattern("---- Minecraft Crash Report ----") is not None
 
 
 def test_cell_scan_candidates_become_unique_floor_correct_chunks(tmp_path: Path) -> None:
@@ -334,6 +343,9 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
 ) -> None:
     """Catches a failed step returning early and stranding its process, listener, or world."""
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    profile = {"path": "/retained/profile.jfr", "size": 42, "sha256": "a" * 64}
+    monkeypatch.setattr(scenario_module, "start_jfr", lambda *_args: object())
+    monkeypatch.setattr(scenario_module, "stop_jfr", lambda *_args: profile)
     project = tmp_path / "games/minecraft/project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
@@ -369,6 +381,7 @@ step = 2
 id = "failing-expectation"
 type = "command"
 command = "list"
+jfr = true
 expect = {{ response_contains = "deliberately absent" }}
 '''
     )
@@ -384,6 +397,7 @@ expect = {{ response_contains = "deliberately absent" }}
     artifact_dir = Path(caught.value.details["artifact_dir"])
     manifest = json.loads((artifact_dir / "manifest.json").read_text())
     assert manifest["cleanup"]["complete"] is True
+    assert manifest["profile_artifacts"] == [profile]
     assert manifest["retained_world"] is None
     assert not Path(manifest["world_dir"]).exists()
     assert port_is_free(manifest["ports"]["server"])
@@ -409,6 +423,9 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
 ) -> None:
     """Catches a timed-out force-load command bypassing scenario cleanup or claiming generation."""
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    profile = {"path": "/retained/timeout.jfr", "size": 42, "sha256": "b" * 64}
+    monkeypatch.setattr(scenario_module, "start_jfr", lambda *_args: object())
+    monkeypatch.setattr(scenario_module, "stop_jfr", lambda *_args: profile)
     project = tmp_path / "games/minecraft/project"
     (project / "fabric" / "run").mkdir(parents=True)
     fixture = Path(__file__).parent / "fixtures" / "fake_gradle_server.py"
@@ -448,6 +465,7 @@ id = "timed-out-generation"
 type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
+jfr = true
 '''
     )
     state_root = tmp_path / "state"
@@ -463,6 +481,7 @@ bounds = [0, 0, 0, 0]
     artifact_dir = Path(caught.value.details["artifact_dir"])
     manifest = json.loads((artifact_dir / "manifest.json").read_text())
     assert manifest["cleanup"]["complete"] is True
+    assert manifest["profile_artifacts"] == [profile]
     assert manifest["forceload_regions"] == []
     assert manifest["retained_world"] is None
     assert not Path(manifest["world_dir"]).exists()

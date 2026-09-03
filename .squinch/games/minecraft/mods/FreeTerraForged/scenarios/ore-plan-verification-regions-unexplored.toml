@@ -1,12 +1,12 @@
 schema_version = 1
 name = "Ore plan verification: Regions Unexplored custom placement"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry"]
 companion_artifacts = [
-  "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+  "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
   "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
   "mc1.21.1-fabric-regions-unexplored-0.6.2",
 ]

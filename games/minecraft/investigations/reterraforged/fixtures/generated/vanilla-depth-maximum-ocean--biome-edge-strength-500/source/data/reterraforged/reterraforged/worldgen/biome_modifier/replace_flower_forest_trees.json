@@ -1,0 +1,11 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": [
+    "minecraft:forest",
+    "minecraft:flower_forest"
+  ],
+  "replacements": {
+    "minecraft:trees_flower_forest": "reterraforged:flower_forest_trees"
+  },
+  "step": "vegetal_decoration"
+}

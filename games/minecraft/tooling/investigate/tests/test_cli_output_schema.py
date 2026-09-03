@@ -213,6 +213,61 @@ def test_cell_scan_envelope_requires_authority_manifest_and_result() -> None:
         envelope("cell-scan", "succeeded", run_id="run-1", data=data)
 
 
+def test_client_envelope_requires_verified_results_and_cleanup() -> None:
+    data = {
+        "operation": "client",
+        "project": "/tmp/project",
+        "loader": "fabric",
+        "lifecycle": "succeeded",
+        "process": ACTIVE_DATA["process"],
+        "cleanup": {"complete": True, "failures": []},
+        "run_dir": "/tmp/run/client-run",
+        "display": {
+            "backend": "headless",
+            "runtime_dir": "/tmp/run/display-runtime",
+            "wayland_display": "squinch-test",
+        },
+        "results": [{
+            "environment": "SQUINCH_RESULT",
+            "path": "/tmp/run/result.json",
+            "sha256": "a" * 64,
+            "result": {"status": "pass"},
+        }],
+    }
+    envelope("client", "succeeded", run_id="run-1", data=data)
+
+    data["cleanup"] = {"complete": False, "failures": ["leaked"]}
+    with pytest.raises(jsonschema.ValidationError):
+        envelope("client", "succeeded", run_id="run-1", data=data)
+
+
+def test_preset_fixture_envelope_requires_complete_generated_evidence() -> None:
+    manifest = {
+        "kind": "rtf-preset-fixture",
+        "run_id": "run-1",
+        "project": "/tmp/project",
+        "head": "deadbeef",
+        "preset": {"resolved_preset_sha256": "b" * 64},
+        "tracked_source_unchanged": True,
+        "cleanup": {"complete": True, "failures": []},
+        "generated": {
+            "path": "/tmp/run/generated-fixture",
+            "content_sha256": "a" * 64,
+            "file_count": 5,
+            "size": 100,
+            "density_function_count": 1,
+            "resolved_preset_sha256": "b" * 64,
+            "required_paths": ["a", "b", "c", "d"],
+            "files": ["pack.mcmeta"],
+        },
+    }
+    envelope("preset-fixture", "succeeded", run_id="run-1", data={"manifest": manifest})
+
+    del manifest["generated"]["density_function_count"]
+    with pytest.raises(jsonschema.ValidationError):
+        envelope("preset-fixture", "succeeded", run_id="run-1", data={"manifest": manifest})
+
+
 def test_clean_envelope_requires_action_and_targets() -> None:
     """Catches a clean refactor that stops reporting whether it was a dry run, which is the one
     field that tells an agent whether anything was actually deleted."""
@@ -230,8 +285,33 @@ def test_status_active_envelope_requires_identity_and_binding_fields() -> None:
     """Catches a status refactor that drops the leader-identity/bound-ports fields doctor and an
     agent's own safety checks depend on to avoid signaling a reused PID."""
     data = dict(ACTIVE_DATA)
-    data.update({"leader_identity_valid": True, "group_pids": [1234], "bound_ports": [25565, 25575]})
+    data.update({
+        "operation": "server",
+        "leader_identity_valid": True,
+        "owned_pids": [1234],
+        "bound_ports": [25565, 25575],
+    })
     envelope("status", "ready", run_id="run-1", data=data)
+
+
+def test_status_accepts_finite_operation_without_server_fields() -> None:
+    data = {
+        "operation": "preset-fixture",
+        "project": "/tmp/project",
+        "loader": "fabric",
+        "lifecycle": "running",
+        "process": ACTIVE_DATA["process"],
+        "cleanup": {"complete": False, "failures": []},
+        "run_dir": "/tmp/run",
+        "leader_identity_valid": True,
+        "owned_pids": [1234],
+        "bound_ports": [],
+    }
+    envelope("status", "ready", run_id="run-1", data=data)
+
+    del data["run_dir"]
+    with pytest.raises(jsonschema.ValidationError):
+        envelope("status", "ready", run_id="run-1", data=data)
 
 
 def test_doctor_envelope_accepts_action_or_issues() -> None:

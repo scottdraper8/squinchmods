@@ -13,12 +13,13 @@ tooling/squinch mc-investigate run \
   --command list
 ```
 
-The public commands are `start`, `stop`, `status`, `doctor`, `command`, `run`, `scenario`,
-`generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, and `clean`. Add `--json` to any
-command for the committed `schemas/cli-output-v1.json` envelope. The states `starting`, `running`,
-and `stopping` are non-terminal; `ready` means RCON authentication succeeded; `succeeded`, `failed`,
-`inconclusive`, and `error` are terminal outcomes; `inactive` means no service is tracked; and
-`degraded` or `unknown` requires diagnosis rather than an assumption of success.
+The public commands are `start`, `stop`, `status`, `doctor`, `command`, `run`, `client`, `scenario`,
+`generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, `preset-fixture`, and `clean`. Add
+`--json` to any command for the committed `schemas/cli-output-v1.json` envelope. The states
+`starting`, `running`, and `stopping` are non-terminal; `ready` means RCON authentication succeeded;
+`succeeded`, `failed`, `inconclusive`, and `error` are terminal outcomes; `inactive` means no
+service is tracked; and `degraded` or `unknown` requires diagnosis rather than an assumption of
+success.
 
 Run a canonical or temporary scenario with one command; every repository-owned project, datapack,
 fixture, patch, and probe path is repository-root-relative (`games/minecraft/...`) and resolved from
@@ -44,12 +45,32 @@ Packaged-subject scenarios may set `subject_artifact` to a repository-relative p
 runner hashes it, installs it as an owned runtime companion, records the materialized path, and
 removes it during cleanup. When Fabric's production JAR is intermediary-mapped, pair it with a
 matching Mojang-named `subject_compile_artifact`; probes compile against that independently hashed
-view while the server executes only `subject_artifact`. `probe_compile_artifacts` may select catalog
-artifacts with an explicit loader and `named` or `loader` mapping when a probe needs an optional
-mechanism API that is not already on the subject project's compile classpath. These compile inputs
-are never copied to the runtime unless they are also listed in `companion_artifacts`. This boundary
-is intended for independent packaged-JAR harnesses, not as a substitute for source-worktree
-provenance.
+view while the server executes only `subject_artifact`. Runtime companions are never implicit
+compile inputs. `probe_compile_artifacts` may explicitly select catalog artifacts with an explicit
+loader and `named` or `loader` mapping when a probe needs an optional mechanism API that is not
+already on the subject project's compile classpath. These compile inputs are never copied to the
+runtime unless they are also listed in `companion_artifacts`. This boundary is intended for
+independent packaged-JAR harnesses, not as a substitute for source-worktree provenance.
+
+Run world-creation UI probes through the isolated client lifecycle, never a personal launcher
+profile or the project's ordinary run directory:
+
+```bash
+tooling/squinch mc-investigate client \
+  --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
+  --loader fabric \
+  --probe-pack games/minecraft/investigations/reterraforged/probes/pre-server-preview \
+  --artifact lithostitched-fabric \
+  --probe-env SQUINCH_PREVIEW_CASE=regeneration \
+  --result-env SQUINCH_PREVIEW_RESULT=preview-result.json \
+  --json
+```
+
+The command owns a run-local client directory, runtime mods, result files, headless Wayland runtime,
+and systemd service/cgroup. Each `--compile-artifact ID:LOADER:MAPPING` is compile-only; each
+`--artifact ID` is runtime-only. Probe and result environment names must start with `SQUINCH_`, and
+every required result must be a JSON object whose `status` is `pass`. Cleanup is part of success and
+a surviving owned process retains recoverable active state.
 
 For an isolated generation benchmark, set `repeat` and a nonzero `offset = [x, z]` on a generation
 step. The parser requires every translated coordinate window to be disjoint and caps one step at 20
@@ -91,11 +112,21 @@ runner deterministically materializes it, copies the generated ZIP into the run 
 records the semantic metadata, complete resolved preset, logical source hash, and archive hash.
 Additional independent datapacks remain a repeatable `datapacks = [...]` array.
 
-For a one-off RTF input, use an `rtf_ephemeral` table instead. It requires `id`, `purpose`,
-`base_fixture`, the pinned `base_preset_sha256`, and a JSON Merge Patch at `patch_file`. The runner
-applies the patch to the pinned fixture's fully resolved preset, materializes a temporary datapack,
-and retains the patch, resolved preset, and fingerprints in the run artifacts while discarding the
-temporary materialization. `rtf_fixture` and `rtf_ephemeral` are mutually exclusive.
+Generate a complete source tree through the selected FTF worktree from either an existing fixture or
+a complete resolved preset JSON:
+
+```bash
+tooling/squinch mc-investigate preset-fixture \
+  --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
+  --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
+  --json
+```
+
+The command decodes the resolved preset in a standalone FTF data-generation process, invokes the
+real complete preset exporter, and verifies the generated preset, dimension type, noise settings,
+density functions, source-tree fingerprint, worktree immutability, and process cleanup. Review and
+promote its artifact-owned `generated-fixture/` directory as a retained source-form fixture before
+referencing it from a scenario.
 
 ## Standalone RTF cell discovery
 
@@ -217,10 +248,15 @@ Target `eula.txt` and `server.properties` files are backed up and restored. The 
 non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable Gradle daemons for the
 launch command, and never changes the wrapper's tracked mode.
 
-`stop` validates Linux process start identities before signaling, follows validated descendants
-across process groups, removes only force-load regions recorded by the run, and treats any remaining
-process/listener/file/world cleanup problem as failure. `doctor --recover` is the explicit recovery
-path for retained incomplete state.
+Every launch runs as a dedicated transient user-systemd service with control-group kill semantics.
+The exact unit intent is published as recoverable `launching` state before `systemd-run` is spawned,
+wrapper identity enriches that owner immediately after spawn, and main-process discovery then
+advances it in place. `stop` enumerates that service's complete cgroup, validates retained Linux
+process identities before fallback signaling, removes only force-load regions recorded by the run,
+and treats any remaining process/listener/file/world cleanup problem as failure. `doctor --recover`
+is the explicit recovery path for retained incomplete state. Launch preparation is transactional,
+and every blocking stop phase consumes the same monotonic timeout budget; the timeout is not
+restarted for each phase.
 
 `clean` is a dry run unless `--apply` is supplied. It accepts exact `--run` IDs or an explicit
 `--older-than-days` selection and rejects active runs, symlinks, foreign manifests, or paths outside

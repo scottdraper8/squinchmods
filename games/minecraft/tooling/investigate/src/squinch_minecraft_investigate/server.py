@@ -4,12 +4,12 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import signal
 import subprocess
 import time
-import tomllib
 import uuid
 import zipfile
 from datetime import UTC, datetime
@@ -18,33 +18,52 @@ from pathlib import Path
 from .errors import CleanupError, InvestigationError
 from .catalog import ResolvedArtifact
 from .output import timestamp
+from .owned_operation import Deadline, defer_termination_signals, terminate_owned_service
 from .paths import (
     ENV_SH,
-    PROBE_OVERLAY,
-    PROBE_RUNTIME_ROOT,
     RUNS_ROOT,
     active_path,
     lock_path,
     validate_loader,
 )
 from .processes import (
-    descendants,
+    confirm_uninterruptible,
     free_port,
-    group_members,
     identity_matches,
+    launch_service,
     listener_owners,
     port_is_available,
     port_is_free,
     proc_identity,
+    process_kernel_diagnostics,
     signal_recorded_process,
-    signal_validated_group,
+    service_members,
+    signal_service,
+    stop_service,
 )
+from .probe_overlay import git_status, probe_overlay_command
 from .rcon import RconError, execute
 from .state import atomic_write_json, project_lock, read_json
 
 OWNERSHIP = "squinch-minecraft-investigate"
 DEVELOPMENT_PROBE_JAR = "squinch-investigate-probe.jar"
 DEVELOPMENT_PROBE_MARKER = "META-INF/squinch-development-probe"
+PRODUCTION_SERVER_JARS = (
+    "architectury-production.jar",
+    "reterraforged-production.jar",
+)
+STARTUP_TERMINAL_LOG_MARKERS = (
+    "Failed to start the minecraft server",
+    "FAILURE: Build failed with an exception.",
+    "BUILD FAILED",
+    "Exception in thread \"main\"",
+    "finished with non-zero exit value",
+)
+STARTUP_LOG_TAIL_BYTES = 128 * 1024
+STARTUP_LOG_EXCERPT_LINES = 40
+PROTOCOL_READY_PATTERN = re.compile(
+    r"\[squinch-investigate] protocol ready run=([A-Za-z0-9-]+) pid=(\d+)"
+)
 
 
 def new_run_id() -> str:
@@ -221,126 +240,29 @@ def _remove_development_probe_jar(run_dir: Path) -> list[str]:
     return []
 
 
-def _git_status(project: Path) -> str | None:
-    result = subprocess.run(
-        ["git", "-C", str(project), "status", "--porcelain=v2", "-z", "--untracked-files=no"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    return result.stdout.decode("utf-8", errors="replace") if result.returncode == 0 else None
+def _unexpected_run_mods(run_dir: Path) -> list[Path]:
+    mods = run_dir / "mods"
+    if not mods.exists():
+        return []
+    if mods.is_symlink() or not mods.is_dir():
+        return [mods]
+    return sorted(mods.iterdir())
 
 
-def _probe_pack_details(root: Path) -> dict:
-    resolved = root.expanduser().resolve()
-    manifest = resolved / "probe-pack.toml"
-    if not manifest.is_file():
-        raise InvestigationError(
-            "probe_pack_invalid", f"probe pack manifest is missing: {manifest}"
-        )
-    try:
-        value = tomllib.loads(manifest.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        raise InvestigationError(
-            "probe_pack_invalid", f"cannot read probe pack manifest {manifest}: {exc}"
-        ) from exc
-    if value.get("schema_version") != 1:
-        raise InvestigationError("probe_pack_invalid", f"unsupported probe pack: {manifest}")
-    pack_id = value.get("id")
-    if not isinstance(pack_id, str) or not pack_id:
-        raise InvestigationError("probe_pack_invalid", f"probe pack id is missing: {manifest}")
-    sources = value.get("sources", [])
-    resources = value.get("resources", [])
-    mixins = value.get("mixins", [])
-    if not all(
-        isinstance(items, list) and all(isinstance(item, str) and item for item in items)
-        for items in (sources, resources, mixins)
-    ):
-        raise InvestigationError(
-            "probe_pack_invalid", f"sources, resources, and mixins must be string arrays: {manifest}"
-        )
-    source_paths = [(resolved / item).resolve() for item in sources]
-    resource_paths = [(resolved / item).resolve() for item in resources]
-    paths = [*source_paths, *resource_paths]
-    if any(path != resolved and resolved not in path.parents for path in paths):
-        raise InvestigationError("probe_pack_invalid", f"probe pack path escapes its root: {manifest}")
-    missing = next((path for path in paths if not path.is_dir()), None)
-    if missing is not None:
-        raise InvestigationError("probe_pack_invalid", f"probe pack input is missing: {missing}")
-    input_files = []
-    content = hashlib.sha256()
-    for path in sorted(
-        item for directory in paths for item in directory.rglob("*") if item.is_file()
-    ):
-        relative = path.relative_to(resolved).as_posix()
-        file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-        content.update(relative.encode())
-        content.update(file_hash.encode())
-        input_files.append(
-            {"path": relative, "sha256": file_hash, "size": path.stat().st_size}
-        )
-    return {
-        "id": pack_id,
-        "version": str(value.get("version", "")),
-        "root": str(resolved),
-        "manifest": str(manifest),
-        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
-        "content_sha256": content.hexdigest(),
-        "inputs": input_files,
-        "sources": [str(path) for path in source_paths],
-        "resources": [str(path) for path in resource_paths],
-        "mixins": mixins,
-        "capabilities": value.get("capabilities", []),
-    }
-
-
-def _probe_overlay_command(
-    loader: str,
-    probe_packs: tuple[Path, ...] = (),
-    compile_artifacts: tuple[tuple[ResolvedArtifact, str], ...] = (),
-) -> tuple[list[str], dict]:
-    if loader not in {"fabric", "neoforge"}:
-        raise InvestigationError(
-            "probe_overlay_unsupported", f"the probe overlay does not support loader {loader!r}"
-        )
-    missing = next((path for path in (PROBE_OVERLAY,) if not path.is_file()), None)
-    if missing is not None:
-        raise InvestigationError("probe_overlay_missing", f"probe overlay input is missing: {missing}")
-    packs = [_probe_pack_details(PROBE_RUNTIME_ROOT)]
-    packs.extend(_probe_pack_details(path) for path in probe_packs)
-    pack_ids = [pack["id"] for pack in packs]
-    if len(pack_ids) != len(set(pack_ids)):
-        raise InvestigationError("probe_pack_invalid", "probe pack IDs must be unique")
-    mixins = list(dict.fromkeys(mixin for pack in packs for mixin in pack["mixins"]))
-    compile_inputs = [
-        {
-            "id": artifact.id,
-            "path": str(artifact.path),
-            "sha256": artifact.sha256,
-            "mapping": mapping,
-        }
-        for artifact, mapping in compile_artifacts
-    ]
-    details = {
-        "overlay": str(PROBE_OVERLAY),
-        "runtime": str(PROBE_RUNTIME_ROOT),
-        "manifest": packs[0]["manifest"],
-        "manifest_sha256": packs[0]["manifest_sha256"],
-        "packs": packs,
-        "mixins": mixins,
-        "compile_artifacts": compile_inputs,
-        "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
-    }
-    arguments = [
-        "--init-script",
-        str(PROBE_OVERLAY),
-        f"-PsquinchProbeRuntime={PROBE_RUNTIME_ROOT}",
-        f"-PsquinchProbeLoader={loader}",
-        f"-PsquinchProbePacksJson={json.dumps(packs, separators=(',', ':'))}",
-        f"-PsquinchProbeMixinsJson={json.dumps(mixins, separators=(',', ':'))}",
-        f"-PsquinchProbeCompileArtifactsJson={json.dumps(compile_inputs, separators=(',', ':'))}",
-    ]
-    return arguments, details
+def _remove_launch_artifacts(state: dict) -> list[str]:
+    failures = _remove_development_probe_jar(Path(state["run_dir"]))
+    if state.get("launch_task") != "prodServer":
+        return failures
+    mods = Path(state["run_dir"]) / "mods"
+    for name in PRODUCTION_SERVER_JARS:
+        path = mods / name
+        try:
+            if path.is_symlink() or (path.exists() and not path.is_file()):
+                raise ValueError("production launch artifact is not a regular file")
+            path.unlink(missing_ok=True)
+        except (OSError, ValueError) as exc:
+            failures.append(f"production launch artifact removal: {path}: {exc}")
+    return failures
 
 
 def _property_text(properties: dict[str, str]) -> str:
@@ -354,37 +276,108 @@ def _property_text(properties: dict[str, str]) -> str:
     return "".join(f"{key}={value}\n" for key, value in sorted(properties.items()))
 
 
-def load_active(project: Path, loader: str) -> dict:
+def load_owned_active(project: Path, loader: str) -> dict:
     expected_active = active_path(project, loader)
     state = read_json(expected_active)
     if state.get("ownership") != OWNERSHIP:
         raise InvestigationError("invalid_state", "active state has unknown ownership")
+    if state.get("schema_version") != 3:
+        raise InvestigationError("invalid_state", "active state schema is not current")
+    operation = state.get("operation")
+    if operation not in {"server", "client", "cell-scan", "preset-fixture"}:
+        raise InvestigationError("invalid_state", "active state operation is invalid")
     if Path(state.get("project", "")) != project or state.get("loader") != loader:
         raise InvestigationError("invalid_state", "active state identity does not match request")
     run_id = state.get("run_id")
     if not isinstance(run_id, str) or not run_id or Path(run_id).name != run_id:
         raise InvestigationError("invalid_state", "active state has an invalid run ID")
     expected_artifact = RUNS_ROOT / run_id
-    expected_run_dir = project / loader / "run"
-    expected_level_name = f"squinch-{run_id.lower()}"
-    expected_world = expected_run_dir / expected_level_name
+    if operation == "server":
+        expected_run_dir = project / loader / "run"
+    elif operation == "client":
+        expected_run_dir = expected_artifact / "client-run"
+    else:
+        expected_run_dir = expected_artifact
     expected_paths = {
         "active_path": expected_active,
         "artifact_dir": expected_artifact,
-        "log_path": expected_artifact / "server.log",
+        "log_path": expected_artifact / f"{operation}.log",
         "run_dir": expected_run_dir,
-        "world_dir": expected_world,
     }
     for field, expected in expected_paths.items():
         if Path(state.get(field, "")) != expected:
             raise InvestigationError(
                 "invalid_state", f"active state {field} is outside its owned path"
             )
+    service = state.get("service")
+    expected_unit = f"squinch-mc-{run_id.lower()}.service"
+    launching = state.get("lifecycle") == "launching"
+    wrapper = service.get("wrapper") if isinstance(service, dict) else None
+    if (
+        not isinstance(service, dict)
+        or service.get("unit") != expected_unit
+        or not isinstance(service.get("cgroup"), str)
+        or not (service["cgroup"].startswith("/") or (launching and not service["cgroup"]))
+        or not (
+            launching and wrapper is None
+            or isinstance(wrapper, dict) and _valid_process_identity(wrapper)
+        )
+    ):
+        raise InvestigationError("invalid_state", "active state process service is invalid")
+    launcher = state.get("launcher")
+    if not isinstance(launcher, dict) or not _valid_process_identity(launcher):
+        raise InvestigationError("invalid_state", "active state launcher identity is invalid")
+    process = state.get("process")
+    if not (
+        launching and process is None
+        or isinstance(process, dict) and _valid_process_identity(process)
+    ):
+        raise InvestigationError("invalid_state", "active state process identity is invalid")
+    owned_processes = state.get("owned_processes")
+    if (
+        not isinstance(owned_processes, list)
+        or (not launching and not owned_processes)
+        or not all(isinstance(item, dict) and _valid_process_identity(item) for item in owned_processes)
+    ):
+        raise InvestigationError("invalid_state", "active state owned process identities are invalid")
+    if operation == "client":
+        display = state.get("display")
+        if (
+            not isinstance(display, dict)
+            or Path(display.get("runtime_dir", "")) != expected_artifact / "display-runtime"
+            or display.get("backend") != "headless"
+            or not isinstance(display.get("wayland_display"), str)
+            or not display["wayland_display"]
+        ):
+            raise InvestigationError("invalid_state", "active client display ownership is invalid")
+    return state
+
+
+def load_active(project: Path, loader: str) -> dict:
+    state = load_owned_active(project, loader)
+    if state["operation"] != "server":
+        raise InvestigationError(
+            "operation_mismatch", f"active operation is {state['operation']}, not server"
+        )
+    expected_level_name = f"squinch-{state['run_id'].lower()}"
+    expected_world = Path(state["run_dir"]) / expected_level_name
     if state.get("level_name") != expected_level_name:
         raise InvestigationError("invalid_state", "active state level name is invalid")
+    if Path(state.get("world_dir", "")) != expected_world:
+        raise InvestigationError("invalid_state", "active state world directory is invalid")
     if state.get("retention") not in {"discard", "keep-on-failure", "keep"}:
         raise InvestigationError("invalid_state", "active state retention is invalid")
     return state
+
+
+def _valid_process_identity(value: dict) -> bool:
+    typed = all(
+        isinstance(value.get(field), int) and not isinstance(value.get(field), bool)
+        for field in ("pid", "ppid", "pgrp", "session", "start_ticks")
+    )
+    return typed and value["pid"] > 0 and value["start_ticks"] > 0 and all(
+        value[field] >= 0 for field in ("ppid", "pgrp", "session")
+    )
 
 
 def _write_manifest(state: dict) -> None:
@@ -408,41 +401,89 @@ def persist_active(state: dict) -> None:
     _write_active(state)
 
 
-def _refresh_owned_processes(state: dict) -> list[dict]:
+def _refresh_owned_processes(state: dict, *, timeout: float = 5.0) -> list[dict]:
     recorded = {int(item["pid"]): item for item in state.get("owned_processes", [])}
-    discovered = descendants(list(recorded.values()))
-    for member in group_members(int(state["process"]["pgrp"])):
-        if member["start_ticks"] >= int(state["process"]["start_ticks"]):
-            discovered.append(member)
-    for identity in discovered:
+    for identity in service_members(state["service"], timeout=timeout):
         recorded[identity["pid"]] = identity
     state["owned_processes"] = sorted(recorded.values(), key=lambda value: value["pid"])
     return [item for item in state["owned_processes"] if identity_matches(item)]
 
 
-def _signal_owned_processes(state: dict, sig: signal.Signals) -> None:
-    pgrp = int(state["process"]["pgrp"])
-    signal_validated_group(state, sig)
-    for expected in state.get("owned_processes", []):
-        if int(expected["pgrp"]) == pgrp:
+def uninterruptible_owned_processes(
+    active_root: Path, *, timeout: float = 5.0
+) -> list[dict]:
+    """Find exact investigation-owned processes blocked in kernel disk sleep."""
+    if timeout <= 0:
+        raise InvestigationError(
+            "host_health_inconclusive", "owned-process health scan has no time budget"
+        )
+    deadline = time.monotonic() + timeout
+    blocked: list[dict] = []
+    if not active_root.is_dir():
+        return blocked
+    for path in active_root.glob("*.json"):
+        try:
+            state = read_json(path)
+        except InvestigationError:
             continue
+        if state.get("ownership") != OWNERSHIP:
+            continue
+        for expected in state.get("owned_processes", []):
+            if not isinstance(expected, dict) or "pid" not in expected:
+                continue
+            if time.monotonic() >= deadline:
+                raise InvestigationError(
+                    "host_health_inconclusive",
+                    "owned-process health scan exceeded its global time budget",
+                    details={"active_root": str(active_root), "timeout_seconds": timeout},
+                )
+            actual = proc_identity(int(expected["pid"]))
+            if actual is None or actual["state"] != "D":
+                continue
+            if all(
+                actual.get(field) == expected.get(field)
+                for field in ("pid", "start_ticks", "pgrp", "session")
+            ):
+                blocked.append({
+                    "active_path": str(path),
+                    "run_id": state.get("run_id"),
+                    "project": state.get("project"),
+                    "loader": state.get("loader"),
+                    "process": actual,
+                })
+    return blocked
+
+
+def _signal_owned_processes(
+    state: dict, sig: signal.Signals, *, timeout: float = 5.0
+) -> None:
+    service_failure: InvestigationError | None = None
+    try:
+        signal_service(state["service"], sig, timeout=timeout)
+    except InvestigationError as exc:
+        service_failure = exc
+    for expected in state.get("owned_processes", []):
         with contextlib.suppress(ProcessLookupError):
             signal_recorded_process(expected, sig)
+    if service_failure is not None and service_members(state["service"]):
+        raise service_failure
 
 
 def _wait_owned_exit(state: dict, timeout: float, *, signal_new: signal.Signals | None = None) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         before = len(state.get("owned_processes", []))
-        live = _refresh_owned_processes(state)
+        live = _refresh_owned_processes(
+            state, timeout=max(0.0, deadline - time.monotonic())
+        )
         if len(state["owned_processes"]) != before:
             _write_active(state)
             if signal_new is not None:
                 _signal_owned_processes(state, signal_new)
         if not live:
             return True
-        time.sleep(0.2)
-    return not _refresh_owned_processes(state)
+        time.sleep(min(0.2, max(0.0, deadline - time.monotonic())))
+    return not _refresh_owned_processes(state, timeout=0.0)
 
 
 def _wait_graceful_server_exit(state: dict, timeout: float) -> bool:
@@ -451,14 +492,18 @@ def _wait_graceful_server_exit(state: dict, timeout: float) -> bool:
     listener_free_since: float | None = None
     while time.monotonic() < deadline:
         before = len(state.get("owned_processes", []))
-        live = _refresh_owned_processes(state)
+        live = _refresh_owned_processes(
+            state, timeout=max(0.0, deadline - time.monotonic())
+        )
         if len(state["owned_processes"]) != before:
             _write_active(state)
         if not live:
             return True
-        bound = [
-            int(port) for port in state["ports"].values() if not port_is_free(int(port))
-        ]
+        bound = []
+        for port in state["ports"].values():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not port_is_free(int(port), timeout=remaining):
+                bound.append(int(port))
         if bound:
             listener_free_since = None
         elif listener_free_since is None:
@@ -467,8 +512,76 @@ def _wait_graceful_server_exit(state: dict, timeout: float) -> bool:
             # Minecraft no longer owns either listener and has had a short process-exit grace.
             # Let the validated TERM/KILL path handle a lingering Gradle boundary.
             return False
-        time.sleep(0.2)
-    return not _refresh_owned_processes(state)
+        time.sleep(min(0.2, max(0.0, deadline - time.monotonic())))
+    return not _refresh_owned_processes(state, timeout=0.0)
+
+
+def _startup_terminal_log(log_path: Path) -> str | None:
+    """Return a bounded terminal excerpt when launch output proves startup has failed."""
+    try:
+        with log_path.open("rb") as log_file:
+            size = log_file.seek(0, os.SEEK_END)
+            log_file.seek(max(0, size - STARTUP_LOG_TAIL_BYTES))
+            tail = log_file.read().decode("utf-8", errors="replace")
+    except (FileNotFoundError, OSError):
+        return None
+    if not any(marker in tail for marker in STARTUP_TERMINAL_LOG_MARKERS):
+        return None
+    lines = tail.splitlines()
+    return "\n".join(lines[-STARTUP_LOG_EXCERPT_LINES:])
+
+
+def _protocol_process_pid(log_path: Path, run_id: str) -> int | None:
+    try:
+        with log_path.open("rb") as log_file:
+            size = log_file.seek(0, os.SEEK_END)
+            log_file.seek(max(0, size - STARTUP_LOG_TAIL_BYTES))
+            tail = log_file.read().decode("utf-8", errors="replace")
+    except (FileNotFoundError, OSError):
+        return None
+    matches = PROTOCOL_READY_PATTERN.findall(tail)
+    return next((int(pid) for marker_run, pid in reversed(matches) if marker_run == run_id), None)
+
+
+def _rollback_server_files(
+    *,
+    run_dir: Path,
+    world_dir: Path,
+    artifact_dir: Path,
+    managed_files: list[dict],
+    runtime_files: list[dict[str, str]],
+    runtime_absent_files: list[str],
+    companion_artifacts: list[dict[str, str]],
+    remove_artifact_dir: bool,
+) -> list[str]:
+    """Attempt every reversible preparation cleanup and report the complete result."""
+    failures: list[str] = []
+    for artifact in companion_artifacts:
+        target = Path(artifact["materialized_path"])
+        try:
+            target.unlink(missing_ok=True)
+        except OSError as failure:
+            failures.append(f"companion {target}: {failure}")
+    failures.extend(_restore_managed_files({
+        "run_dir": str(run_dir),
+        "artifact_dir": str(artifact_dir),
+        "managed_files": managed_files,
+        "runtime_files": runtime_files,
+        "runtime_absent_files": runtime_absent_files,
+    }))
+    if world_dir.exists():
+        try:
+            if world_dir.is_symlink() or not world_dir.is_dir():
+                raise ValueError("owned world path is not a regular directory")
+            shutil.rmtree(world_dir)
+        except (OSError, ValueError) as failure:
+            failures.append(f"world {world_dir}: {failure}")
+    if remove_artifact_dir and not failures:
+        try:
+            shutil.rmtree(artifact_dir)
+        except OSError as failure:
+            failures.append(f"artifact directory {artifact_dir}: {failure}")
+    return failures
 
 
 def start_server(
@@ -491,23 +604,43 @@ def start_server(
 ) -> dict:
     startup_started = time.monotonic()
     loader_dir = validate_loader(project, loader)
-    compile_artifacts = probe_compile_artifacts
-    if compile_artifacts is None:
-        compile_artifacts = [(artifact, "loader") for artifact in companion_artifacts or ()]
+    if launch_task not in {"runServer", "prodServer"}:
+        raise InvestigationError(
+            "invalid_launch_task", f"unsupported Gradle launch task: {launch_task}"
+        )
+    if launch_task == "prodServer" and loader not in {"fabric", "neoforge"}:
+        raise InvestigationError(
+            "invalid_launch_task", "prodServer requires Fabric or NeoForge"
+        )
+    active = active_path(project, loader)
+    blocked = uninterruptible_owned_processes(active.parent)
+    if blocked:
+        raise InvestigationError(
+            "host_degraded",
+            "refusing to launch while an investigation-owned process is in uninterruptible sleep",
+            details={"processes": blocked},
+        )
+    launcher = proc_identity(os.getpid())
+    if launcher is None:
+        raise InvestigationError(
+            "process_identity_failed", "could not retain server launcher identity"
+        )
+    compile_artifacts = probe_compile_artifacts or []
     if any(mapping not in {"named", "loader"} for _artifact, mapping in compile_artifacts):
         raise InvestigationError(
             "probe_compile_artifact_invalid", "probe compile artifact mapping must be named or loader"
         )
-    overlay_arguments, overlay_details = _probe_overlay_command(
+    overlay_arguments, overlay_details = probe_overlay_command(
         loader, probe_packs, tuple(compile_artifacts)
     )
-    tracked_status_before = _git_status(project)
-    active = active_path(project, loader)
+    tracked_status_before = git_status(project)
     with project_lock(lock_path(project, loader)):
         if active.exists():
-            existing = load_active(project, loader)
-            if identity_matches(existing["process"]) or group_members(
-                int(existing["process"]["pgrp"])
+            existing = load_owned_active(project, loader)
+            process = existing["process"]
+            if (
+                isinstance(process, dict) and identity_matches(process)
+                or service_members(existing["service"])
             ):
                 raise InvestigationError(
                     "already_active",
@@ -528,6 +661,12 @@ def start_server(
             raise InvestigationError(
                 "probe_artifact_conflict",
                 probe_cleanup_failures[0],
+            )
+        unexpected_mods = _unexpected_run_mods(run_dir)
+        if unexpected_mods:
+            raise InvestigationError(
+                "run_mods_not_isolated",
+                f"run mods directory contains undeclared entries: {unexpected_mods}",
             )
         level_name = f"squinch-{run_id.lower()}"
         world_dir = run_dir / level_name
@@ -611,25 +750,21 @@ def start_server(
             raise InvestigationError("duplicate_runtime_file", "runtime file targets must be unique")
 
         artifact_dir.mkdir(parents=True, exist_ok=False)
-        managed_files = [
-            _backup_file(run_dir / "eula.txt", artifact_dir),
-            _backup_file(run_dir / "server.properties", artifact_dir),
-            *[
-                _backup_file(
-                    Path(record["target"]),
-                    artifact_dir,
-                    Path(record["target"]).relative_to(run_dir),
-                )
-                for record in resolved_runtime_files
-            ],
-            *[
-                _backup_file(
-                    Path(target), artifact_dir, Path(target).relative_to(run_dir)
-                )
-                for target in resolved_runtime_absent_files
-            ],
-        ]
+        managed_files: list[dict] = []
+        installed_companion_artifacts: list[dict[str, str]] = []
         try:
+            managed_files.append(_backup_file(run_dir / "eula.txt", artifact_dir))
+            managed_files.append(_backup_file(run_dir / "server.properties", artifact_dir))
+            for record in resolved_runtime_files:
+                target = Path(record["target"])
+                managed_files.append(
+                    _backup_file(target, artifact_dir, target.relative_to(run_dir))
+                )
+            for target_value in resolved_runtime_absent_files:
+                target = Path(target_value)
+                managed_files.append(
+                    _backup_file(target, artifact_dir, target.relative_to(run_dir))
+                )
             (run_dir / "eula.txt").write_text("eula=true\n", encoding="utf-8")
             (run_dir / "server.properties").write_text(property_text, encoding="utf-8")
             for record in resolved_runtime_files:
@@ -643,7 +778,6 @@ def start_server(
                 target_dir.mkdir(parents=True, exist_ok=False)
                 for source in resolved_datapacks:
                     shutil.copy2(source, target_dir / source.name)
-            installed_companion_artifacts: list[dict[str, str]] = []
             if companion_artifacts:
                 mods_dir = run_dir / "mods"
                 mods_dir.mkdir(parents=True, exist_ok=True)
@@ -655,38 +789,37 @@ def start_server(
                             "companion_artifact_conflict",
                             f"companion artifact target already exists: {target}",
                         )
-                    shutil.copy2(source, target)
-                    installed_companion_artifacts.append({
+                    installed = {
                         "id": artifact.id,
                         "source_path": str(source),
                         "materialized_path": str(target),
                         "sha256": artifact.sha256,
-                    })
-        except BaseException:
-            for artifact in installed_companion_artifacts:
-                with contextlib.suppress(FileNotFoundError):
-                    Path(artifact["materialized_path"]).unlink()
-            _restore_managed_files(
-                {
-                    "run_dir": str(run_dir),
-                    "artifact_dir": str(artifact_dir),
-                    "managed_files": managed_files,
-                    "runtime_files": resolved_runtime_files,
-                    "runtime_absent_files": resolved_runtime_absent_files,
-                }
+                    }
+                    installed_companion_artifacts.append(installed)
+                    shutil.copy2(source, target)
+        except BaseException as original:
+            cleanup_failures = _rollback_server_files(
+                run_dir=run_dir,
+                world_dir=world_dir,
+                artifact_dir=artifact_dir,
+                managed_files=managed_files,
+                runtime_files=resolved_runtime_files,
+                runtime_absent_files=resolved_runtime_absent_files,
+                companion_artifacts=installed_companion_artifacts,
+                remove_artifact_dir=True,
             )
-            if world_dir.exists() and world_dir.is_dir() and not world_dir.is_symlink():
-                shutil.rmtree(world_dir)
+            if cleanup_failures:
+                raise CleanupError(
+                    "server preparation failed and rollback did not complete",
+                    details={
+                        "preparation_error": str(original),
+                        "failures": cleanup_failures,
+                        "run_id": run_id,
+                        "artifact_dir": str(artifact_dir),
+                    },
+                ) from original
             raise
 
-        if launch_task not in {"runServer", "prodServer"}:
-            raise InvestigationError(
-                "invalid_launch_task", f"unsupported Gradle launch task: {launch_task}"
-            )
-        if launch_task == "prodServer" and loader not in {"fabric", "neoforge"}:
-            raise InvestigationError(
-                "invalid_launch_task", "prodServer requires Fabric or NeoForge"
-            )
         command = [
             "bash",
             "./gradlew",
@@ -697,32 +830,28 @@ def start_server(
         ]
         started_at = timestamp()
         process: subprocess.Popen[bytes] | None = None
-        try:
-            with log_path.open("wb") as log_file:
-                process = subprocess.Popen(
-                    command,
-                    cwd=project,
-                    env=sourced_environment(),
-                    stdin=subprocess.DEVNULL,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
-            identity = proc_identity(process.pid)
-            if identity is None:
-                raise InvestigationError(
-                    "process_identity_unavailable",
-                    f"could not read identity for launched process {process.pid}",
-                )
+        service: dict | None = None
+        identity: dict | None = None
+        state: dict | None = None
+        launch_owned = False
+
+        def publish_start(
+            launched_process: subprocess.Popen[bytes] | None,
+            launched_service: dict,
+            wrapper_identity: dict | None,
+        ) -> None:
+            nonlocal state, launch_owned
             state = {
                 "ownership": OWNERSHIP,
-                "schema_version": 1,
+                "schema_version": 3,
+                "operation": "server",
                 "run_id": run_id,
-                "lifecycle": "starting",
+                "lifecycle": "launching",
                 "started_at": started_at,
                 "finished_at": None,
                 "project": str(project),
                 "loader": loader,
+                "launch_task": launch_task,
                 "level_name": level_name,
                 "world_dir": str(world_dir),
                 "run_dir": str(run_dir),
@@ -732,9 +861,10 @@ def start_server(
                 "retention": retention,
                 "ports": {"server": chosen_server_port, "rcon": chosen_rcon_port},
                 "rcon": {"host": "127.0.0.1", "password": password},
-                "process": identity,
-                "launcher": proc_identity(os.getpid()),
-                "owned_processes": [identity],
+                "process": wrapper_identity,
+                "service": launched_service,
+                "launcher": launcher,
+                "owned_processes": [wrapper_identity] if wrapper_identity is not None else [],
                 "managed_files": managed_files,
                 "runtime_files": resolved_runtime_files,
                 "runtime_absent_files": resolved_runtime_absent_files,
@@ -749,40 +879,90 @@ def start_server(
                     "tracked_source_unchanged": None,
                 },
                 "protocol_root": str(run_dir / ".squinch-investigate"),
+                "protocol_process": None,
                 "forceload_regions": [],
                 "protocol_files": [],
                 "cleanup": {"complete": False, "failures": []},
             }
-            # Provisional state is durable immediately after launch, before readiness.
+            launch_owned = True
             _write_active(state)
-        except BaseException:
-            # If launch failed before state became durable, restore the files directly.
-            if process is not None:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGKILL)
-                with contextlib.suppress(subprocess.TimeoutExpired):
-                    process.wait(timeout=5)
-            for artifact in installed_companion_artifacts:
-                with contextlib.suppress(FileNotFoundError):
-                    Path(artifact["materialized_path"]).unlink()
-            provisional = {
-                "run_dir": str(run_dir),
-                "artifact_dir": str(artifact_dir),
-                "managed_files": managed_files,
-                "runtime_files": resolved_runtime_files,
-                "runtime_absent_files": resolved_runtime_absent_files,
-            }
-            _restore_managed_files(provisional)
-            if world_dir.exists() and world_dir.is_dir() and not world_dir.is_symlink():
-                shutil.rmtree(world_dir)
+
+        try:
+            with log_path.open("wb") as log_file:
+                launch_environment = sourced_environment()
+                launch_environment["SQUINCH_INVESTIGATE_RUN_ID"] = run_id
+                process, service, identity = launch_service(
+                    unit=f"squinch-mc-{run_id.lower()}.service",
+                    command=command,
+                    cwd=project,
+                    environment=launch_environment,
+                    output=log_file,
+                    publish_start=publish_start,
+                )
+            assert state is not None
+            state["lifecycle"] = "starting"
+            state["process"] = identity
+            state["service"] = service
+            state["owned_processes"] = [identity, service["wrapper"]]
+            _write_active(state)
+        except BaseException as original:
+            cleanup_failures: list[str] = []
+            owned_process_alive = False
+            if launch_owned and state is not None:
+                try:
+                    cleanup_failures.extend(
+                        terminate_owned_service(state, 15.0, label="server")
+                    )
+                except BaseException as failure:
+                    cleanup_failures.append(f"server launch cleanup failed: {failure}")
+                owned_process_alive = bool(state.get("remaining_owned_processes"))
+            if not owned_process_alive:
+                if state is not None:
+                    cleanup_failures.extend(_remove_launch_artifacts(state))
+                if launch_owned and active.exists():
+                    try:
+                        active.unlink()
+                    except OSError as failure:
+                        cleanup_failures.append(f"active state {active}: {failure}")
+                cleanup_failures.extend(_rollback_server_files(
+                    run_dir=run_dir,
+                    world_dir=world_dir,
+                    artifact_dir=artifact_dir,
+                    managed_files=managed_files,
+                    runtime_files=resolved_runtime_files,
+                    runtime_absent_files=resolved_runtime_absent_files,
+                    companion_artifacts=installed_companion_artifacts,
+                    remove_artifact_dir=not cleanup_failures,
+                ))
+            elif state is not None:
+                state["lifecycle"] = "cleanup_failed"
+                state["failure"] = str(original)
+                state["cleanup"] = {"complete": False, "failures": cleanup_failures}
+                try:
+                    _write_active(state)
+                except OSError as failure:
+                    cleanup_failures.append(f"could not retain active recovery state: {failure}")
+                    with contextlib.suppress(OSError):
+                        _write_manifest(state)
+            if cleanup_failures:
+                raise CleanupError(
+                    "server launch failed and rollback did not complete",
+                    details={
+                        "launch_error": str(original),
+                        "failures": cleanup_failures,
+                        "run_id": run_id,
+                        "artifact_dir": str(artifact_dir),
+                        "recovery_required": owned_process_alive,
+                    },
+                ) from original
             raise
 
     deadline = time.monotonic() + timeout
-    protocol_without_listener_since: float | None = None
+    probe_deadline: float | None = None
     try:
         while time.monotonic() < deadline:
             before = len(state["owned_processes"])
-            _refresh_owned_processes(state)
+            live = _refresh_owned_processes(state)
             if len(state["owned_processes"]) != before:
                 _write_active(state)
             if process.poll() is not None:
@@ -791,21 +971,46 @@ def start_server(
                     f"server process exited with code {process.returncode} before RCON readiness",
                     details={"log_path": str(log_path)},
                 )
-            protocol_created = Path(state["protocol_root"]).exists()
-            listeners_bound = any(
-                not port_is_free(int(port)) for port in state["ports"].values()
-            )
-            if protocol_created and not listeners_bound:
-                if protocol_without_listener_since is None:
-                    protocol_without_listener_since = time.monotonic()
-                elif time.monotonic() - protocol_without_listener_since >= 5.0:
+            terminal_log = _startup_terminal_log(log_path)
+            if terminal_log is not None:
+                raise InvestigationError(
+                    "startup_exited",
+                    "launch output reported a terminal failure before RCON readiness",
+                    details={"log_path": str(log_path), "terminal_log": terminal_log},
+                )
+            uninterruptible = [
+                confirmed
+                for item in live
+                if item.get("state") == "D"
+                and (confirmed := confirm_uninterruptible(item)) is not None
+            ]
+            if uninterruptible:
+                _write_active(state)
+                raise InvestigationError(
+                    "host_degraded",
+                    "an investigation-owned process entered uninterruptible sleep during startup",
+                    details={"processes": uninterruptible, "log_path": str(log_path)},
+                )
+            protocol_pid = _protocol_process_pid(log_path, run_id)
+            protocol_process = state.get("protocol_process")
+            if protocol_process is None and protocol_pid is not None:
+                protocol_process = next(
+                    (item for item in live if item["pid"] == protocol_pid), None
+                )
+                if protocol_process is None:
                     raise InvestigationError(
                         "startup_exited",
                         "Minecraft initialized the probe boundary and exited before RCON readiness",
                         details={"log_path": str(log_path)},
                     )
-            else:
-                protocol_without_listener_since = None
+                state["protocol_process"] = protocol_process
+                _write_active(state)
+            elif protocol_process is not None and not identity_matches(protocol_process):
+                raise InvestigationError(
+                    "startup_exited",
+                    "Minecraft initialized the probe boundary and exited before RCON readiness",
+                    details={"log_path": str(log_path)},
+                )
             try:
                 execute(
                     "127.0.0.1",
@@ -814,6 +1019,18 @@ def start_server(
                     ["list"],
                     timeout=min(2.0, max(0.2, deadline - time.monotonic())),
                 )
+                if state.get("protocol_process") is None:
+                    now = time.monotonic()
+                    if probe_deadline is None:
+                        probe_deadline = min(deadline, now + 5.0)
+                    if now >= probe_deadline:
+                        raise InvestigationError(
+                            "startup_probe_boundary_missing",
+                            "server reached RCON readiness without the investigation probe boundary",
+                            details={"log_path": str(log_path)},
+                        )
+                    time.sleep(min(0.1, probe_deadline - now))
+                    continue
                 break
             except RconError:
                 time.sleep(0.5)
@@ -834,7 +1051,7 @@ def start_server(
         state["lifecycle"] = "ready"
         state["ready_at"] = timestamp()
         state.setdefault("timings", {})["startup_seconds"] = time.monotonic() - startup_started
-        tracked_status_after = _git_status(project)
+        tracked_status_after = git_status(project)
         state["probe_overlay"]["tracked_status_after_build"] = tracked_status_after
         state["probe_overlay"]["tracked_source_unchanged"] = (
             tracked_status_before == tracked_status_after
@@ -847,7 +1064,7 @@ def start_server(
                 details={
                     "before": tracked_status_before,
                     "after": tracked_status_after,
-                    "overlay": str(PROBE_OVERLAY),
+                    "overlay": overlay_details["overlay"],
                 },
             )
         return state
@@ -858,6 +1075,8 @@ def start_server(
         try:
             stop_server(project, loader, successful=False, timeout=15.0)
         except InvestigationError as cleanup:
+            if cleanup.code == "interrupted" and cleanup.details.get("cleanup_complete") is True:
+                raise cleanup from original
             raise CleanupError(
                 f"startup failed and cleanup was incomplete: {original}",
                 details={
@@ -878,6 +1097,17 @@ def start_server(
                     "cleanup_complete": True,
                 }
             )
+        if isinstance(original, KeyboardInterrupt):
+            raise InvestigationError(
+                "interrupted",
+                "server startup interrupted by signal",
+                details={
+                    "run_id": run_id,
+                    "artifact_dir": str(artifact_dir),
+                    "log_path": str(log_path),
+                    "cleanup_complete": True,
+                },
+            ) from original
         raise
 
 
@@ -913,16 +1143,22 @@ def _cleanup_world(state: dict, successful: bool) -> str | None:
     return None
 
 
-def _remove_forceload_regions(state: dict, timeout: float) -> list[str]:
+def _remove_forceload_regions(
+    state: dict, deadline: Deadline, *, reserve_seconds: float = 0.0
+) -> list[str]:
     """Remove only this run's regions and durably forget each acknowledged removal."""
     failures: list[str] = []
     for region in reversed(list(state.get("forceload_regions", []))):
+        remaining = min(10.0, max(0.0, deadline.remaining() - reserve_seconds))
+        if remaining <= 0:
+            failures.append("shutdown timeout expired before owned forceload cleanup completed")
+            break
         command = (
             f"forceload remove {region['block_min_x']} {region['block_min_z']} "
             f"{region['block_max_x']} {region['block_max_z']}"
         )
         try:
-            run_commands(state, [command], min(timeout, 10.0))
+            run_commands(state, [command], remaining)
         except InvestigationError as exc:
             failures.append(f"owned forceload removal: {exc}")
         else:
@@ -931,12 +1167,14 @@ def _remove_forceload_regions(state: dict, timeout: float) -> list[str]:
     return failures
 
 
-def stop_server(
+def _stop_server(
     project: Path, loader: str, *, successful: bool, timeout: float, allow_orphaned_starting: bool = False
 ) -> dict:
     active = active_path(project, loader)
     with project_lock(lock_path(project, loader)):
         cleanup_started = time.monotonic()
+        deadline = Deadline(timeout)
+        forced_teardown_reserve = min(10.0, timeout / 2.0)
         state = load_active(project, loader)
         if state["lifecycle"] == "starting" and not allow_orphaned_starting:
             raise InvestigationError(
@@ -948,44 +1186,94 @@ def stop_server(
         _write_active(state)
         failures: list[str] = []
         diagnostics: list[str] = []
-        failures.extend(_remove_forceload_regions(state, timeout))
+        failures.extend(
+            _remove_forceload_regions(
+                state, deadline, reserve_seconds=forced_teardown_reserve
+            )
+        )
         save_started = time.monotonic()
         if was_ready:
+            remaining = max(0.0, deadline.remaining() - forced_teardown_reserve)
             try:
+                if remaining <= 0:
+                    raise InvestigationError(
+                        "shutdown_timeout", "shutdown timeout expired before world save"
+                    )
                 # Large worldgen evidence windows can legitimately need more than thirty seconds
                 # to flush. The caller already supplies the bounded shutdown budget; imposing a
                 # smaller hidden cap turns a healthy, still-saving server into a forced teardown.
-                run_commands(state, ["save-all flush"], timeout)
+                run_commands(state, ["save-all flush"], remaining)
             except InvestigationError as exc:
                 failures.append(f"world save: {exc}")
         state.setdefault("timings", {})["save_seconds"] = time.monotonic() - save_started
         shutdown_started = time.monotonic()
-        rcon_stop_sent = False
         try:
-            run_commands(state, ["stop"], min(timeout, 10.0))
-            rcon_stop_sent = True
+            remaining = min(
+                10.0, max(0.0, deadline.remaining() - forced_teardown_reserve)
+            )
+            if remaining <= 0:
+                raise InvestigationError(
+                    "shutdown_timeout", "shutdown timeout expired before RCON stop"
+                )
+            run_commands(state, ["stop"], remaining)
         except InvestigationError as exc:
             # The server often closes RCON before replying to `stop`. Process and
             # socket ownership checks below decide whether cleanup really failed.
             diagnostics.append(f"RCON stop: {exc}")
 
-        pgrp = int(state["process"]["pgrp"])
-        _refresh_owned_processes(state)
-        graceful = rcon_stop_sent and _wait_graceful_server_exit(state, timeout)
+        _refresh_owned_processes(state, timeout=deadline.remaining(1.0))
+        remaining = deadline.remaining()
+        escalation_reserve = (
+            remaining if timeout < 1.0 else min(5.0, remaining / 2.0)
+        )
+        graceful = _wait_graceful_server_exit(
+            state, max(0.0, remaining - escalation_reserve)
+        )
         if not graceful:
+            state["teardown_process_diagnostics"] = [
+                process_kernel_diagnostics(item)
+                for item in state.get("owned_processes", [])
+            ]
+            _write_active(state)
+            remaining = deadline.remaining()
+            kill_reserve = remaining if remaining < 1.0 else min(1.0, remaining / 2.0)
             try:
-                _signal_owned_processes(state, signal.SIGTERM)
-                if not _wait_owned_exit(state, 5.0, signal_new=signal.SIGTERM):
-                    _signal_owned_processes(state, signal.SIGKILL)
-                    _wait_owned_exit(state, 3.0, signal_new=signal.SIGKILL)
+                _signal_owned_processes(
+                    state,
+                    signal.SIGTERM,
+                    timeout=min(1.0, max(0.0, deadline.remaining() - kill_reserve)),
+                )
             except InvestigationError as exc:
-                failures.append(str(exc))
+                diagnostics.append(f"owned TERM: {exc}")
+            if not _wait_owned_exit(
+                state,
+                max(0.0, deadline.remaining() - kill_reserve),
+                signal_new=signal.SIGTERM,
+            ):
+                try:
+                    _signal_owned_processes(
+                        state, signal.SIGKILL, timeout=deadline.remaining(1.0)
+                    )
+                except InvestigationError as exc:
+                    diagnostics.append(f"owned KILL: {exc}")
+                remaining = deadline.remaining()
+                verification_reserve = min(0.25, remaining / 2.0)
+                _wait_owned_exit(
+                    state,
+                    max(0.0, remaining - verification_reserve),
+                    signal_new=signal.SIGKILL,
+                )
 
-        # A wrapper may have moved the real listener into another process group. Only
-        # signal identities captured after authenticated readiness.
+        try:
+            stop_service(
+                state["service"], timeout=min(0.1, deadline.remaining() / 2.0)
+            )
+        except InvestigationError as exc:
+            diagnostics.append(f"service stop: {exc}")
+
         recorded = {int(item["pid"]): item for item in state.get("owned_processes", [])}
         for port in state["ports"].values():
-            for owner in listener_owners(int(port)):
+            for owner in listener_owners(int(port), timeout=deadline.remaining(5.0)):
                 expected = recorded.get(owner["pid"])
                 if expected is None or not identity_matches(expected):
                     failures.append(
@@ -997,18 +1285,25 @@ def stop_server(
                 except OSError as exc:
                     failures.append(f"failed to signal listener pid {owner['pid']}: {exc}")
 
-        port_deadline = time.monotonic() + 10.0
         bound: list[int] = []
-        while time.monotonic() < port_deadline:
-            bound = [int(port) for port in state["ports"].values() if not port_is_free(int(port))]
+        ports_verified = False
+        while not deadline.expired():
+            bound = []
+            for port in state["ports"].values():
+                remaining = deadline.remaining()
+                if remaining <= 0 or not port_is_free(int(port), timeout=remaining):
+                    bound.append(int(port))
             if not bound:
+                ports_verified = True
                 break
             time.sleep(0.2)
         if bound:
             failures.append(f"ports remain bound: {bound}")
-        remaining = group_members(pgrp)
+        elif not ports_verified:
+            failures.append("shutdown timeout expired before listener cleanup was verified")
+        remaining = service_members(state["service"], timeout=deadline.remaining(1.0))
         if remaining:
-            failures.append(f"process group remains alive: {[item['pid'] for item in remaining]}")
+            failures.append(f"owned cgroup remains alive: {[item['pid'] for item in remaining]}")
         remaining_owned = [
             item["pid"]
             for item in state.get("owned_processes", [])
@@ -1021,7 +1316,7 @@ def stop_server(
         failures.extend(_remove_protocol_files(state))
         failures.extend(_restore_managed_files(state))
         failures.extend(_remove_companion_artifacts(state))
-        failures.extend(_remove_development_probe_jar(Path(state["run_dir"])))
+        failures.extend(_remove_launch_artifacts(state))
         retained_world: str | None = None
         try:
             retained_world = _cleanup_world(state, successful and not failures)
@@ -1058,26 +1353,67 @@ def stop_server(
         return state
 
 
+def stop_server(
+    project: Path,
+    loader: str,
+    *,
+    successful: bool,
+    timeout: float,
+    allow_orphaned_starting: bool = False,
+) -> dict:
+    with defer_termination_signals() as pending_signals:
+        state = _stop_server(
+            project,
+            loader,
+            successful=successful,
+            timeout=timeout,
+            allow_orphaned_starting=allow_orphaned_starting,
+        )
+    if pending_signals:
+        raise InvestigationError(
+            "interrupted",
+            "server teardown interrupted by signal after cleanup completed",
+            details={
+                "run_id": state["run_id"],
+                "artifact_dir": state["artifact_dir"],
+                "log_path": state["log_path"],
+                "cleanup_complete": True,
+            },
+        )
+    return state
+
+
 def status(project: Path, loader: str) -> dict | None:
     active = active_path(project, loader)
     if not active.exists():
         return None
-    state = load_active(project, loader)
+    state = load_owned_active(project, loader)
     state = dict(state)
-    state["leader_identity_valid"] = identity_matches(state["process"])
-    state["group_pids"] = [
-        item["pid"] for item in group_members(int(state["process"]["pgrp"]))
-    ]
+    process = state["process"]
+    state["leader_identity_valid"] = (
+        isinstance(process, dict) and identity_matches(process)
+    )
+    state["owned_pids"] = [item["pid"] for item in service_members(state["service"])]
     state["bound_ports"] = [
-        int(port) for port in state["ports"].values() if not port_is_free(int(port))
+        int(port)
+        for port in state.get("ports", {}).values()
+        if not port_is_free(int(port))
     ]
     return state
 
 
 def recover(project: Path, loader: str, timeout: float) -> dict:
-    state = load_active(project, loader)
+    state = load_owned_active(project, loader)
+    if state["operation"] == "client":
+        from .client import recover_client
+
+        return recover_client(project, loader, timeout)
+    if state["operation"] in {"cell-scan", "preset-fixture"}:
+        from .cell_scan import recover_standalone
+
+        return recover_standalone(project, loader, timeout)
     process_alive = any(identity_matches(item) for item in state.get("owned_processes", [])) or bool(
-        group_members(int(state["process"]["pgrp"]))
+        service_members(state["service"])
     )
     ports_bound = any(not port_is_free(int(port)) for port in state["ports"].values())
     if process_alive or ports_bound:
@@ -1107,7 +1443,11 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         failures = _remove_protocol_files(state)
         failures.extend(_restore_managed_files(state))
         failures.extend(_remove_companion_artifacts(state))
-        failures.extend(_remove_development_probe_jar(Path(state["run_dir"])))
+        failures.extend(_remove_launch_artifacts(state))
+        try:
+            stop_service(state["service"])
+        except InvestigationError as exc:
+            failures.append(str(exc))
         try:
             retained_world = _cleanup_world(state, successful=False)
         except CleanupError as exc:
@@ -1126,14 +1466,5 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
 
 
 def _starting_run_is_orphaned(state: dict) -> bool:
-    """Whether a doctor recovery can safely take over a stranded startup.
-
-    New state records retain the launcher identity. Legacy state did not, so only a changed parent
-    for the exact tracked process establishes that the original launcher has exited.
-    """
-    launcher = state.get("launcher")
-    if isinstance(launcher, dict):
-        return not identity_matches(launcher)
-    expected = state["process"]
-    actual = proc_identity(int(expected["pid"]))
-    return actual is not None and actual["ppid"] != int(expected["ppid"])
+    """Whether a doctor recovery can safely take over a stranded startup."""
+    return not identity_matches(state["launcher"])

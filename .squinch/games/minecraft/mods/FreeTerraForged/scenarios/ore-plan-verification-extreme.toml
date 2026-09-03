@@ -1,6 +1,6 @@
 schema_version = 1
 name = "Ore plan verification: extreme deep+tall stress"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"

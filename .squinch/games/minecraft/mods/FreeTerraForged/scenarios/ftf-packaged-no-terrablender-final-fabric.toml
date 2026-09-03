@@ -9,7 +9,7 @@ probe_packs = [
     "games/minecraft/investigations/reterraforged/probes/biome-preview-parity",
     "games/minecraft/investigations/reterraforged/probes/flow-settings-acceptance",
 ]
-companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
 retention = "keep"
 
 [server_properties]

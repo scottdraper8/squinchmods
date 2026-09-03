@@ -166,14 +166,17 @@ public final class FlowSettingsAcceptanceProbePack implements ProbePack {
 			player.connection.chunkSender.sendNextChunks(player);
 
 			List<Byte> actual = FlowSettingsAcceptanceTelemetry.finish();
-			List<Byte> expected = List.of(
-				overworldOriginal.encode(),
-				overworldChanged.encode(),
-				overworldOriginal.encode(),
-				netherOriginal.encode(),
-				netherChanged.encode(),
-				overworldOriginal.encode()
-			);
+			List<Byte> expected = new ArrayList<>();
+			if (overworldOriginal.encode() != 0) {
+				expected.add(overworldOriginal.encode());
+			}
+			expected.add(overworldChanged.encode());
+			expected.add(overworldOriginal.encode());
+			if (netherOriginal.encode() != 0 || overworldOriginal.encode() > 0) {
+				expected.add(netherOriginal.encode());
+			}
+			expected.add(netherChanged.encode());
+			expected.add(overworldOriginal.encode());
 			if (!actual.equals(expected)) {
 				throw new IllegalStateException("unexpected settings synchronization sequence: " + actual + " expected " + expected);
 			}

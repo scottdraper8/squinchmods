@@ -13,7 +13,6 @@ import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
 import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
 
-/** Synthetic public method wrapper proving FTF preserves the vanilla outer surface-stage seam. */
 @Mixin(NoiseBasedChunkGenerator.class)
 abstract class MixinNoiseBasedChunkGenerator {
     @Inject(method = "buildSurface", at = @At("HEAD"))

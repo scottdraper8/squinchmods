@@ -5,7 +5,7 @@ loader = "fabric"
 seed = 12345
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry", "games/minecraft/investigations/reterraforged/probes/feature-graph-census"]
-companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-immersive-ores-1.1.8"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-immersive-ores-1.1.8"]
 retention = "keep"
 
 [server_properties]

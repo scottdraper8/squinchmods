@@ -1,0 +1,21 @@
+schema_version = 1
+id = "shallow-depth-mountain-control--biome-size-50"
+classification = "reusable-stress"
+purpose = "Complete generated registries for shallow-depth-mountain-control--biome-size-50."
+applicable_questions = [
+  "RTF biome reachability census — biomeSize 50 warm inland",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "f8c0033b7af29e8acd0b934a24f83b74847d2d8acd42c3c3bb59476d67a03800"
+source_content_sha256 = "96448ca9d33283fbd25488d37bf2410b817a3785c5c713085fea28ac12df840f"
+generator_run_id = "20260903T050311Z-9492b4fc5d"
+generator_content_sha256 = "fd50eca5f8e5c718c5ff323b0ce16d8a0afbd725c7f2ca832f45553605247f8d"
+generator_canonical_preset_sha256 = "5eb8cf0de19e21dfd1255c6e42be8f288f9aa988bc30f0ce863a5a50a0f6adab"
+generator_resolved_preset_sha256 = "f8c0033b7af29e8acd0b934a24f83b74847d2d8acd42c3c3bb59476d67a03800"
+generator_file_count = 194
+patch_sha256 = "6b7cf384011c89dfc572eac09be871ef5cc51f03558b6e4bd0ee25208736092b"

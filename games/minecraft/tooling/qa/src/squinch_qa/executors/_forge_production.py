@@ -6,6 +6,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Mapping
 
 from squinch_qa.executors._server import ServerLaunchError
 
@@ -124,6 +125,7 @@ def launch_forge_production_server(
     java_major: int,
     env: dict[str, str],
     logs_dir: Path,
+    server_properties: Mapping[str, str] | None = None,
 ) -> tuple[subprocess.Popen, Path, Path]:
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / "server.stdout.log"
@@ -149,16 +151,15 @@ def launch_forge_production_server(
         shutil.copy2(tool_jar, mods_dir / tool_jar.name)
 
     (server_dir / "eula.txt").write_text("eula=true\n", encoding="utf-8")
+    properties = {
+        "enable-rcon": "false",
+        "level-name": "world",
+        "online-mode": "false",
+        "server-port": "0",
+        **(server_properties or {}),
+    }
     (server_dir / "server.properties").write_text(
-        "\n".join(
-            [
-                "online-mode=false",
-                "server-port=0",
-                "enable-rcon=false",
-                "level-name=world",
-                "",
-            ]
-        ),
+        "\n".join(f"{key}={value}" for key, value in sorted(properties.items())) + "\n",
         encoding="utf-8",
     )
 

@@ -120,6 +120,11 @@ from the earlier acquisition source. Provider candidates, fallback and compositi
 declared decorator outputs all participate. These graph-dependent facets materialize once after
 selection planning, while an explicit provider-owned facet replacement remains independent.
 
+Placement execution consumes identity-indexed classifications and ore transforms from that plan; it
+does not recover feature identity from a live registry. Missing, direct, or conflicting identity
+retains vanilla placement. The structure plan likewise owns FTF rule order and tag-derived jigsaw
+adaptations, and one structure-generation invocation pins one plan snapshot across reload.
+
 An actual pre-server request exposes contributed outputs when the mechanism has a stable
 registration snapshot. A loaded mechanism with no contribution applicable to that creation graph is
 absent from the plan rather than becoming an unavailable facet.
@@ -144,6 +149,18 @@ Execution policy is behavior, not advisory metadata. If any participating query 
 `OWNER_SERIAL`, provider selection, spatial resolution, sampler transforms, and selection decorators
 share one owner-local gate. Preview cache owners retain the exact registry snapshot and selected
 stem used to construct them; structural fingerprints never authorize reading a newer live object.
+Generation advance closes the superseded prepared owner before scheduling its replacement, and
+display-only results retain no semantic key or registry graph.
+
+One preview input revision owns one immutable preset capture and lazily computed semantic
+fingerprint. Shared owner, tile, and sidecar producers are subscriber-aware: one canceled widget
+does not abort identical work still needed by another, while all-subscriber cancellation or a newer
+semantic generation prevents publication. Completed results, in-flight work, queued admissions,
+pooled arrays, and producer-side cancellation references are each bounded by the screen owner.
+
+Preset spawn fields belong to the preset properties instance. A climate sampler publishes an atomic
+owner-local spawn-search value, and preview mutates only a request-private properties copy. No
+process-global spawn state may couple previews, dimensions, presets, reload epochs, or servers.
 
 Two-dimensional surface placement, three-dimensional cave placement, density injection, surface
 rules, carvers, features, and structures remain separate facets. Supporting one facet through a
@@ -163,6 +180,15 @@ analysis failure disables only the optimization.
 
 Density bounds never clip biome sampling, surface rules, features, structures, or another worldgen
 facet. Each requires its own proven contract.
+
+## Runtime evidence integrity
+
+Performance, allocation, RSS, startup, shutdown, and lifecycle conclusions require a healthy host
+and clean investigation ownership. A JVM stuck in uninterruptible teardown, pathological system
+load, bound investigation port, failed cleanup, or incomplete profiler output invalidates those
+measurements. Source and deterministic functional evidence remain separately usable, but affected
+runtime comparisons must be repeated after recovery with matched processes, inputs, loaders, JVM
+flags, warmup, and heap accounting.
 
 ## Generator-stage execution
 

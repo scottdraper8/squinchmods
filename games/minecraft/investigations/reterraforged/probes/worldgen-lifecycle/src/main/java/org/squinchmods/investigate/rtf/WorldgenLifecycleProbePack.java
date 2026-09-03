@@ -97,10 +97,11 @@ public final class WorldgenLifecycleProbePack implements ProbePack {
                 && current.plan().owner().type() == WorldgenOwnerType.WORLDGEN_EPOCH;
             boolean randomStateOwnerAligned = current.randomStateEpoch() == current.epoch()
                 && current.randomStatePlan() == current.plan();
-            boolean immutableBootstrapInputs = current.epoch().settingsIdentity()
-                .equals(baseline.epoch().settingsIdentity())
-                && current.epoch().resourceLayerFingerprint()
-                    .equals(baseline.epoch().resourceLayerFingerprint());
+            boolean immutableBootstrapInputs = current.epoch().dimension().equals(baseline.epoch().dimension())
+                && current.epoch().seed() == baseline.epoch().seed()
+                && current.epoch().registries() == baseline.epoch().registries()
+                && current.epoch().selectedStem() == baseline.epoch().selectedStem()
+                && current.epoch().settingsIdentity().equals(baseline.epoch().settingsIdentity());
             boolean reportsPresent = !baseline.plan().report().nodes().isEmpty()
                 && !current.plan().report().nodes().isEmpty();
             boolean mechanismReportsStable = mechanismNodes(current.plan()).equals(mechanismNodes(baseline.plan()));

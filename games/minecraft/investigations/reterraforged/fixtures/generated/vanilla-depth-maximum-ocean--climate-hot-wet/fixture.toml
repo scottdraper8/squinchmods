@@ -1,0 +1,22 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--climate-hot-wet"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--climate-hot-wet."
+applicable_questions = [
+  "FTF + current Regions Unexplored spatial compatibility — hot wet climate",
+  "FTF + current Terrestria spatial compatibility — hot wet climate",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "24a0ea0e591fa416c9b5900b874b73e021403f82e60443d7b9775fd098dbb80e"
+source_content_sha256 = "0f59a0c4e2ebd65fe2b30e8fba6fec00f216311a9357a1f81d6449b9cb94862b"
+generator_run_id = "20260903T050228Z-ea1ca0e196"
+generator_content_sha256 = "5461dbbc365525374015cdf0742d93905f926303e629887b51cefbbee2256afc"
+generator_canonical_preset_sha256 = "be8125e724dab326f9357a2efe7d43288cc11d747933866152882ac405bc4d29"
+generator_resolved_preset_sha256 = "24a0ea0e591fa416c9b5900b874b73e021403f82e60443d7b9775fd098dbb80e"
+generator_file_count = 194
+patch_sha256 = "007035b47ac893af0220ce36680fad40f64a30c912c665da8ce3fc89923620d3"

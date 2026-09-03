@@ -31,6 +31,8 @@ import raccoonman.reterraforged.world.worldgen.densityfunction.tile.Tile;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenFingerprints;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlan;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlans;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenContributionRevision;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCapabilityDiscovery;
 
 /** Stage and allocation breakdown for the compatibility runtime's preview query. */
 public final class CurrentPreviewPerformanceProbePack implements ProbePack {
@@ -67,17 +69,22 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
             Preset preset = rtfRandomState.preset();
             long started = System.nanoTime();
             HolderLookup.Provider provider = preset.buildPreviewLookups(server.registryAccess());
-            GeneratorContext context = GeneratorContext.makeUncached(
+            try (GeneratorContext context = GeneratorContext.makeUncached(
                 preset,
                 provider.lookupOrThrow(RTFRegistries.NOISE),
                 (int) level.getSeed(),
                 4,
                 0,
                 6
-            );
+            )) {
             long contextNanos = System.nanoTime() - started;
 
             started = System.nanoTime();
+			var providers = WorldgenCapabilityDiscovery.discover(getClass().getClassLoader());
+			var contributions = WorldgenContributionRevision.snapshot(LevelStem.OVERWORLD, providers);
+			long capabilityNanos = System.nanoTime() - started;
+
+			started = System.nanoTime();
             try (
                 BiomePreviewResolver resolver = BiomePreviewResolver.create(
                     server.registryAccess(),
@@ -90,7 +97,9 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
                     level.getSeed(),
                     level.dimension().location().toString(),
                     "server-registry-access",
-                    WorldgenFingerprints.tags(server.registryAccess())
+                    WorldgenFingerprints.tags(server.registryAccess()),
+					contributions,
+					providers
                 )
             ) {
                 long resolverNanos = System.nanoTime() - started;
@@ -99,8 +108,11 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
                     this.centerX, this.centerZ, this.zoom, true, () -> false
                 ).join()) {
                     long tileNanos = System.nanoTime() - started;
-                    return measure(resolver, tile, context, contextNanos, resolverNanos, tileNanos);
+					return measure(
+						resolver, tile, context, contextNanos, capabilityNanos, resolverNanos, tileNanos
+					);
                 }
+            }
             }
         }
 
@@ -110,6 +122,7 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
             Tile tile,
             GeneratorContext context,
             long contextNanos,
+			long capabilityNanos,
             long resolverNanos,
             long tileNanos
         ) {
@@ -173,7 +186,7 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
                 for (int index = 0; index < count; index++) {
                     decorated[index] = plan.selectionDecoration().apply(
                         providers[index], spatial[index], targets[index],
-                        quartXs[index], quartYs[index], quartZs[index], sampler
+                        quartXs[index], quartYs[index], quartZs[index], sampler, context
                     );
                 }
             });
@@ -213,6 +226,7 @@ public final class CurrentPreviewPerformanceProbePack implements ProbePack {
                 .mapToInt(domain -> domain.candidates().values().size()).sum());
             data.addProperty("decorator_stages", plan.selectionDecoration().stages().size());
             data.addProperty("context_millis", millis(contextNanos));
+			data.addProperty("capability_millis", millis(capabilityNanos));
             data.addProperty("resolver_millis", millis(resolverNanos));
             data.addProperty("tile_millis", millis(tileNanos));
             addStage(data, "sampler", samplerStage);

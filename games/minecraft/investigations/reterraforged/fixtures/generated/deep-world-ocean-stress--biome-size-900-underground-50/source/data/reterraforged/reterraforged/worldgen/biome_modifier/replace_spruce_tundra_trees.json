@@ -1,0 +1,8 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": "minecraft:snowy_plains",
+  "replacements": {
+    "minecraft:trees_snowy": "reterraforged:spruce_tundra_trees"
+  },
+  "step": "vegetal_decoration"
+}

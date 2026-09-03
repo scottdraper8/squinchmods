@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import zipfile
 from pathlib import Path
 
-import pytest
-
-from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.fixtures import (
     RTF_PRESET_PATH,
     load_fixture,
-    materialize_ephemeral_fixture,
     materialize_fixture,
 )
 from squinch_minecraft_investigate.paths import REPOSITORY_ROOT
@@ -60,33 +55,14 @@ def test_materialized_fixture_zip_is_byte_deterministic_and_decodable(tmp_path: 
         assert archive.read(RTF_PRESET_PATH).startswith(b"{\n")
 
 
-def test_ephemeral_merge_patch_is_pinned_deterministic_and_resolved(tmp_path: Path) -> None:
-    """Catches a one-off preset applying to an unpinned base or omitting its resolved fingerprint."""
-    metadata = FIXTURES / "vanilla-depth-maximum-ocean/fixture.toml"
-    base, _files = load_fixture(metadata)
-    patch = tmp_path / "extreme.json"
-    patch.write_text(json.dumps({"world": {"properties": {"worldDepth": 256}}}))
-    first = tmp_path / "first.zip"
-    second = tmp_path / "second.zip"
-    arguments = {
-        "fixture_id": "one-off-depth-256",
-        "purpose": "exercise an unretained legal depth",
-        "base_metadata": metadata,
-        "expected_base_preset_sha256": base["resolved_preset_sha256"],
-        "patch_file": patch,
-    }
+def test_generated_fixture_catalog_has_complete_provenance() -> None:
+    metadata_paths = sorted((FIXTURES / "generated").glob("*/fixture.toml"))
 
-    first_manifest = materialize_ephemeral_fixture(**arguments, output=first)
-    second_manifest = materialize_ephemeral_fixture(**arguments, output=second)
-
-    assert first.read_bytes() == second.read_bytes()
-    assert first_manifest["classification"] == "ephemeral"
-    assert first_manifest["resolved_preset"]["world"]["properties"]["worldDepth"] == 256
-    assert first_manifest["patch_sha256"] == hashlib.sha256(patch.read_bytes()).hexdigest()
-    assert first_manifest["archive_sha256"] == second_manifest["archive_sha256"]
-
-    with pytest.raises(InvestigationError, match="pinned base"):
-        materialize_ephemeral_fixture(
-            **{**arguments, "expected_base_preset_sha256": "0" * 64},
-            output=tmp_path / "rejected.zip",
-        )
+    assert len(metadata_paths) == 22
+    for metadata in metadata_paths:
+        manifest, files = load_fixture(metadata)
+        assert manifest["historical_archive_sha256"] is None
+        assert manifest["generator"]["file_count"] == len(files)
+        assert manifest["generator"]["resolved_preset_sha256"] == manifest[
+            "resolved_preset_sha256"
+        ]

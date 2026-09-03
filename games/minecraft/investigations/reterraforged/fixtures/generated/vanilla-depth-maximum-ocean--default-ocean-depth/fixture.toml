@@ -1,0 +1,21 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--default-ocean-depth"
+classification = "reusable-control"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--default-ocean-depth."
+applicable_questions = [
+  "FTF actual-editor grid and finished parity with Terrestria",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "e3149fccc4ddc3cc6a6950ddd68616ac22a061ee99f9e578b9c39559a23435ff"
+source_content_sha256 = "8a889314376839c3490bcd736e87d95d2e7d26b071cdca271a507555e99579a6"
+generator_run_id = "20260903T050050Z-4c63afdfdd"
+generator_content_sha256 = "b7118e1702d3d63bf7e7a06539ed5616da3bcc75c169d9d6bef3b6bc6df83449"
+generator_canonical_preset_sha256 = "aff862418280523083f8dfd2c643f227e19d5062ba29d3556209815b56c85a76"
+generator_resolved_preset_sha256 = "e3149fccc4ddc3cc6a6950ddd68616ac22a061ee99f9e578b9c39559a23435ff"
+generator_file_count = 194
+patch_sha256 = "050dcdede25ea7fb1cba5007c987ab7114a2dbb75f37f48973caf8916b2bd622"

@@ -1,0 +1,24 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--biome-size-900"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-size-900."
+applicable_questions = [
+  "FTF + Oh The Biomes We've Gone spatial compatibility — biome size 900",
+  "FTF + Biomes O' Plenty spatial compatibility — biome size 900",
+  "FTF spatial compatibility control — biome size 900",
+  "FTF + Nature's Spirit spatial compatibility — biome size 900",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "67c5273e7b498ed2df4a66a1a0ceb7287477f95b102cc08a8428061ee9d1b87f"
+source_content_sha256 = "c40f31474b257c389b22a83f16367a76eb5377a37efd82a14e9c547e0400c997"
+generator_run_id = "20260903T050145Z-32ceca37c7"
+generator_content_sha256 = "d846470b2f7215a2f692ff2a452f0b78e356fd3f39eb9369cf3d6fe82e29fcd8"
+generator_canonical_preset_sha256 = "954fefff0de293ac9b8fe618c0e93cf7ce99cff5765977342fa3484af1e18523"
+generator_resolved_preset_sha256 = "67c5273e7b498ed2df4a66a1a0ceb7287477f95b102cc08a8428061ee9d1b87f"
+generator_file_count = 194
+patch_sha256 = "07b9dce94558d24a0c9dc29685722cf117841b87c6b4f9e171be350f02d807bd"

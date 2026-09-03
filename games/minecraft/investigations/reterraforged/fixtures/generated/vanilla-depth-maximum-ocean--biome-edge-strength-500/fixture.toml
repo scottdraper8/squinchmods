@@ -1,0 +1,22 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--biome-edge-strength-500"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-edge-strength-500."
+applicable_questions = [
+  "FTF + current Regions Unexplored spatial compatibility — biome edge 500",
+  "FTF + current Terrestria spatial compatibility — biome edge 500",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "e3e24cd90c9c14ca4222cc73af061d221549a73732df66812d5491d60c52d017"
+source_content_sha256 = "85e6d52208a412b09fd831b2c3b37ae2ca62780e15610a2d03a7007881950618"
+generator_run_id = "20260903T050217Z-99dc2c8306"
+generator_content_sha256 = "b189002fdde82f2a46ba7ae8d5dd453d8350d38b480c67f2c7f2bffa215cd5b5"
+generator_canonical_preset_sha256 = "6d2273dde01bb9a2d9f801011635f389387f5cb3afc17b491553bb1e9bac5f3b"
+generator_resolved_preset_sha256 = "e3e24cd90c9c14ca4222cc73af061d221549a73732df66812d5491d60c52d017"
+generator_file_count = 194
+patch_sha256 = "897e7eb15cd4d72e28e43c1a54b2679cf0003fc58a461a4c830f14c4ac7efcf1"

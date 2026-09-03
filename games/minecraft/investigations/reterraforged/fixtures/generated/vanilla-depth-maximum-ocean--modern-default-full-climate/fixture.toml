@@ -1,0 +1,22 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--modern-default-full-climate"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--modern-default-full-climate."
+applicable_questions = [
+  "RTF climate-domain evaluation — modern default full climate",
+  "RTF biome reachability census — modern default full climate",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "ab54b87becb83ed0a5f735a369152c96a9fd3b6f4c57a6eb0adb4698e8a324b2"
+source_content_sha256 = "38e6b94a6074288ef83da5d7cc7f95ed3357336f39b2eae48ed66fec0c17d354"
+generator_run_id = "20260903T050300Z-05aeea23af"
+generator_content_sha256 = "0d9c12821bf3b4f1419ecf4472056a9195ec74674e281fd4aea61c0f2a69b30f"
+generator_canonical_preset_sha256 = "73d0588096fcbfae5077db1f92ff10b62456771b5f012c1bc485c7f1457e47a7"
+generator_resolved_preset_sha256 = "ab54b87becb83ed0a5f735a369152c96a9fd3b6f4c57a6eb0adb4698e8a324b2"
+generator_file_count = 195
+patch_sha256 = "200cd02f99a378889e1e6de0816f5ad383c9808a264e147fb158f706f75519f4"

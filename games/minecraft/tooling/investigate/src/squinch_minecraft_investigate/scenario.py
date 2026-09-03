@@ -21,7 +21,7 @@ from typing import Any
 from .catalog import ResolvedArtifact, resolve_artifacts
 from .errors import CleanupError, InvestigationError
 from .generation import generate_regions
-from .fixtures import load_fixture, materialize_ephemeral_fixture, materialize_fixture
+from .fixtures import load_fixture, materialize_fixture
 from .output import timestamp
 from .paths import REPOSITORY_ROOT, STATE_ROOT
 from .probe_requests import submit_probe
@@ -44,7 +44,6 @@ FATAL_LOG_PATTERNS = (
     re.compile(r"---- Minecraft Crash Report ----", re.IGNORECASE),
     re.compile(r"Exception in server tick loop", re.IGNORECASE),
     re.compile(r"Failed to start the minecraft server", re.IGNORECASE),
-    re.compile(r"\[Server thread/ERROR\]"),
 )
 
 
@@ -53,15 +52,6 @@ class ProbeSelection:
     probe_id: str
     version: str
     config: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class RTFEphemeralPreset:
-    fixture_id: str
-    purpose: str
-    base_fixture: Path
-    base_preset_sha256: str
-    patch_file: Path
 
 
 @dataclass(frozen=True)
@@ -89,7 +79,6 @@ class Scenario:
     launch_task: str
     seed: str
     rtf_fixture: Path | None
-    rtf_ephemeral: RTFEphemeralPreset | None
     datapacks: tuple[Path, ...]
     runtime_files: tuple[tuple[Path, str], ...]
     runtime_absent_files: tuple[str, ...]
@@ -177,7 +166,6 @@ def load_scenario(path: str | Path) -> Scenario:
             "launch_task",
             "seed",
             "rtf_fixture",
-            "rtf_ephemeral",
             "datapacks",
             "runtime_files",
             "runtime_absent_files",
@@ -219,49 +207,6 @@ def load_scenario(path: str | Path) -> Scenario:
     rtf_fixture = None
     if "rtf_fixture" in raw:
         rtf_fixture = _scenario_path(scenario_path, raw["rtf_fixture"], "rtf_fixture")
-    rtf_ephemeral = None
-    if "rtf_ephemeral" in raw:
-        if rtf_fixture is not None:
-            raise _error("rtf_fixture and rtf_ephemeral are mutually exclusive")
-        value = raw["rtf_ephemeral"]
-        if not isinstance(value, dict):
-            raise _error("rtf_ephemeral must be a table")
-        _known_keys(
-            value,
-            {"id", "purpose", "base_fixture", "base_preset_sha256", "patch_file"},
-            "rtf_ephemeral",
-        )
-        missing = sorted(
-            {"id", "purpose", "base_fixture", "base_preset_sha256", "patch_file"}
-            - set(value)
-        )
-        if missing:
-            raise _error(f"rtf_ephemeral is missing: {', '.join(missing)}")
-        fixture_id = value["id"]
-        purpose = value["purpose"]
-        base_hash = value["base_preset_sha256"]
-        if (
-            not isinstance(fixture_id, str)
-            or not fixture_id
-            or Path(fixture_id).name != fixture_id
-        ):
-            raise _error("rtf_ephemeral.id must be a nonempty path-safe string")
-        if not isinstance(purpose, str) or not purpose:
-            raise _error("rtf_ephemeral.purpose must be a nonempty string")
-        if (
-            not isinstance(base_hash, str)
-            or len(base_hash) != 64
-            or any(character not in "0123456789abcdef" for character in base_hash)
-        ):
-            raise _error("rtf_ephemeral.base_preset_sha256 must be a lowercase SHA-256")
-        rtf_ephemeral = RTFEphemeralPreset(
-            fixture_id,
-            purpose,
-            _scenario_path(scenario_path, value["base_fixture"], "rtf_ephemeral.base_fixture"),
-            base_hash,
-            _scenario_path(scenario_path, value["patch_file"], "rtf_ephemeral.patch_file"),
-        )
-
     datapack_values = raw.get("datapacks", [])
     if not isinstance(datapack_values, list):
         raise _error("datapacks must be an array of paths")
@@ -559,7 +504,6 @@ def load_scenario(path: str | Path) -> Scenario:
         launch_task,
         seed,
         rtf_fixture,
-        rtf_ephemeral,
         datapacks,
         tuple(runtime_files),
         tuple(runtime_absent_files),
@@ -1049,6 +993,13 @@ def _validate_probe_terminal(step_id: str, result: dict[str, Any]) -> None:
         )
 
 
+def _fatal_log_pattern(text: str) -> str | None:
+    return next(
+        (pattern.pattern for pattern in FATAL_LOG_PATTERNS if pattern.search(text)),
+        None,
+    )
+
+
 def _scenario_summary(
     state: dict, scenario: Scenario, result_state: str, steps: list[dict], error: dict | None
 ) -> dict:
@@ -1070,7 +1021,6 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
     dirty_patch = b""
     effective_scenario = scenario
     fixture_manifest: dict[str, Any] | None = None
-    ephemeral_preset = scenario.rtf_ephemeral is not None
     materialized_path: Path | None = None
     materialized_dir: Path | None = None
     state: dict | None = None
@@ -1121,11 +1071,11 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             source.seek(log_position)
             addition = source.read()
             log_position = source.tell()
-        for pattern in FATAL_LOG_PATTERNS:
-            if pattern.search(addition):
-                raise InvestigationError(
-                    "scenario_fatal_log", f"fatal server condition matched {pattern.pattern!r}"
-                )
+        fatal_pattern = _fatal_log_pattern(addition)
+        if fatal_pattern is not None:
+            raise InvestigationError(
+                "scenario_fatal_log", f"fatal server condition matched {fatal_pattern!r}"
+            )
 
     def execute_probe(
         probe_id: str,
@@ -1160,27 +1110,9 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             effective_scenario = replace(
                 scenario, datapacks=(materialized_path, *scenario.datapacks)
             )
-        elif scenario.rtf_ephemeral is not None:
-            ephemeral = scenario.rtf_ephemeral
-            materialized_dir = STATE_ROOT / "materialized" / uuid.uuid4().hex
-            materialized_dir.mkdir(parents=True, exist_ok=False)
-            materialized_path = materialized_dir / f"{ephemeral.fixture_id}.zip"
-            fixture_manifest = materialize_ephemeral_fixture(
-                fixture_id=ephemeral.fixture_id,
-                purpose=ephemeral.purpose,
-                base_metadata=ephemeral.base_fixture,
-                expected_base_preset_sha256=ephemeral.base_preset_sha256,
-                patch_file=ephemeral.patch_file,
-                output=materialized_path,
-            )
-            effective_scenario = replace(
-                scenario, datapacks=(materialized_path, *scenario.datapacks)
-            )
         provenance, dirty_patch = capture_provenance(effective_scenario, environment)
         if fixture_manifest is not None:
-            provenance[
-                "rtf_ephemeral_preset" if ephemeral_preset else "rtf_fixture"
-            ] = fixture_manifest
+            provenance["rtf_fixture"] = fixture_manifest
         server_properties = dict(scenario.server_properties)
         if any(step.kind == "generate" for step in scenario.steps):
             # Deliberate bounded generation is controlled by the scenario step timeout and
@@ -1193,14 +1125,11 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         resolved_artifacts = list(catalog_artifacts)
         probe_compile_artifacts = []
         selections = scenario.probe_compile_artifacts
-        if selections:
-            for selection in selections:
-                artifact = resolve_artifacts(
-                    (selection.artifact_id,), expected_loader=selection.loader
-                )[0]
-                probe_compile_artifacts.append((artifact, selection.mapping))
-        else:
-            probe_compile_artifacts.extend((artifact, "loader") for artifact in catalog_artifacts)
+        for selection in selections:
+            artifact = resolve_artifacts(
+                (selection.artifact_id,), expected_loader=selection.loader
+            )[0]
+            probe_compile_artifacts.append((artifact, selection.mapping))
         if scenario.subject_artifact is not None:
             subject_hash = _sha256(scenario.subject_artifact)
             resolved_artifacts.insert(0, ResolvedArtifact(
@@ -1247,24 +1176,11 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             fixture_manifest["materialization_path"] = fixture_manifest["archive_path"]
             fixture_manifest["archive_path"] = str(fixture_artifact)
             fixture_manifest["archive_artifact"] = str(fixture_artifact)
-            if ephemeral_preset:
-                assert scenario.rtf_ephemeral is not None
-                patch_artifact = artifact_dir / "rtf-preset-merge-patch.json"
-                shutil.copy2(scenario.rtf_ephemeral.patch_file, patch_artifact)
-                fixture_manifest["patch_input_path"] = fixture_manifest["patch_path"]
-                fixture_manifest["patch_path"] = str(patch_artifact)
-                fixture_manifest["patch_artifact"] = str(patch_artifact)
             for datapack in provenance["datapacks"]:
                 if datapack["path"] == str(materialized_path):
                     datapack["materialization_path"] = datapack["path"]
                     datapack["path"] = str(fixture_artifact)
-                    if ephemeral_preset:
-                        datapack["ephemeral_patch_path"] = str(patch_artifact)
-                        datapack["base_fixture_metadata_path"] = fixture_manifest[
-                            "base_metadata_path"
-                        ]
-                    else:
-                        datapack["fixture_metadata_path"] = str(scenario.rtf_fixture)
+                    datapack["fixture_metadata_path"] = str(scenario.rtf_fixture)
                     datapack["artifact_path"] = str(fixture_artifact)
             state["datapacks"] = [
                 str(fixture_artifact) if path == str(materialized_path) else path
@@ -1433,11 +1349,12 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         step_failure = exc
                     elif isinstance(step_failure, InvestigationError):
                         step_failure.details["jfr_stop_error"] = str(exc)
-            if step_failure is not None:
-                raise step_failure
             if profile is not None:
                 result["profile"] = profile
                 state.setdefault("profile_artifacts", []).append(profile)
+                persist_active(state)
+            if step_failure is not None:
+                raise step_failure
             health_check()
             _check_expectations(step, result)
             record = {
@@ -1509,7 +1426,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         _scenario_summary(
                             state,
                             scenario,
-                            "failed",
+                            "failed" if failure else "succeeded",
                             steps,
                             {
                                 "code": "cleanup_failed",
@@ -1567,8 +1484,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         "steps": steps,
         "provenance": provenance,
         "world_identity": world_identity,
-        "rtf_fixture": None if ephemeral_preset else fixture_manifest,
-        "rtf_ephemeral_preset": fixture_manifest if ephemeral_preset else None,
+        "rtf_fixture": fixture_manifest,
         "scenario_summary": str(scenario_summary_path),
         "scenario_progress": str(progress_path),
     }

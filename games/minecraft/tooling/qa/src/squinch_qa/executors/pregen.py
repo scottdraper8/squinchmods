@@ -106,6 +106,7 @@ def _launch_pregen_server(
             java_major=ctx.target.java,
             env=env,
             logs_dir=logs_dir,
+            server_properties=None,
         )
 
     if runtime == "gradle-dev":

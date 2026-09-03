@@ -1,0 +1,14 @@
+{
+  "type": "reterraforged:erode",
+  "config": {
+    "dirt_min": 95,
+    "dirt_steepness": 0.475,
+    "dirt_var": 40,
+    "height_modifier": 0.023529412,
+    "rock_min": 256,
+    "rock_steepness": 0.65,
+    "rock_var": 30,
+    "scree_steepness": 0.4,
+    "slope_modifier": 0.011764706
+  }
+}

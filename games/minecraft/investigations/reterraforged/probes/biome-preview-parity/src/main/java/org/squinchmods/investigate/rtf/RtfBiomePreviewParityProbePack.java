@@ -45,6 +45,8 @@ import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlans;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPlan;
 import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenFingerprints;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCapabilityDiscovery;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenContributionRevision;
 
 /** Finished-chunk comparison for the exact resolver used by the preset previews. */
 public final class RtfBiomePreviewParityProbePack implements ProbePack {
@@ -222,6 +224,8 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             Map<String, Long> selectionTransitions = new TreeMap<>();
             boolean parallelEnabled;
             MessageDigest gridDigest = sha256();
+			var providers = WorldgenCapabilityDiscovery.discover(getClass().getClassLoader());
+			var contributions = WorldgenContributionRevision.snapshot(LevelStem.OVERWORLD, providers);
 
             try (
                 BiomePreviewResolver resolver = BiomePreviewResolver.create(
@@ -235,7 +239,9 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                     level.getSeed(),
                     level.dimension().location().toString(),
                     "server-registry-access",
-                    WorldgenFingerprints.tags(server.registryAccess())
+					WorldgenFingerprints.tags(server.registryAccess()),
+					contributions,
+					providers
                 );
                 Tile tile = context.generator.generateZoomed(
                     this.centerX, this.centerZ, this.zoom, true, () -> false
@@ -457,6 +463,8 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                     0,
                     6
                 );
+			var providers = WorldgenCapabilityDiscovery.discover(getClass().getClassLoader());
+			var contributions = WorldgenContributionRevision.snapshot(LevelStem.OVERWORLD, providers);
             BiomePreviewResolver resolver = BiomePreviewResolver.create(
                 server.registryAccess(),
                 previewProvider,
@@ -468,7 +476,9 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                 level.getSeed(),
                 level.dimension().location().toString(),
                 "server-registry-access",
-                WorldgenFingerprints.tags(server.registryAccess())
+				WorldgenFingerprints.tags(server.registryAccess()),
+				contributions,
+				providers
             );
             long sampled = 0;
             long mismatches = 0;

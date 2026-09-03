@@ -1,17 +1,12 @@
 schema_version = 1
 name = "RTF underground sizing — surface 900 / underground inherited"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-coherence", "games/minecraft/investigations/reterraforged/probes/biome-palette"]
 retention = "keep"
 
-[rtf_ephemeral]
-id = "underground-sizing-900-inherited"
-purpose = "Legacy surface biome size 900 with omitted underground size"
-base_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
-base_preset_sha256 = "eeb267db2f56d4cad8a7f44196b2fdf51f1e281d0ec208bd7308eca62f4124fb"
-patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900.json"
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/deep-world-ocean-stress--biome-size-900/fixture.toml"
 
 [server_properties]
 view-distance = 4

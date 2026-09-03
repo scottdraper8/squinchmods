@@ -33,3 +33,33 @@ def test_step_jfr_requires_a_real_nonempty_artifact(
     assert result["scope"] == "scenario-step"
     assert result["size"] == len(b"real-jfr-bytes")
     assert len(result["sha256"]) == 64
+
+
+@pytest.mark.parametrize(
+    "command_line",
+    (
+        "java_command: net.fabricmc.installer.ServerLauncher nogui",
+        "java_command: net.fabricmc.loader.impl.launch.server.FabricServerLauncher nogui",
+        "java_command: net.minecraft.server.Main nogui",
+        "java_command: cpw.mods.bootstraplauncher.BootstrapLauncher @neoforge_args.txt nogui",
+    ),
+)
+def test_minecraft_jvm_recognizes_production_launchers(
+    monkeypatch: pytest.MonkeyPatch, command_line: str
+) -> None:
+    monkeypatch.setattr(profiling, "identity_matches", lambda _identity: True)
+    monkeypatch.setattr(profiling, "_run_jcmd", lambda _command, _pid, *_args: command_line)
+
+    assert profiling._minecraft_jvm({"owned_processes": [{"pid": 42}]}, Path("jcmd")) == 42
+
+
+def test_minecraft_jvm_rejects_gradle_wrappers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(profiling, "identity_matches", lambda _identity: True)
+    monkeypatch.setattr(
+        profiling,
+        "_run_jcmd",
+        lambda _command, _pid, *_args: "java_command: org.gradle.wrapper.GradleWrapperMain",
+    )
+
+    with pytest.raises(InvestigationError, match="found 0"):
+        profiling._minecraft_jvm({"owned_processes": [{"pid": 42}]}, Path("jcmd"))

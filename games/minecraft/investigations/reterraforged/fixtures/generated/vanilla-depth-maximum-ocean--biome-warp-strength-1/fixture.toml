@@ -1,0 +1,22 @@
+schema_version = 1
+id = "vanilla-depth-maximum-ocean--biome-warp-strength-1"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-warp-strength-1."
+applicable_questions = [
+  "FTF + current Regions Unexplored spatial compatibility — biome warp 1",
+  "FTF + current Terrestria spatial compatibility — biome warp 1",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "92cb28503886e41765c136e5241309fa64173e801fe539c2d438e747f76022e2"
+source_content_sha256 = "ab3d1ddeb339904b06fadfad8a97c6fca46983d9889ae6893160e54fd57d283a"
+generator_run_id = "20260903T050239Z-a38075a557"
+generator_content_sha256 = "b0b5a15d750cbca163352ca892f249fe79ccf220d1f52d6496e6d563f1ee81bf"
+generator_canonical_preset_sha256 = "be522c1a04861a771ab696894d96704f54d5d3623b6671380fd1fe9ab0ec11c2"
+generator_resolved_preset_sha256 = "92cb28503886e41765c136e5241309fa64173e801fe539c2d438e747f76022e2"
+generator_file_count = 194
+patch_sha256 = "a2e0649f590b1c842ac9b356399e9f16c21506e2ca584514b68890492112e203"

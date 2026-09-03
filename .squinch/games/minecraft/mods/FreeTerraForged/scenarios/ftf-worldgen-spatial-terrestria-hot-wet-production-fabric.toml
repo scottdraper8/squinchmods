@@ -5,15 +5,10 @@ loader = "fabric"
 launch_task = "prodServer"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-compatibility"]
-companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-biolith-3.0.14", "mc1.21.1-fabric-terrestria-7.0.3"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-biolith-3.0.14", "mc1.21.1-fabric-terrestria-7.0.3"]
 retention = "keep"
 
-[rtf_ephemeral]
-id = "terrestria-hot-wet"
-purpose = "Measure FTF-owned Biolith replacement eligibility under hot wet FTF climate"
-base_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-base_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
-patch_file = "games/minecraft/investigations/reterraforged/patches/climate-hot-wet.json"
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--climate-hot-wet/fixture.toml"
 
 [server_properties]
 view-distance = 4

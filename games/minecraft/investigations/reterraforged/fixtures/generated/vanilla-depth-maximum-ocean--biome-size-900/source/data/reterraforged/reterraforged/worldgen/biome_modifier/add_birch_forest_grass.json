@@ -1,0 +1,13 @@
+{
+  "type": "reterraforged:add",
+  "biomes": {
+    "behavior": "whitelist",
+    "biomes": [
+      "minecraft:birch_forest",
+      "minecraft:old_growth_birch_forest"
+    ]
+  },
+  "features": "reterraforged:birch_forest_grass",
+  "order": "prepend",
+  "step": "vegetal_decoration"
+}

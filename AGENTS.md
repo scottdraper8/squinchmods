@@ -29,6 +29,10 @@
 - Use a clean worktree based on the live `upstream/1.21.1` tip for new evidence or implementation.
 - Use `tooling/squinch mc-investigate` and repository-relative scenarios. Follow
   `.agent-docs/games/minecraft/agentic-development-guide.md` and retain exact run IDs/artifacts.
+- Before using wall-clock, allocation, RSS, JFR, startup, shutdown, or cleanup evidence, verify that
+  the host is healthy and that no prior investigation-owned JVM remains in uninterruptible teardown.
+  Treat measurements from a degraded host as invalid, retain them only as labeled failure artifacts,
+  and rerun the affected comparison after host recovery.
 - Acquire and validate third-party jars and sources through `tooling/squinch third-party`; the
   catalog is `.squinch/games/minecraft/third-party/artifacts.toml`.
 - Before drawing a primary compatibility conclusion, verify against the live latest release that

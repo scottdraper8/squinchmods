@@ -34,7 +34,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.Bootstrap;
 import raccoonman.reterraforged.concurrent.ThreadPools;
 import raccoonman.reterraforged.concurrent.cache.Cache;
-import raccoonman.reterraforged.concurrent.cache.CacheManager;
 import raccoonman.reterraforged.data.worldgen.preset.PresetNoiseData;
 import raccoonman.reterraforged.data.worldgen.preset.settings.Preset;
 import raccoonman.reterraforged.registries.RTFRegistries;
@@ -62,6 +61,8 @@ public final class CellScanMain {
 
         long started = System.nanoTime();
         JsonObject output = new JsonObject();
+        GeneratorContext previewContext = null;
+        GeneratorContext runtimeTileContext = null;
         try {
             SharedConstants.tryDetectVersion();
             Bootstrap.bootStrap();
@@ -84,7 +85,7 @@ public final class CellScanMain {
             int seed = request.get("seed").getAsInt();
             int tileSize = request.get("tile_size").getAsInt();
             int batchCount = request.get("batch_count").getAsInt();
-            GeneratorContext previewContext = GeneratorContext.makeUncached(
+            previewContext = GeneratorContext.makeUncached(
                 preset, noises, seed, tileSize, 0, batchCount
             );
             int runtimeBorder = Math.min(
@@ -93,7 +94,7 @@ public final class CellScanMain {
             String mode = request.get("mode").getAsString();
             boolean needsRuntimeTile = mode.equals("tile")
                 || (mode.equals("adaptive") && request.get("exact_tile").getAsBoolean());
-            GeneratorContext runtimeTileContext = needsRuntimeTile
+            runtimeTileContext = needsRuntimeTile
                 ? GeneratorContext.makeUncached(
                     preset, noises, seed, tileSize, runtimeBorder, batchCount
                 )
@@ -120,6 +121,8 @@ public final class CellScanMain {
             output.addProperty("preview_tile_border", 0);
             output.addProperty("runtime_tile_border", runtimeBorder);
             output.addProperty("minecraft_version", SharedConstants.getCurrentVersion().getName());
+            output.addProperty("java_version", System.getProperty("java.version"));
+            output.addProperty("java_vendor", System.getProperty("java.vendor"));
             output.addProperty("seed", seed);
             output.addProperty("deterministic_sha256", sha256(coldJson));
             output.addProperty("cold_warm_equal", true);
@@ -136,17 +139,55 @@ public final class CellScanMain {
             timings.addProperty("total_ms", millis(started, warmComplete));
             output.add("timings", timings);
         } finally {
-            CacheManager.clear();
+            if (runtimeTileContext != null && runtimeTileContext != previewContext) {
+                closeContext(runtimeTileContext);
+            }
+            if (previewContext != null) {
+                closeContext(previewContext);
+            }
+            clearLegacyCaches();
             Cache.SCHEDULER.shutdown();
             ThreadPools.WORLD_GEN.shutdown();
+            shutdownOptionalExecutor("TILE_ADMISSION", false);
             Cache.SCHEDULER.awaitTermination(30, TimeUnit.SECONDS);
             ThreadPools.WORLD_GEN.awaitTermination(30, TimeUnit.SECONDS);
+            shutdownOptionalExecutor("TILE_ADMISSION", true);
         }
 
         Files.createDirectories(resultPath.getParent());
         try (Writer writer = Files.newBufferedWriter(resultPath, StandardCharsets.UTF_8)) {
             GSON.toJson(output, writer);
             writer.write("\n");
+        }
+    }
+
+    private static void closeContext(GeneratorContext context) throws Exception {
+        if (context instanceof AutoCloseable closeable) {
+            closeable.close();
+        }
+    }
+
+    private static void clearLegacyCaches() throws Exception {
+        try {
+            Class<?> manager = Class.forName(
+                "raccoonman.reterraforged.concurrent.cache.CacheManager"
+            );
+            manager.getMethod("clear").invoke(null);
+        } catch (ClassNotFoundException ignored) {
+        }
+    }
+
+    private static void shutdownOptionalExecutor(String field, boolean await) throws Exception {
+        try {
+            Object value = ThreadPools.class.getField(field).get(null);
+            if (value instanceof java.util.concurrent.ExecutorService executor) {
+                if (await) {
+                    executor.awaitTermination(30, TimeUnit.SECONDS);
+                } else {
+                    executor.shutdown();
+                }
+            }
+        } catch (NoSuchFieldException ignored) {
         }
     }
 

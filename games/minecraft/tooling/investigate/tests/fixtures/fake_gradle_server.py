@@ -40,6 +40,12 @@ def properties() -> dict[str, str]:
 
 def main() -> None:
     values = properties()
+    if values.get("fake-protocol-ready", "true") == "true":
+        print(
+            f"[squinch-investigate] protocol ready run={os.environ['SQUINCH_INVESTIGATE_RUN_ID']} "
+            f"pid={os.getpid()}",
+            flush=True,
+        )
     server_port = int(values["server-port"])
     rcon_port = int(values["rcon.port"])
     password = values["rcon.password"]

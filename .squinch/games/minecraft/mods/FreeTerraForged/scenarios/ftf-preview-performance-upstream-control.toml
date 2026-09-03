@@ -1,0 +1,38 @@
+schema_version = 1
+name = "FTF exact-tip upstream preview performance control"
+project = "games/minecraft/investigation-state/worktrees/ftf-upstream-tip-20260903"
+loader = "fabric"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/preview-performance-upstream"]
+companion_artifacts = [
+    "mc1.21.1-fabric-architectury-13.0.8",
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 600
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "architectury", "fabric-api"]
+
+[[probes]]
+id = "squinch:rtf-upstream-preview-performance"
+version = "2"
+config = { center_x = 0, center_z = 0, zoom = 150, warmups = 3, repetitions = 12 }
+
+[[steps]]
+id = "measure-upstream-preview-resolution"
+type = "probe"
+probe = "squinch:rtf-upstream-preview-performance"
+jfr = true
+expect = { terminal_state = "pass" }

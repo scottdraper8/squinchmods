@@ -107,10 +107,29 @@ reload may replace their ordered plan stages atomically without mutating or reco
 owner's climate sampler. Caches contain immutable results and include every semantic owner input in
 their key.
 
-The exact frozen registry view and selected stem are retained by the preview request key and used by
-the asynchronous factory. The worker never rereads a mutable `WorldCreationContext`. Server epoch
-creation is keyed by the selected `TerraForgedChunkGenerator` root rather than the presence of an
-FTF density node, allowing unseen density graphs to remain correct through full-height generation.
+The exact frozen registry view and selected stem are retained by the preview acquisition generation
+and used by the asynchronous factory. The worker never rereads a mutable `WorldCreationContext`. One
+prepared context serves terrain and biome modes, and the screen cache retains only results for the
+current generation; advancing it closes the superseded prepared owner before another worker is
+scheduled, canceled or older workers cannot republish stale state, and a display-only tile retains
+no request key or registry graph. Preset-backed and unchanged Lithostitched multi-noise roots carry
+the registry-owned candidate search index into the immutable plan rather than reconstructing it.
+Surface fallback materializes a distinct exact filtered index lazily, while dispatch indexes are
+compiled once into the plan. Server epoch creation is keyed by the selected
+`TerraForgedChunkGenerator` root rather than the presence of an FTF density node, allowing unseen
+density graphs to remain correct through full-height generation.
+
+The screen captures the preset once per explicit input revision and lazily fingerprints that same
+immutable copy. Seed, selected stem, registry view, and data configuration remain independent key
+inputs. Owner, terrain-tile, and biome-sidecar producers retain subscriber cancellation state only
+while running: one widget can cancel without disrupting identical work required by the other, all
+subscribers cancel the producer, and terminal completion releases those requester references.
+Storage and admission limits bound completed tiles, sidecars, active generation, queued requests,
+and reusable arrays independently.
+
+Spawn search is owner-scoped: preset properties are instance fields, each climate sampler publishes
+one atomic search value, and preview operates on a private properties copy. Concurrent owners do not
+share spawn position or search policy through process-global state.
 
 Provider discovery and contribution publication use one owner-scoped protocol. A publication has a
 stable provider identity, revision, contribution kind, ordering metadata, applicability, possible
@@ -163,9 +182,11 @@ role is established by typed metadata.
 ### Minecraft registries and codecs
 
 Public multi-noise entries provide base candidates. Registered density functions, surface rules,
-carvers, generation settings, placed features, structures, pools, and processors retain their public
-graph identities and executable leaves. A registered biome holder proves identity; it does not prove
-that a separate placement mechanism was captured.
+carvers, generation settings, placed features, structures, pools, processors, and FTF structure
+rules retain their public graph identities and executable leaves. Acquisition converts feature IDs,
+structure tags, and structure-rule order into immutable plan data; generation does not query those
+registries again. A registered biome holder proves identity; it does not prove that a separate
+placement mechanism was captured.
 
 Namespace is not provenance. A third-party biome registered under `minecraft` remains an ordinary
 holder, and a mod namespace does not imply a special compatibility path.
@@ -213,7 +234,9 @@ unaware of Lithostitched and RU.
 For the qualified version, FTF copies accepted additions, removals, direct replacements, and
 sub-biome registrations at the public registration boundary. Additions and removals transform the
 selected root domain once. Direct replacements run later as decorators and use deterministic
-FTF-cell choices with the authored replacement proportion and vanilla residual.
+FTF-cell weighted intervals with the authored replacement proportion and vanilla residual. The
+selected interval and its deterministic sample remain immutable plan data for replacement-relative
+sub-biome criteria.
 
 Data-origin entries are replaced during data reload; code entries remain process-owned and exact
 duplicates are removed. Preview reads immutable snapshots without consuming registration or
@@ -221,9 +244,10 @@ affecting later server startup.
 
 For qualified built-in sub-biome criteria, acquisition copies the criterion tree into immutable
 FTF-owned records. Evaluation uses only the selected provider's candidate table and target, owner
-height bounds and sea level, and FTF's direct-replacement plan. Preview and generation never retain
-or invoke Biolith criteria, callbacks, placement objects, worlds, or local noise. Unknown custom
-criteria fail the applicable selection facet with a typed diagnostic instead of crossing the
+height bounds and sea level, and FTF's direct-replacement interval/sample. This preserves the
+qualified center, edge, and alternate behavior after direct replacement without retaining or
+invoking Biolith criteria, callbacks, placement objects, worlds, or native local noise. Unknown
+custom criteria fail the applicable selection facet with a typed diagnostic instead of crossing the
 ownership boundary.
 
 No Man's Land `1.5.12` ordinary replacements and sub-biomes use the supported Biolith built-ins. Its

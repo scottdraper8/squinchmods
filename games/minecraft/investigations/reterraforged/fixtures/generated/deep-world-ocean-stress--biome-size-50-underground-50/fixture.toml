@@ -1,0 +1,21 @@
+schema_version = 1
+id = "deep-world-ocean-stress--biome-size-50-underground-50"
+classification = "reusable-stress"
+purpose = "Complete generated registries for deep-world-ocean-stress--biome-size-50-underground-50."
+applicable_questions = [
+  "RTF underground sizing — surface 50 / underground 50",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "7aa98ca00da48117fa76104fdd918c3f13bac230657b3797b15b0d2bf0baa678"
+source_content_sha256 = "881d442c86da35a36175dfab54943a677111f5e7b2b733df4a0e52be5a0493cd"
+generator_run_id = "20260903T050344Z-f30057c53b"
+generator_content_sha256 = "c7822f64ee51e37e87a0b9eacc240aff4e8e8ed17290a83dfbfaae66cd159833"
+generator_canonical_preset_sha256 = "2346b63712e52740d32168abd4c0bbf68624d799dfa2b11ce758ddf8bfc91b00"
+generator_resolved_preset_sha256 = "7aa98ca00da48117fa76104fdd918c3f13bac230657b3797b15b0d2bf0baa678"
+generator_file_count = 194
+patch_sha256 = "2e7c8d87666e70bd0670d5c116121d1678c534f4b3eb0e5ef780cac12b9ee996"

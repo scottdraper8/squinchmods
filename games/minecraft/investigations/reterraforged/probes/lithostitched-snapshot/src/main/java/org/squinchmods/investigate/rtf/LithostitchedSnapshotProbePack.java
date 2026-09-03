@@ -14,6 +14,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
@@ -31,11 +32,13 @@ import org.squinchmods.investigate.ProbeResult;
 import org.squinchmods.investigate.TerminalState;
 import raccoonman.reterraforged.world.worldgen.lithostitched.LithostitchedInjectionBridge;
 import raccoonman.reterraforged.world.worldgen.runtime.MinecraftWorldgenPlanCompiler;
+import raccoonman.reterraforged.world.worldgen.runtime.CapabilityState;
 import raccoonman.reterraforged.world.worldgen.runtime.PreviewRequest;
 import raccoonman.reterraforged.world.worldgen.runtime.TagEpoch;
 import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCapabilityDiscovery;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCompilationPurpose;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenContributionRevision;
 
 public final class LithostitchedSnapshotProbePack implements ProbePack {
 	@Override
@@ -50,21 +53,45 @@ public final class LithostitchedSnapshotProbePack implements ProbePack {
 		@Override
 		public ProbeResult tick(MinecraftServer server) {
 			ServerLevel level = server.overworld();
-			var source = level.getChunkSource().getGenerator().getBiomeSource();
-			var found = LithostitchedInjectionBridge.snapshot(source);
+			var activeGenerator = level.getChunkSource().getGenerator();
+			if (!(activeGenerator instanceof TerraForgedChunkGenerator generator)) {
+				JsonObject data = new JsonObject();
+				data.addProperty("generator_class", activeGenerator.getClass().getName());
+				return ProbeResult.complete(TerminalState.FAIL, ProbePhase.GENERATION, data, 0);
+			}
+			var source = generator.getBiomeSource();
+			var acquisitionSource = generator.acquisitionBiomeSource();
+			var found = LithostitchedInjectionBridge.snapshot(acquisitionSource);
 			if (found.isEmpty()) {
 				JsonObject data = new JsonObject();
 				data.addProperty("source_class", source.getClass().getName());
+				data.addProperty("acquisition_source_class", acquisitionSource.getClass().getName());
 				return ProbeResult.complete(TerminalState.FAIL, ProbePhase.GENERATION, data, 0);
 			}
 
 			var snapshot = found.orElseThrow();
+			var livePlan = generator.plan().orElseThrow();
+			var lithostitchedId = ResourceLocation.fromNamespaceAndPath(
+				"reterraforged", "lithostitched_injectors"
+			);
+			var liveNodes = livePlan.report().nodes().stream()
+				.filter(node -> node.id().equals(lithostitchedId))
+				.toList();
+			boolean livePlanExecutable = !liveNodes.isEmpty()
+				&& liveNodes.stream().noneMatch(node -> node.state() == CapabilityState.UNAVAILABLE)
+				&& livePlan.selectionDecoration().executable();
 			Registry<Biome> biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
 			RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
 			JsonObject data = new JsonObject();
+			data.addProperty("source_class", source.getClass().getName());
+			data.addProperty("acquisition_source_class", acquisitionSource.getClass().getName());
+			data.addProperty("live_plan_executable", livePlanExecutable);
+			data.add("live_plan_report", livePlan.report().toJson());
 			data.addProperty("mechanism_version", snapshot.mechanismVersion());
 			data.addProperty("seed", snapshot.seed());
-			data.addProperty("root_class", snapshot.root().getClass().getName());
+			data.addProperty("root_class", snapshot.baseRoot()
+				.map(root -> root.getClass().getName())
+				.orElse("<missing>"));
 			data.addProperty("base_entry_count", snapshot.baseEntries().size());
 			data.addProperty("injector_count", snapshot.injectors().size());
 			data.addProperty("region_count", snapshot.regions().size());
@@ -137,8 +164,12 @@ public final class LithostitchedSnapshotProbePack implements ProbePack {
 			if (!(level.getChunkSource().getGenerator() instanceof NoiseBasedChunkGenerator noiseGenerator)) {
 				throw new IllegalStateException("active generator is not noise based");
 			}
+			MultiNoiseBiomeSource freshSource = MultiNoiseBiomeSource.createFromList(
+				new Climate.ParameterList<>(snapshot.baseEntries())
+			);
+			var registries = level.registryAccess().freeze();
 			var declarative = LithostitchedInjectionBridge.captureDeclarative(
-				snapshot.root(), level.registryAccess(), LevelStem.OVERWORLD,
+				freshSource, registries, LevelStem.OVERWORLD,
 				noiseGenerator.generatorSettings().value(), level.getSeed()
 			);
 			data.addProperty("declarative_reacquisition_present", declarative.isPresent());
@@ -146,25 +177,24 @@ public final class LithostitchedSnapshotProbePack implements ProbePack {
 			data.addProperty("declarative_reacquisition_regions", declarative.map(value -> value.regions().size()).orElse(0));
 			data.addProperty("declarative_reacquisition_failures", declarative.map(value -> value.cloneFailures().size()).orElse(0));
 
-			MultiNoiseBiomeSource freshSource = MultiNoiseBiomeSource.createFromList(
-				new Climate.ParameterList<>(snapshot.baseEntries())
-			);
 			TerraForgedChunkGenerator freshGenerator = new TerraForgedChunkGenerator(
 				freshSource, noiseGenerator.generatorSettings()
 			);
+			var providers = WorldgenCapabilityDiscovery.discover(getClass().getClassLoader());
 			PreviewRequest request = PreviewRequest.create(
 				LevelStem.OVERWORLD,
 				level.getSeed(),
-				level.registryAccess(),
-				level.registryAccess(),
+				registries,
+				registries,
 				new LevelStem(level.dimensionTypeRegistration(), freshGenerator),
 				"fresh_plain_source",
 				"declarative_fixture",
-				new TagEpoch(0L, "declarative_fixture")
+				new TagEpoch(0L, "declarative_fixture"),
+				WorldgenContributionRevision.snapshot(LevelStem.OVERWORLD, providers)
 			);
 			var plan = MinecraftWorldgenPlanCompiler.compile(
 				request,
-				WorldgenCapabilityDiscovery.discover(getClass().getClassLoader()),
+				providers,
 				WorldgenCompilationPurpose.BIOME_PREVIEW
 			);
 			data.addProperty("fresh_preview_source_class", freshSource.getClass().getName());
@@ -172,7 +202,8 @@ public final class LithostitchedSnapshotProbePack implements ProbePack {
 			data.addProperty("fresh_preview_decoration_state", plan.selectionDecoration().descriptor().state().name());
 			data.addProperty("fresh_preview_decoration_failure", plan.selectionDecoration().descriptor().firstCause().isPresent());
 			return ProbeResult.complete(
-				snapshot.cloneFailures().isEmpty()
+				livePlanExecutable
+					&& snapshot.cloneFailures().isEmpty()
 					&& declarative.filter(value -> value.cloneFailures().isEmpty()).isPresent()
 					&& plan.selectionDecoration().executable()
 					&& plan.selectionDecoration().descriptor().firstCause().isEmpty()

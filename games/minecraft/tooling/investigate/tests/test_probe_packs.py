@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from squinch_minecraft_investigate import server
+from squinch_minecraft_investigate import probe_overlay
 from squinch_minecraft_investigate.errors import InvestigationError
 
 
@@ -35,11 +35,11 @@ def test_probe_pack_fingerprint_changes_with_source_or_resource(tmp_path: Path) 
     source.write_text("class Probe {}\n")
     resource.write_text("provider.One\n")
 
-    first = server._probe_pack_details(root)
+    first = probe_overlay._probe_pack_details(root)
     source.write_text("class Probe { int version = 2; }\n")
-    second = server._probe_pack_details(root)
+    second = probe_overlay._probe_pack_details(root)
     resource.write_text("provider.Two\n")
-    third = server._probe_pack_details(root)
+    third = probe_overlay._probe_pack_details(root)
 
     assert first["content_sha256"] != second["content_sha256"]
     assert second["content_sha256"] != third["content_sha256"]
@@ -57,4 +57,4 @@ def test_probe_pack_rejects_input_directory_outside_its_root(tmp_path: Path) -> 
     _pack(root, source="../outside")
 
     with pytest.raises(InvestigationError, match="escapes its root"):
-        server._probe_pack_details(root)
+        probe_overlay._probe_pack_details(root)

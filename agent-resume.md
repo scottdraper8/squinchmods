@@ -1,140 +1,84 @@
-# FreeTerraForged resumption index
+# FreeTerraForged compatibility-runtime resumption
 
-This file routes active work. Read every linked plan required by the task before changing an
-implementation or compatibility conclusion. Live Git, dependencies, and retained artifacts supersede
-recorded pointers.
+This is the current routing and acceptance state. Live Git, dependency, process, and retained-run
+state supersede this file. Read the linked plans and required concepts before changing compatibility
+conclusions.
 
-## Worldgen compatibility runtime
+## Scope and authority
 
-- Product and architecture contract:
+- Product contract:
   `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/worldgen-compatibility.md`
-- Active completion plan:
+- Completion evidence:
   `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/compatibility-runtime-completion.md`
-- Concept:
+- Required concepts:
   `.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/concepts/biome-selection-and-compatibility-runtime.md`
-- Invariants:
-  `.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/concepts/compatibility-invariants.md`
+  and `.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/concepts/compatibility-invariants.md`
+- Investigation guide: `.agent-docs/games/minecraft/agentic-development-guide.md`
+- Repository-wide tooling backlog: `.agent-docs/games/minecraft/agentic-development-findings.md`
 - Worktree: `games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`
 - Branch: `feat/worldgen-compatibility-runtime`
-- Current published branch head: `2c2729c64912a297a76d619bcc2afd7bf719d565`
-- Recorded upstream base: `upstream/1.21.1` at `4a3ab1c5e8f680dc996761908e8904aaca350eb4`
+- Local head: `4acd142b93d318d9e306b71e760dd6ee8777992e`
+- Published branch head: `2c2729c64912a297a76d619bcc2afd7bf719d565`
+- Matched live upstream tip: `12e46fc5f8bdf3367723fa7c36ab7e4502272137`
 
-The runtime is an ETL boundary. It discovers stable worldgen inputs, normalizes complete accepted
-semantics into immutable FTF-owned plans, and makes FTF the only runtime authority. Preview,
-generation, diagnostics, locate, possible-biome enumeration, feature sorting, and structures remain
-zero-knowledge. Named mods are a falsification corpus, never an allowlist.
+The worktree is intentionally dirty with the completed compatibility implementation. Preserve it in
+place. Do not reset, reconstruct, clean, stash, commit, or push. Previously valid preset inputs
+remain a compatibility boundary; internal pre-release Java APIs and implementations do not.
 
-### Active objective
+## Non-negotiable design
 
-Complete the nine dependency-ordered workstreams in `compatibility-runtime-completion.md`.
-Correctness and thoroughness determine completion; elapsed time and diff size do not. Execute one
-vertical workstream at a time, remove superseded internal paths, and validate its complete
-ownership, lifecycle, failure, reload, concurrency, loader, and packaging contract before advancing.
+- FTF is the consolidated runtime authority after acquisition.
+- Preview, generation, diagnostics, locate, feature sorting, and structures consume immutable
+  FTF-owned plans and results without third-party knowledge.
+- Stable mechanisms are supported without a content-mod allowlist.
+- Unknown semantics fail at the narrowest sound facet.
+- Full configured-height noise generation remains the permanent correctness fallback.
+- `DensityFunctions.HolderHolder` is a graph edge; never dispatch its `.codec()`.
+- Never restore or run the retained stale NeoForge runtime override.
+- Architectury is build-time platform transformation only. FTF has no Architectury runtime
+  dependency; the cataloged 13.0.8 JAR is a diagnostic-only matched-upstream control.
 
-The work is an in-place pre-release refactor. Previously valid presets must continue to load with
-intentional defaults and complete copy/construction behavior. Internal classes, APIs, plan shapes,
-caches, Mixins, and historical runtime implementation behavior are not compatibility contracts and
-must not be retained when they obstruct the correct design.
+## Current acceptance state
 
-### Current authorization boundary
+The recovered-host baseline is
+`games/minecraft/investigation-state/analysis/host-recovery-20260903T041531Z/healthy-baseline.md`.
+PID 63400 is absent, the host is healthy, and the complete process-ownership matrix passes. Before
+future JVM evidence, repeat bounded load, memory/swap, exact PID, cgroup, listener, display,
+active-state, `status`, and `doctor` checks. Never read `/proc/<pid>/stack`.
 
-The user has authorized autonomous implementation of all nine workstreams through every acceptance
-gate. Continue until the program completion gate is satisfied or a concrete external blocker makes
-further safe progress impossible. Do not create commits or push further changes until the user
-explicitly instructs it; implementation authority does not imply commit or push authority.
+The 22 generated fixtures and 43 scenarios are mapped at
+`games/minecraft/investigation-state/analysis/preset-fixture-migration-20260903T050500Z/mapping.json`.
+The complete FTF gate passes 269 Java tests and both loader builds. The locked investigation and QA
+suites pass 119 and 426 tests respectively; compileall and diff checks pass. Exact-version
+release-or-prerelease qualification is current for the behavior-bearing dependency set.
 
-Do not start another Minecraft runtime while either retained Fabric JVM (`54343` or `91098`) remains
-blocked in uninterruptible kernel teardown. Source tests, builds, artifact inspection,
-documentation, and other non-runtime work may continue. Once the host is healthy, rerun every Fabric
-runtime gate whose retained run did not complete cleanup; a generated chunk followed by failed
-process cleanup is not a complete lifecycle pass.
+The deterministic server and actual `mc-investigate client` matrices pass across optional-absent,
+installed-unused, RU, Lithostitched, Biolith, TerraBlender, mixed, unseen-mechanism, custom-source,
+reload/concurrency/cancellation/failure, structure/feature/surface/ore/flow/underground, ordinary,
+extended-height, and C2ME domains on their applicable loaders. The completed static-audit ledger for
+preview ownership and caches, sampler publication and query caches, provider/custom-source
+acquisition, Biolith, Lithostitched, reload publication, chunk/tile ownership, extended-height
+placement, decoration, structures, features, and Mixins remains authoritative. Reopen an area only
+after a new edit or failed compiler, test, or runtime result invalidates it.
 
-The healthy-host rerun must include the actual `WorldCreationUiState` client preview path with the
-current RU/Lithostitched stack. Exercise repeated regeneration, cancellation, dimension/datapack
-changes, and server creation after preview. A source test that invokes the negotiator directly does
-not prove this lifecycle. The same current-source matrix must exercise custom-source factories,
-owner-serial sampler stages, generator-root ownership (including positive and negative controls),
-independent multi-dimension reload publication, installed-unused mechanisms, bounded provider and
-unknown-injector failures, C2ME tall-world generation, and packaged optional-absent/mixed-stack
-starts before runtime completion can be claimed.
+Matched live-upstream performance and memory evidence is retained at
+`games/minecraft/investigation-state/analysis/compatibility-performance-20260903T081231Z/comparison.md`.
+The final implementation has no measured retained owner leak or material regression and is faster
+for startup, first finished chunk, and deep/tall finished-chunk generation.
 
-### Resume procedure
+Final packaged optional-absent and mixed-stack runs are `20260903T090424Z-061cce2789`,
+`20260903T090531Z-df6534bcc8`, `20260903T090621Z-bc3710d9af`, and `20260903T090732Z-de4d86e37b`.
+Artifact inspection is clean. The installed Desktop hashes are:
 
-1. Inspect parent and compatibility-worktree status, branch/remote tips, upstream, dependency
-   catalog, and relevant retained artifacts.
-2. Read the product contract and the complete active workstream plan.
-3. If upstream or a latest exact-version dependency moved, reacquire it through
-   `tooling/squinch third-party` and rerun every affected behavior-bearing gate.
-4. Continue from the first incomplete dependency-ordered workstream. Shared probe work is permitted
-   only when required to prove that workstream.
-5. Use `tooling/squinch mc-investigate` and repository-relative scenarios; never use a personal
-   launcher profile.
-6. Retain raw observations, logs, grids, calculations, commands, hashes, and cleanup state in run
-   artifacts. Keep durable docs current-state and forward-facing.
+- Fabric: `bfb46a2ae9c463585c56e5d994d0f8598fdd5127f2a1b5435840c75a86307ec1`
+- NeoForge: `ac688fd085a43680affb8a6bf850babc47d6abb08a4fab427917a421bb187877`
 
-### Supported and explicit boundaries
+The final comment audit leaves no code comments added or modified by the FTF branch and no
+post-origin repository code comments except the required procfs kernel-safety explanation.
+Repository-wide tooling findings are empty.
 
-- Minecraft registry and codec graphs supply public multi-noise candidates, density/settings,
-  surface rules, carvers, biome generation settings, placed features, and structures.
-- Loader and library mutations are acquired generically when they are complete before the relevant
-  owner compiles. Fabric biome modifications and NeoForge biome modifiers materialize in biome
-  generation settings. FrozenLib finalizes its surface callbacks into the selected
-  `NoiseGeneratorSettings.surfaceRule()` before a server epoch compiles; surface is not a biome-only
-  preview facet. Method-body-only patches that have not materialized remain outside this contract.
-- TerraBlender supplies public Overworld provider-domain inputs; FTF owns spatial assignment.
-  Applicability follows TerraBlender's public Overworld-regions dimension-type tag rather than a
-  literal level-stem key.
-- Qualified Lithostitched acquisition resolves a completed creation graph into immutable snapshots;
-  preview never invokes callbacks.
-- Density-function holder wrappers are graph edges, not dispatchable density-function values.
-  Acquisition visitors rebind the referenced value and never call the deliberately unsupported
-  `HolderHolder.codec()` method on the edge itself.
-- Qualified Biolith acquisition normalizes accepted additions, removals, replacements, and supported
-  built-in sub-biome criteria.
-- Custom roots are supported through a request-owned `BiomeSourcePlanInput` or pure
-  `BiomeSourcePlanInputFactory` with complete possible outputs and a declared query mode. Opaque
-  roots without that contract, custom Biolith criteria without a complete immutable contract,
-  unknown Lithostitched injector semantics, and private third-party return-value patches remain
-  explicit unsupported boundaries until a sound mechanism seam exists.
-- Full configured-height noise generation is the authoritative fallback. Any future bounded density
-  extent must analyze the finalized router conservatively and return `FULL_HEIGHT` for unknown
-  semantics; density extent never clips biome sampling.
-- Server ownership is selected by the registered `TerraForgedChunkGenerator` root, not by finding a
-  particular FTF density-function node. A custom or vanilla density graph beneath that root still
-  initializes the complete compatibility runtime. Conversely, an FTF density node beneath a non-FTF
-  generator is rejected explicitly because it has no owner context.
-- A preview cache key retains the exact frozen registry view and selected stem used by its worker;
-  asynchronous construction never rereads the live world-creation graph. Sampler target transforms
-  are immutable plan stages evaluated at query time, and `OWNER_SERIAL` is an executable owner gate
-  rather than descriptive metadata.
-- Resource, tag, and contribution revisions publish together. A failed or regressing replacement is
-  retained as an owner-scoped rejection while the prior immutable plan stays active; it does not
-  prevent independent FTF dimensions from processing the same resource reload.
+## Resume rule
 
-### Upstream PR 208 gate
-
-When PR 208 lands, inspect its final merged commits. Keep the compatibility runtime's unified
-source, pre-server Lithostitched acquisition, and plan-owned possible-output closure; do not restore
-the old global raw-field `MultiNoiseBiomeSource.possibleBiomes()` interception. Reacquire current
-exact mechanism releases and rerun the cross-loader no-server preview, mixed-provider/decorator,
-finished-chunk, reload, locate/query, stored-biome, possible-output, and feature-sort gates
-specified by the canonical plan.
-
-## Other FreeTerraForged plans
-
-- Cellular archipelago redesign:
-  `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/archipelago-redesign.md`
-- Configurable shorelines:
-  `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/configurable-shorelines.md`
-- Configurable strata:
-  `.agent-docs/games/minecraft/mods/FreeTerraForged/plans/configurable-strata.md`
-- Branch/worktree map: `.agent-docs/games/minecraft/mods/FreeTerraForged/refs/branch-map.md`
-
-## Shared references
-
-- Investigation guide: `.agent-docs/games/minecraft/agentic-development-guide.md`
-- Third-party catalog: `.squinch/games/minecraft/third-party/artifacts.toml`
-- Canonical fixtures: `games/minecraft/investigations/reterraforged/fixtures/`
-- Retained runs: `games/minecraft/investigation-state/runs/`
-- Runtime tooling: `tooling/squinch mc-investigate --help`
-- Acquisition tooling: `tooling/squinch third-party --help`
+All ordered compatibility-runtime gates are complete. Do not repeat cleared audits or evidence.
+Resume only from a live invalidation: changed source, changed qualified dependency, unhealthy host,
+failed check, failed runtime result, or an explicitly requested new scope.

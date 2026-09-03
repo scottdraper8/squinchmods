@@ -1,6 +1,6 @@
 schema_version = 1
 name = "RTF biome reachability census — deep-world warm inland"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 12345
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"

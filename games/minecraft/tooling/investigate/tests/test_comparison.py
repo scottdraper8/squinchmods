@@ -45,7 +45,6 @@ def _scenario(path: Path, repo: Path) -> Scenario:
         launch_task="runServer",
         seed="123",
         rtf_fixture=None,
-        rtf_ephemeral=None,
         datapacks=(),
         runtime_files=(),
         runtime_absent_files=(),
@@ -123,7 +122,6 @@ def _runner(selected: Scenario) -> dict:
         },
         "world_identity": {"actual_seed": 123, "world_dir": str(selected.project / "world")},
         "rtf_fixture": None,
-        "rtf_ephemeral_preset": None,
         "scenario_summary": f"/artifacts/{label}/scenario-summary.json",
         "scenario_progress": f"/artifacts/{label}/scenario-progress.jsonl",
     }

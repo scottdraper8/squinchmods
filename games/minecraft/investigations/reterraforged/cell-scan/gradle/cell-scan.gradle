@@ -1,10 +1,18 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 def harnessProperty = gradle.startParameter.projectProperties.get("squinchCellScanHarness")
 def requestProperty = gradle.startParameter.projectProperties.get("squinchCellScanRequest")
 def resultProperty = gradle.startParameter.projectProperties.get("squinchCellScanResult")
+def fixturePresetProperty = gradle.startParameter.projectProperties.get("squinchFixturePreset")
+def fixtureCanonicalPresetProperty = gradle.startParameter.projectProperties.get("squinchFixtureCanonicalPreset")
+def fixtureOutputProperty = gradle.startParameter.projectProperties.get("squinchFixtureOutput")
 
-if (harnessProperty == null || requestProperty == null || resultProperty == null) {
+def scanMode = requestProperty != null && resultProperty != null
+def fixtureMode = fixturePresetProperty != null && fixtureCanonicalPresetProperty != null && fixtureOutputProperty != null
+if (harnessProperty == null || scanMode == fixtureMode) {
     throw new GradleException(
-        "cell scan overlay requires squinchCellScanHarness, squinchCellScanRequest, and squinchCellScanResult"
+        "RTF standalone overlay requires its harness and exactly one complete operation input pair"
     )
 }
 
@@ -20,17 +28,49 @@ gradle.beforeProject { project ->
     }
     project.pluginManager.withPlugin("java") {
         project.sourceSets.main.java.srcDir(sourceRoot)
-        project.tasks.register("squinchCellScan", JavaExec) { task ->
-            task.group = "squinch investigation"
-            task.description = "Run the external standalone RTF cell scanner"
-            task.dependsOn(project.tasks.named("classes"))
-            task.inputs.dir(sourceRoot)
-            task.inputs.file(new File(requestProperty))
-            task.outputs.file(new File(resultProperty))
-            task.mainClass.set("org.squinchmods.investigate.rtf.CellScanMain")
-            task.classpath = project.sourceSets.main.output + project.sourceSets.main.runtimeClasspath
-            task.args(new File(requestProperty).canonicalPath, new File(resultProperty).canonicalPath)
-            task.systemProperty("java.awt.headless", "true")
+        if (scanMode) {
+            project.tasks.register("squinchCellScan", JavaExec) { task ->
+                task.group = "squinch investigation"
+                task.description = "Run the external standalone RTF cell scanner"
+                task.dependsOn(project.tasks.named("classes"))
+                task.inputs.dir(sourceRoot)
+                task.inputs.file(new File(requestProperty))
+                task.outputs.file(new File(resultProperty))
+                task.mainClass.set("org.squinchmods.investigate.rtf.CellScanMain")
+                task.classpath = project.sourceSets.main.output + project.sourceSets.main.runtimeClasspath
+                task.args(new File(requestProperty).canonicalPath, new File(resultProperty).canonicalPath)
+                task.systemProperty("java.awt.headless", "true")
+            }
+        }
+        if (fixtureMode) {
+            project.tasks.named("processResources").configure { task ->
+                task.inputs.property("squinchPresetFixtureEntrypoint", "1")
+                task.doLast {
+                    def metadata = new File(task.destinationDir, "fabric.mod.json")
+                    def parsed = new JsonSlurper().parse(metadata)
+                    parsed.entrypoints["fabric-datagen"].add(
+                        "org.squinchmods.investigate.rtf.PresetFixtureMain"
+                    )
+                    metadata.text = JsonOutput.prettyPrint(JsonOutput.toJson(parsed))
+                }
+            }
+            project.loom.runs.create("squinchPresetFixture") { run ->
+                run.inherit(project.loom.runs.getByName("client"))
+                run.runDir = project.relativePath(
+                    new File(fixtureOutputProperty).parentFile.canonicalFile
+                )
+                run.vmArg("-Dfabric-api.datagen")
+                run.vmArg("-Dfabric-api.datagen.modid=reterraforged")
+                run.vmArg("-Dfabric-api.datagen.output-dir=${fixtureOutputProperty}-loader")
+                run.vmArg("-Dsquinch.fixture.preset=${new File(fixturePresetProperty).canonicalPath}")
+                run.vmArg("-Dsquinch.fixture.canonical-preset=${new File(fixtureCanonicalPresetProperty).canonicalPath}")
+                run.vmArg("-Dsquinch.fixture.output=${new File(fixtureOutputProperty).canonicalPath}")
+            }
+            project.tasks.register("squinchPresetFixture") { task ->
+                task.group = "squinch investigation"
+                task.description = "Generate a complete preset-derived RTF datapack"
+                task.dependsOn("runSquinchPresetFixture")
+            }
         }
     }
 }

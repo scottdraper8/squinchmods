@@ -1,0 +1,33 @@
+schema_version = 1
+name = "FTF custom source contract — NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/custom-source-contract"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 240
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:ftf-custom-source-contract"
+version = "1"
+config = {}
+
+[[steps]]
+id = "verify-custom-source-boundaries"
+type = "probe"
+probe = "squinch:ftf-custom-source-contract"
+expect = { terminal_state = "pass" }

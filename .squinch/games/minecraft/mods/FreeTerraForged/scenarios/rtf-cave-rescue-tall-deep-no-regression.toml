@@ -1,6 +1,6 @@
 schema_version = 1
 name = "RTF surface-rescue tall/deep-world no-regression check"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 retention = "discard"

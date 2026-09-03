@@ -60,7 +60,7 @@ public final class SurfaceRescueCrashProbePack implements ProbePack {
                 modifierClasses.add(modifier.getClass().getName());
             }
 
-            JsonObject diagnostics = diagnose(server, level, feature);
+            JsonObject diagnostics = diagnose(level, feature, this.featureId);
 
             int placedCount = 0;
             for (int i = 0; i < this.attempts; i++) {
@@ -81,49 +81,45 @@ public final class SurfaceRescueCrashProbePack implements ProbePack {
             return ProbeResult.complete(TerminalState.PASS, ProbePhase.PLACEMENT, data, this.attempts);
         }
 
-        private static JsonObject diagnose(MinecraftServer server, ServerLevel level, PlacedFeature feature) {
+        private static JsonObject diagnose(
+            ServerLevel level,
+            PlacedFeature feature,
+            ResourceLocation featureId
+        ) throws ReflectiveOperationException {
             JsonObject diagnostics = new JsonObject();
-            try {
-                diagnostics.addProperty("min_gen_y", level.getMinBuildHeight());
-                diagnostics.addProperty("height", level.getHeight());
+            diagnostics.addProperty("min_gen_y", level.getMinBuildHeight());
+            diagnostics.addProperty("height", level.getHeight());
 
-                Class<?> dynamicHeightRangePlacementClass = Class.forName(
-                    "raccoonman.reterraforged.world.worldgen.feature.placement.DynamicHeightRangePlacement"
-                );
-                diagnostics.addProperty("reference_min_y", (Integer) dynamicHeightRangePlacementClass
-                    .getField("REFERENCE_MIN_Y").get(null));
-                diagnostics.addProperty("reference_max_y", (Integer) dynamicHeightRangePlacementClass
-                    .getField("REFERENCE_MAX_Y").get(null));
+            Class<?> dynamicHeightRangePlacementClass = Class.forName(
+                "raccoonman.reterraforged.world.worldgen.feature.placement.DynamicHeightRangePlacement"
+            );
+            diagnostics.addProperty("reference_min_y", (Integer) dynamicHeightRangePlacementClass
+                .getField("REFERENCE_MIN_Y").get(null));
+            diagnostics.addProperty("reference_max_y", (Integer) dynamicHeightRangePlacementClass
+                .getField("REFERENCE_MAX_Y").get(null));
+            diagnostics.addProperty("is_rtf_generator", Class.forName(
+                "raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator"
+            ).isInstance(level.getChunkSource().getGenerator()));
 
-                Object placementContext = net.minecraft.world.level.levelgen.placement.PlacementContext.class
-                    .getConstructor(
-                        net.minecraft.world.level.WorldGenLevel.class,
-                        net.minecraft.world.level.chunk.ChunkGenerator.class,
-                        java.util.Optional.class
-                    )
-                    .newInstance(level, level.getChunkSource().getGenerator(), java.util.Optional.of(feature));
-
-                java.lang.reflect.Method isRtfOverworld = dynamicHeightRangePlacementClass
-                    .getDeclaredMethod("isRtfOverworld", net.minecraft.world.level.levelgen.placement.PlacementContext.class);
-                isRtfOverworld.setAccessible(true);
-                diagnostics.addProperty("is_rtf_overworld", (Boolean) isRtfOverworld.invoke(null, placementContext));
-
-                Class<?> classifierClass = Class.forName(
-                    "raccoonman.reterraforged.world.worldgen.feature.placement.SurfacePlacementClassifier"
-                );
-                java.lang.reflect.Method classify = classifierClass.getDeclaredMethod(
-                    "classify",
-                    PlacedFeature.class,
-                    net.minecraft.core.HolderLookup.Provider.class
-                );
-                classify.setAccessible(true);
-                Object classification = classify.invoke(null, feature, level.registryAccess());
-                java.lang.reflect.Method eligible = classification.getClass().getDeclaredMethod("eligible");
-                eligible.setAccessible(true);
-                diagnostics.addProperty("classification_eligible", (Boolean) eligible.invoke(classification));
-            } catch (Throwable t) {
-                diagnostics.addProperty("diagnostic_error", String.valueOf(t));
-            }
+            Class<?> classifierClass = Class.forName(
+                "raccoonman.reterraforged.world.worldgen.feature.placement.SurfacePlacementClassifier"
+            );
+            java.lang.reflect.Method classify = classifierClass.getDeclaredMethod(
+                "classify",
+                PlacedFeature.class,
+                java.util.Optional.class,
+                net.minecraft.core.HolderLookup.Provider.class
+            );
+            classify.setAccessible(true);
+            Object classification = classify.invoke(
+                null,
+                feature,
+                java.util.Optional.of(featureId),
+                level.registryAccess()
+            );
+            java.lang.reflect.Method eligible = classification.getClass().getDeclaredMethod("eligible");
+            eligible.setAccessible(true);
+            diagnostics.addProperty("classification_eligible", (Boolean) eligible.invoke(classification));
             return diagnostics;
         }
     }

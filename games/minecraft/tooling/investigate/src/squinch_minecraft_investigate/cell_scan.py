@@ -1,21 +1,35 @@
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import json
-import os
 import re
-import signal
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
 from .errors import InvestigationError
-from .fixtures import RTF_PRESET_PATH, load_fixture, materialize_ephemeral_fixture
-from .paths import MINECRAFT_DIR, RUNS_ROOT, resolve_project, validate_loader
+from .fixtures import load_fixture
+from .owned_operation import (
+    recover_finite_service,
+    run_finite_service,
+)
+from .paths import (
+    MINECRAFT_DIR,
+    RUNS_ROOT,
+    active_path,
+    lock_path,
+    resolve_project,
+    validate_loader,
+)
 from .scenario import _java_seed
-from .server import OWNERSHIP, new_run_id, sourced_environment
+from .server import (
+    OWNERSHIP,
+    load_owned_active,
+    new_run_id,
+    sourced_environment,
+    uninterruptible_owned_processes,
+)
 from .state import atomic_write_json, read_json
 
 CELL_SCAN_ROOT = MINECRAFT_DIR / "investigations" / "reterraforged" / "cell-scan"
@@ -23,7 +37,7 @@ CELL_SCAN_OVERLAY = CELL_SCAN_ROOT / "gradle" / "cell-scan.gradle"
 PREDICATE = re.compile(r"^([^:]+):(>=|<=|==|!=|>|<):(.+)$")
 CELL_FIELDS = {
     "height", "height_blocks", "height_erosion", "sediment", "gradient",
-    "terrain", "terrain_category", "biome_type", "continent_id", "continent_edge",
+    "terrain", "terrain_category", "continent_id", "continent_edge",
     "continent_distance", "continent_x", "continent_z", "continent_scale",
     "river_mask", "river_water_level", "river_zone", "temperature", "moisture",
     "region_temperature", "region_moisture", "erosion", "terrain_erosion",
@@ -120,7 +134,7 @@ def _fields(values: list[str], predicates: list[dict], rank_field: str) -> list[
         requested.extend(item.strip() for item in value.split(",") if item.strip())
     if not requested:
         requested = [
-            "height", "height_blocks", "terrain", "terrain_category", "biome_type",
+            "height", "height_blocks", "terrain", "terrain_category",
             "continent_edge", "continent_distance", "river_mask", "river_zone",
             "temperature", "moisture", "erosion", "weirdness", "water_table",
             "terrain_region_id", "biome_region_id",
@@ -129,6 +143,32 @@ def _fields(values: list[str], predicates: list[dict], rank_field: str) -> list[
         if field not in requested:
             requested.append(field)
     return list(dict.fromkeys(requested))
+
+
+def _validate_result(result: dict, request: dict) -> None:
+    scan = result.get("scan")
+    timings = result.get("timings")
+    artifacts = result.get("artifacts")
+    classpath = result.get("classpath")
+    digest = result.get("deterministic_sha256")
+    if (
+        result.get("mode") != request["mode"]
+        or result.get("authority") not in {"prediction", "rtf-horizontal-cell-model"}
+        or result.get("cold_warm_equal") is not True
+        or not isinstance(digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        or not isinstance(scan, dict)
+        or not isinstance(scan.get("inspected"), int)
+        or scan["inspected"] <= 0
+        or not isinstance(timings, dict)
+        or not isinstance(artifacts, list)
+        or not all(isinstance(path, str) for path in artifacts)
+        or not isinstance(classpath, list)
+        or not all(isinstance(path, str) for path in classpath)
+    ):
+        raise InvestigationError(
+            "cell_scan_result_invalid", "standalone cell scan wrote an invalid result"
+        )
 
 
 def _tiles(bounds: list[float], factor: int) -> list[dict[str, int]]:
@@ -149,21 +189,6 @@ def _tiles(bounds: list[float], factor: int) -> list[dict[str, int]]:
     return values
 
 
-def _terminate_group(process: subprocess.Popen, timeout: float = 10.0) -> None:
-    if process.poll() is not None:
-        return
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(process.pid, signal.SIGTERM)
-    try:
-        process.wait(timeout=timeout)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(process.pid, signal.SIGKILL)
-    process.wait(timeout=timeout)
-
-
 def run_cell_scan(args) -> dict:
     project = resolve_project(args.project)
     validate_loader(project, "fabric")
@@ -179,12 +204,6 @@ def run_cell_scan(args) -> dict:
         raise InvestigationError("invalid_cell_scan", "zoom must be positive")
 
     preset, preset_manifest = _read_preset(args.preset)
-    if args.preset_patch:
-        if not args.base_preset_sha256 or not args.preset_id or not args.purpose:
-            raise InvestigationError(
-                "invalid_ephemeral_preset",
-                "preset-patch requires base-preset-sha256, preset-id, and purpose",
-            )
 
     predicates = [_predicate(value) for value in args.predicate]
     fields = _fields(args.field, predicates, args.rank_field)
@@ -207,43 +226,25 @@ def run_cell_scan(args) -> dict:
         bounds = [center_x - half, center_z - half, center_x + half, center_z + half]
     tiles = _tiles(bounds, args.tile_size) if args.mode == "tile" else []
     exact_seed, generator_seed = _int_seed(args.seed)
+    active = active_path(project, "fabric")
+    blocked = uninterruptible_owned_processes(active.parent)
+    if blocked:
+        raise InvestigationError(
+            "host_degraded",
+            "refusing to launch while an investigation-owned process is in uninterruptible sleep",
+            details={"processes": blocked},
+        )
     status_before = _tracked_status(project)
     head = _git(project, "rev-parse", "HEAD").decode().strip()
     environment = sourced_environment()
 
     run_id = new_run_id()
     artifact_dir = RUNS_ROOT / run_id
-    artifact_dir.mkdir(parents=True, exist_ok=False)
     request_path = artifact_dir / "cell-scan-request.json"
     result_path = artifact_dir / "cell-scan-result.json"
     preset_path = artifact_dir / "resolved-preset.json"
     manifest_path = artifact_dir / "manifest.json"
     log_path = artifact_dir / "cell-scan.log"
-    atomic_write_json(
-        manifest_path,
-        {
-            "ownership": OWNERSHIP,
-            "run_id": run_id,
-            "artifact_dir": str(artifact_dir),
-            "kind": "rtf-cell-scan",
-            "project": str(project),
-            "head": head,
-            "cleanup": {"complete": False, "failures": ["scan did not reach finalization"]},
-        },
-    )
-    if args.preset_patch:
-        archive_path = artifact_dir / f"{args.preset_id}.zip"
-        preset_manifest = materialize_ephemeral_fixture(
-            fixture_id=args.preset_id,
-            purpose=args.purpose,
-            base_metadata=args.preset,
-            expected_base_preset_sha256=args.base_preset_sha256,
-            patch_file=args.preset_patch,
-            output=archive_path,
-        )
-        preset = preset_manifest["resolved_preset"]
-    atomic_write_json(preset_path, preset)
-
     request = {
         "schema_version": 1,
         "mode": args.mode,
@@ -279,7 +280,10 @@ def run_cell_scan(args) -> dict:
             fields.append(args.heatmap)
         request["heatmap_field"] = args.heatmap
         request["heatmap_path"] = str(artifact_dir / f"heatmap-{args.heatmap}.png")
-    atomic_write_json(request_path, request)
+
+    def prepare() -> None:
+        atomic_write_json(preset_path, preset)
+        atomic_write_json(request_path, request)
 
     command = [
         "bash", "./gradlew", ":fabric:squinchCellScan", "--console=plain", "--no-daemon",
@@ -289,34 +293,43 @@ def run_cell_scan(args) -> dict:
         f"-PsquinchCellScanResult={result_path}",
     ]
     started = time.monotonic()
-    with log_path.open("wb") as log:
-        process = subprocess.Popen(
-            command, cwd=project, env=environment, stdout=log, stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-        try:
-            return_code = process.wait(timeout=args.timeout)
-        except subprocess.TimeoutExpired as exc:
-            _terminate_group(process)
+    def validate(_state: dict) -> dict:
+        wall_ms = (time.monotonic() - started) * 1000
+        status_after = _tracked_status(project)
+        if status_after != status_before:
             raise InvestigationError(
-                "cell_scan_timeout", f"standalone cell scan exceeded {args.timeout} seconds",
-                details={"run_id": run_id, "artifact_dir": str(artifact_dir), "log_path": str(log_path)},
-            ) from exc
-    wall_ms = (time.monotonic() - started) * 1000
-    status_after = _tracked_status(project)
-    if status_after != status_before:
-        raise InvestigationError(
-            "cell_scan_modified_worktree", "cell scan changed the target's tracked status",
-            details={"run_id": run_id, "artifact_dir": str(artifact_dir), "log_path": str(log_path)},
-        )
-    if return_code != 0 or not result_path.is_file():
-        raise InvestigationError(
-            "cell_scan_failed", f"standalone cell scan failed with exit code {return_code}",
-            details={"run_id": run_id, "artifact_dir": str(artifact_dir), "log_path": str(log_path)},
-        )
-    result = read_json(result_path)
-    result.setdefault("timings", {})["gradle_wall_ms"] = wall_ms
-    atomic_write_json(result_path, result)
+                "cell_scan_modified_worktree",
+                "cell scan changed the target's tracked status",
+            )
+        if not result_path.is_file():
+            raise InvestigationError(
+                "cell_scan_failed", "standalone cell scan did not write its result"
+            )
+        result = read_json(result_path)
+        _validate_result(result, request)
+        result.setdefault("timings", {})["gradle_wall_ms"] = wall_ms
+        atomic_write_json(result_path, result)
+        return {"result": result, "status_after": status_after, "wall_ms": wall_ms}
+
+    state, validated = run_finite_service(
+        project=project,
+        loader="fabric",
+        operation="cell-scan",
+        ownership=OWNERSHIP,
+        run_id=run_id,
+        artifact_dir=artifact_dir,
+        run_dir=artifact_dir,
+        log_path=log_path,
+        active_path=active,
+        lock_path=lock_path(project, "fabric"),
+        command=command,
+        environment=environment,
+        timeout=args.timeout,
+        load_active=load_owned_active,
+        prepare=prepare,
+        validate=validate,
+    )
+    result = validated["result"]
 
     classpath = []
     for value in result.get("classpath", []):
@@ -338,11 +351,6 @@ def run_cell_scan(args) -> dict:
         if separator:
             properties[key.strip()] = value.strip()
     java_home = environment.get("JAVA_HOME")
-    java_command = str(Path(java_home) / "bin" / "java") if java_home else "java"
-    java_version = subprocess.run(
-        [java_command, "-version"], cwd=project, env=environment, check=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30,
-    ).stdout.decode(errors="replace").strip()
     manifest = {
         "ownership": OWNERSHIP,
         "run_id": run_id,
@@ -377,11 +385,14 @@ def run_cell_scan(args) -> dict:
             "minecraft": properties.get("minecraft_version"),
             "rtf": properties.get("mod_version"),
             "java_home": java_home,
-            "java": java_version,
+            "java": result.get("java_version"),
+            "java_vendor": result.get("java_vendor"),
         },
         "classpath": classpath,
         "result_path": str(result_path),
         "log_path": str(log_path),
+        "process_service": state["service"],
+        "owned_processes": state["owned_processes"],
         "cleanup": {"complete": True, "failures": []},
     }
     atomic_write_json(manifest_path, manifest)
@@ -395,3 +406,14 @@ def run_cell_scan(args) -> dict:
         "manifest": manifest,
         "result": result,
     }
+
+
+def recover_standalone(project: Path, loader: str, timeout: float) -> dict:
+    return recover_finite_service(
+        project=project,
+        loader=loader,
+        timeout=timeout,
+        lock_path=lock_path(project, loader),
+        load_active=load_owned_active,
+        operations={"cell-scan", "preset-fixture"},
+    )

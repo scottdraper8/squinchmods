@@ -2,10 +2,13 @@ schema_version = 1
 name = "FTF compatibility-runtime deep/tall BOP generation performance candidate"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
+launch_task = "prodServer"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-palette"]
 companion_artifacts = [
+    "mc1.21.1-fabric-architectury-13.0.8",
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-glitchcore-2.1.0.2",
     "mc1.21.1-fabric-biomes-o-plenty-21.1.0.14",
@@ -41,6 +44,7 @@ unit = "chunk"
 bounds = [80, 80, 88, 88]
 repeat = 3
 offset = [16, 0]
+jfr = true
 authority = "finished-chunk"
 terminal_probe = "squinch:rtf-biome-palette"
 expect = { region_count = 3, terminal_state = "pass" }

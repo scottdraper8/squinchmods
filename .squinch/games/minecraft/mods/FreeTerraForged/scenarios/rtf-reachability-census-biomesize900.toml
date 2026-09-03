@@ -1,17 +1,12 @@
 schema_version = 1
 name = "RTF biome reachability census — biomeSize 900 warm inland"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 12345
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
 retention = "keep"
 
-[rtf_ephemeral]
-id = "shallow-depth-biomesize-900"
-purpose = "Biome size 900 variant of shallow-depth-mountain-control for reachability census coverage"
-base_fixture = "games/minecraft/investigations/reterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"
-base_preset_sha256 = "d530eb00ec2b475872943f8c9713c21b78a67ac628fdccc1f6b9f2d5f4d95442"
-patch_file = "games/minecraft/investigations/reterraforged/patches/biome-size-900.json"
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/shallow-depth-mountain-control--biome-size-900/fixture.toml"
 
 [server_properties]
 view-distance = 4

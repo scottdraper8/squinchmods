@@ -16,6 +16,8 @@ import org.squinchmods.investigate.ProbePack;
 import org.squinchmods.investigate.ProbeRegistry;
 import org.squinchmods.investigate.ProbeRequest;
 import org.squinchmods.investigate.ProbeResult;
+import org.squinchmods.investigate.ProbePhase;
+import org.squinchmods.investigate.TerminalState;
 
 public final class OceanMonumentDiagnosticsProbePack implements ProbePack {
     public static final ConcurrentLinkedQueue<JsonObject> OBSERVATIONS = new ConcurrentLinkedQueue<>();
@@ -27,9 +29,16 @@ public final class OceanMonumentDiagnosticsProbePack implements ProbePack {
 
     private static final class Diagnostics implements ProbeExecution {
         private final FinishedChunkSelection selection;
+        private final int minimumObservations;
 
         private Diagnostics(ProbeRequest request) {
             this.selection = new FinishedChunkSelection(request.config(), "rtf-ocean-monument-diagnostics");
+            this.minimumObservations = request.config().has("min_observations")
+                ? request.config().get("min_observations").getAsInt()
+                : 1;
+            if (this.minimumObservations < 1) {
+                throw new IllegalArgumentException("min_observations must be positive");
+            }
         }
 
         @Override
@@ -48,9 +57,17 @@ public final class OceanMonumentDiagnosticsProbePack implements ProbePack {
             JsonObject data = new JsonObject();
             data.addProperty("authority", "finished-chunk");
             data.addProperty("observation_count", observations.size());
+            data.addProperty("minimum_observations", this.minimumObservations);
             data.add("observations", observations);
             if (observations.size() > 0) {
                 data.add("footprint_scan", scanFootprint(server.overworld(), observations.get(0).getAsJsonObject()));
+            }
+            if (snapshot.complete() && observations.size() < this.minimumObservations) {
+                data.addProperty("requested_chunks", snapshot.requested());
+                data.addProperty("ready_chunks", snapshot.ready().size());
+                data.addProperty("poll_ticks", snapshot.pollTicks());
+                data.add("not_ready_examples", snapshot.notReadyExamples().deepCopy());
+                return ProbeResult.complete(TerminalState.FAIL, ProbePhase.FINISHED_CHUNK, data, snapshot.ready().size());
             }
             return this.selection.result(snapshot, data);
         }

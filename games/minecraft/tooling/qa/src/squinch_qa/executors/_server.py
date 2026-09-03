@@ -5,7 +5,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import IO, Iterator
+from typing import IO, Iterator, Mapping
 
 DEFAULT_SMOKE_TIMEOUT_S: float = 300.0  # 5 min for server-smoke
 DEFAULT_PREGEN_TIMEOUT_S: float = 3600.0  # 1 hour for pregen
@@ -36,7 +36,12 @@ def qa_level_name(run_id: str, target_id: str, test_id: str) -> str:
     return "".join(c if c.isalnum() or c in "._-" else "_" for c in raw)
 
 
-def configure_qa_server_properties(loader_run_dir: Path, *, level_name: str) -> None:
+def configure_qa_server_properties(
+    loader_run_dir: Path,
+    *,
+    level_name: str,
+    properties: Mapping[str, str] | None = None,
+) -> None:
     """
     Write the minimum server properties QA needs for Gradle-dev runs.
 
@@ -45,13 +50,14 @@ def configure_qa_server_properties(loader_run_dir: Path, *, level_name: str) -> 
     QA jobs and avoids reusing a developer's manual test world.
     """
     loader_run_dir.mkdir(parents=True, exist_ok=True)
-    properties = {
+    effective_properties = {
         "enable-rcon": "false",
         "level-name": level_name,
         "online-mode": "false",
         "server-port": "0",
+        **(properties or {}),
     }
-    lines = [f"{key}={value}" for key, value in sorted(properties.items())]
+    lines = [f"{key}={value}" for key, value in sorted(effective_properties.items())]
     (loader_run_dir / "server.properties").write_text(
         "\n".join(lines) + "\n", encoding="utf-8"
     )

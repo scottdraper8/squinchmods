@@ -9,7 +9,7 @@ probe_packs = [
     "games/minecraft/investigations/reterraforged/probes/lithostitched-unknown-injector",
 ]
 companion_artifacts = [
-    "mc1.21.1-fabric-fabric-api-0.116.15+1.21.1",
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
     "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
 ]
 retention = "keep"

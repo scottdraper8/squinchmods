@@ -190,16 +190,22 @@ success.
 An RTF scenario names one retained source-form fixture with `rtf_fixture = ".../fixture.toml"`. The
 runner deterministically materializes it, copies the generated ZIP into the run artifacts, and
 records the semantic metadata, complete resolved preset, logical source hash, and archive hash.
-Additional independent datapacks stay a repeatable `datapacks = [...]` array. For a one-off RTF
-input, use an `rtf_ephemeral` table instead: it requires `id`, `purpose`, `base_fixture`, a pinned
-`base_preset_sha256`, and a JSON Merge Patch at `patch_file`. The runner applies the patch to the
-pinned fixture's fully resolved preset, materializes a temporary datapack, and retains the patch,
-resolved preset, and fingerprints in the run artifacts while discarding the temporary
-materialization — no ZIP or one-off input ever needs to be committed. `rtf_fixture` and
-`rtf_ephemeral` are mutually exclusive. See `games/minecraft/investigations/reterraforged/fixtures/`
-for the retained semantic fixtures (named by condition — e.g. `deep-world-ocean-stress` — not by
-historical nickname) and the fixture policy in the implementation plan for when a new one is
-actually warranted.
+Additional independent datapacks stay a repeatable `datapacks = [...]` array. Do not use partial
+preset overrides for runtime evidence. A valid variant must be generated completely through FTF's
+preset datapack generator and retained as a source-form fixture before a scenario uses it. See
+`games/minecraft/investigations/reterraforged/fixtures/` for fixtures named by their current
+condition rather than an incident or historical nickname.
+
+### Actual world-creation UI
+
+Use `mc-investigate client` for pre-server preview and integrated-client evidence. It launches
+Fabric or NeoForge in an artifact-owned run directory under an isolated headless Wayland display; it
+never uses a personal launcher profile or the project's ordinary run directory. Declare runtime
+catalog artifacts with `--artifact`, compile-only mechanism APIs with
+`--compile-artifact ID:LOADER:named|loader`, probe inputs with `--probe-env SQUINCH_NAME=value`, and
+required result basenames with `--result-env SQUINCH_NAME=result.json`. Runtime companions are not
+implicit compile dependencies. Success requires every result object to report `status: "pass"`, an
+unchanged target worktree, and complete process/display cleanup.
 
 ### Common RCON usage patterns
 
@@ -236,9 +242,9 @@ vanilla under enough simultaneous forced generation. Two independent fixes, use 
 prefer `generate` (which sends regions serially, tiling to the legal 16x16-chunk maximum
 automatically) or send `command`-level `forceload` calls one region at a time (with a longer
 `--timeout` — heavy presets can take minutes per region) rather than batching them. After a watchdog
-crash, `mc-investigate` validates process identity and follows descendants across process groups
-during teardown rather than trusting a possibly-stale PID or leaving an orphaned `KnotServer` child
-running; if a crash still leaves state that `stop` can't resolve, run
+crash, `mc-investigate` validates exact process identities and owns the complete Gradle/game tree in
+a dedicated user-systemd control group rather than trusting a possibly-stale PID or leaving an
+orphaned `KnotServer` child running; if a crash still leaves state that `stop` can't resolve, run
 `mc-investigate doctor --recover` rather than manually hunting `ps`/`ss` output.
 
 **Checking a single block's type is limited** — there is no vanilla command that returns an
@@ -484,6 +490,14 @@ untracked file across a branch switch when there's also a conflicting tracked-fi
 
 ## 6. Profiling and repeated measurements
 
+Establish host health before collecting performance or memory evidence: inspect load, memory and
+swap pressure, investigation ownership, bound ports, and surviving JVM process states. A JVM in
+uninterruptible teardown, pathological load, failed prior cleanup, or incomplete profiler output
+invalidates wall-clock, allocation, RSS, startup, shutdown, and lifecycle comparisons. Preserve the
+failed run as labeled diagnostic evidence, recover or restart the host, and repeat the affected
+measurements under matched clean conditions. Functional source evidence and deterministic outputs
+remain separate claims; they do not rehabilitate contaminated timing or memory data.
+
 For "is it actually faster," set `repeat` and a nonzero `offset = [x, z]` on a scenario's generation
 step — the parser requires every translated coordinate window to be disjoint (repeating the same
 window mostly measures loaded/cached behavior, not generation cost) and caps one step at 20
@@ -513,10 +527,18 @@ world. Target `eula.txt`/`server.properties` are backed up and restored. The lau
 non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable Gradle daemons for the
 launch command, and never changes the wrapper's tracked mode.
 
-`stop` validates Linux process start identities before signaling, follows validated descendants
-across process groups, removes only force-load regions recorded by the run, and treats any remaining
-process/listener/file/world cleanup problem as a failed run, not a warning. `doctor --recover` is
-the explicit recovery path for retained incomplete state. Retention is explicit per run via
+Every JVM-bearing operation uses a unique user-systemd service and recursively enumerates its
+control group. The exact unit intent becomes durable `launching` ownership before `systemd-run` is
+spawned, wrapper identity enriches that owner immediately after spawn, and main-PID discovery
+advances it instead of opening an unrecorded process interval. Teardown validates Linux process
+start identities before signaling, removes only force-load regions recorded by the run, and treats
+any remaining process/listener/file/world/display cleanup problem as a failed run, not a warning.
+Preparation checks active ownership before creating run artifacts and rolls back partial
+managed-file staging. All blocking teardown phases share the caller's one monotonic timeout budget;
+no phase restarts that budget. If an owned process enters uninterruptible sleep, the run retains
+bounded kernel diagnostics and active recovery state; do not probe its procfs stack, because a state
+transition can make that read block the observer too. `doctor --recover` is the explicit recovery
+path for retained incomplete state. Retention is explicit per run via
 `--retention {discard,keep-on-failure,keep}` (default `discard`). Use
 `mc-investigate clean --older-than-days <n>` (dry run by default; add `--apply` to delete) to prune
 kept runs — it rejects active runs, symlinks, foreign manifests, and paths outside the owned state

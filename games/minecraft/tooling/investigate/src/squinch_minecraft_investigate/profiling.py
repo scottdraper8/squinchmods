@@ -56,7 +56,18 @@ def _minecraft_jvm(state: dict, command: Path) -> int:
         lowered = line.lower()
         if "gradledaemon" in lowered or "gradlewrappermain" in lowered:
             continue
-        if any(marker in lowered for marker in ("devlaunchinjector", "knotserver")):
+        if any(
+            marker in lowered
+            for marker in (
+                "devlaunchinjector",
+                "knotserver",
+                "fabricserverlauncher",
+                "net.fabricmc.installer.serverlauncher",
+                "net.minecraft.server.main",
+                "neoforge",
+                "bootstraplauncher",
+            )
+        ):
             candidates.append((pid, line))
     if len(candidates) != 1:
         raise InvestigationError(

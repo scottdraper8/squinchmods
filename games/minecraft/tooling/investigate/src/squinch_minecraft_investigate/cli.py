@@ -3,13 +3,17 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import re
 import shutil
 import signal
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .artifact_inspection import inspect_artifact
+from .catalog import resolve_artifacts
 from .cell_scan import run_cell_scan
+from .client import run_client
+from .preset_fixture import run_preset_fixture
 from .comparison import run_exact_comparison, structured_diff
 from .errors import InvestigationError
 from .generation import generate_regions, tile_chunks
@@ -31,10 +35,15 @@ from .state import project_lock, read_json
 RETENTIONS = ("discard", "keep-on-failure", "keep")
 
 
-def _common(parser: argparse.ArgumentParser, *, project: bool = True) -> None:
+def _common(
+    parser: argparse.ArgumentParser,
+    *,
+    project: bool = True,
+    loaders: tuple[str, ...] = ("fabric", "forge", "neoforge", "quilt"),
+) -> None:
     if project:
         parser.add_argument("--project", required=True, help="Exact mod project/worktree path")
-        parser.add_argument("--loader", required=True, choices=("fabric", "forge", "neoforge", "quilt"))
+        parser.add_argument("--loader", required=True, choices=loaders)
     parser.add_argument("--json", action="store_true", help="Emit the versioned JSON envelope")
 
 
@@ -82,6 +91,35 @@ def parser() -> argparse.ArgumentParser:
     _server_inputs(run)
     run.add_argument("--command", action="append", default=[], dest="commands", required=True)
 
+    client = subparsers.add_parser(
+        "client", help="Run an isolated, instrumented world-creation client lifecycle"
+    )
+    _common(client, loaders=("fabric", "neoforge"))
+    client.add_argument(
+        "--probe-pack", action="append", required=True, type=Path,
+        help="Probe-pack root to compile as a standalone development mod",
+    )
+    client.add_argument(
+        "--artifact", action="append", default=[], dest="artifacts",
+        help="Exact catalog artifact ID to remap and load at runtime",
+    )
+    client.add_argument(
+        "--compile-artifact",
+        action="append",
+        default=[],
+        metavar="ID:LOADER:MAPPING",
+        help="Exact catalog artifact imported by probe source; MAPPING is named or loader",
+    )
+    client.add_argument(
+        "--probe-env", action="append", default=[], metavar="NAME=VALUE",
+        help="SQUINCH_* probe control environment value",
+    )
+    client.add_argument(
+        "--result-env", action="append", required=True, metavar="NAME=FILENAME",
+        help="SQUINCH_* result path environment and retained JSON basename",
+    )
+    client.add_argument("--timeout", type=float, default=300.0)
+
     scenario = subparsers.add_parser(
         "scenario", help="Run one versioned TOML investigation scenario"
     )
@@ -126,10 +164,6 @@ def parser() -> argparse.ArgumentParser:
     )
     cell_scan.add_argument("--project", required=True, help="Exact RTF project/worktree path")
     cell_scan.add_argument("--preset", required=True, type=Path, help="fixture.toml or resolved preset JSON")
-    cell_scan.add_argument("--preset-patch", type=Path, help="Ephemeral JSON Merge Patch")
-    cell_scan.add_argument("--base-preset-sha256")
-    cell_scan.add_argument("--preset-id")
-    cell_scan.add_argument("--purpose")
     cell_scan.add_argument("--seed", required=True)
     cell_scan.add_argument("--mode", choices=("preview", "tile", "adaptive"), default="preview")
     cell_scan.add_argument("--bounds", nargs=4, type=float, metavar=("MIN_X", "MIN_Z", "MAX_X", "MAX_Z"))
@@ -153,6 +187,18 @@ def parser() -> argparse.ArgumentParser:
     cell_scan.add_argument("--heatmap", metavar="NUMERIC_FIELD")
     cell_scan.add_argument("--timeout", type=float, default=300.0)
     cell_scan.add_argument("--json", action="store_true", help="Emit the versioned JSON envelope")
+
+    preset_fixture = subparsers.add_parser(
+        "preset-fixture", help="Generate a complete RTF datapack from one resolved preset"
+    )
+    preset_fixture.add_argument("--project", required=True, help="Exact FTF project/worktree path")
+    preset_fixture.add_argument(
+        "--preset", required=True, type=Path, help="Base fixture.toml or resolved preset JSON"
+    )
+    preset_fixture.add_argument("--timeout", type=float, default=300.0)
+    preset_fixture.add_argument(
+        "--json", action="store_true", help="Emit the versioned JSON envelope"
+    )
 
     clean = subparsers.add_parser("clean", help="Enumerate and remove exact owned run artifacts")
     _common(clean, project=False)
@@ -187,16 +233,29 @@ def _artifacts(state: dict) -> list[str]:
 
 
 def _public_state(state: dict) -> dict:
-    return {
+    value = {
+        "operation": state["operation"],
         "project": state["project"],
         "loader": state["loader"],
         "lifecycle": state["lifecycle"],
-        "level_name": state["level_name"],
-        "ports": state["ports"],
         "process": state["process"],
-        "world_dir": state["world_dir"],
         "cleanup": state.get("cleanup"),
     }
+    if state["operation"] == "server":
+        value.update({
+            "level_name": state["level_name"],
+            "ports": state["ports"],
+            "world_dir": state["world_dir"],
+        })
+    elif state["operation"] == "client":
+        value.update({
+            "run_dir": state["run_dir"],
+            "display": state["display"],
+            "results": state.get("results", []),
+        })
+    else:
+        value["run_dir"] = state["run_dir"]
+    return value
 
 
 def _start(args: argparse.Namespace) -> tuple[dict, str]:
@@ -245,7 +304,11 @@ def _status(args: argparse.Namespace) -> tuple[dict, str]:
     state = status(project, loader)
     if state is None:
         return envelope("status", "inactive", data={"project": str(project), "loader": loader}), f"inactive {project}/{loader}"
-    healthy = state["lifecycle"] == "ready" and bool(state["bound_ports"])
+    healthy = (
+        state["lifecycle"] == "ready" and bool(state["bound_ports"])
+        if state["operation"] == "server"
+        else state["lifecycle"] == "running" and bool(state["owned_pids"])
+    )
     machine_state = "ready" if healthy else "degraded"
     value = envelope(
         "status",
@@ -253,7 +316,7 @@ def _status(args: argparse.Namespace) -> tuple[dict, str]:
         run_id=state["run_id"],
         started_at=state["started_at"],
         artifact_paths=_artifacts(state),
-        data={**_public_state(state), "leader_identity_valid": state["leader_identity_valid"], "group_pids": state["group_pids"], "bound_ports": state["bound_ports"]},
+        data={**_public_state(state), "leader_identity_valid": state["leader_identity_valid"], "owned_pids": state["owned_pids"], "bound_ports": state["bound_ports"]},
     )
     return value, f"{machine_state} {project}/{loader} (run {state['run_id']})"
 
@@ -265,9 +328,10 @@ def _doctor(args: argparse.Namespace) -> tuple[dict, str]:
         return envelope("doctor", "inactive", data={"project": str(project), "loader": loader, "action": "none"}), "no active investigation state"
     if not args.recover:
         issues = []
-        if not current["leader_identity_valid"] and not current["group_pids"]:
+        if not current["leader_identity_valid"] and not current["owned_pids"]:
             issues.append("tracked process boundary is no longer alive")
-        if current["lifecycle"] != "ready":
+        expected_lifecycle = "ready" if current["operation"] == "server" else "running"
+        if current["lifecycle"] != expected_lifecycle:
             issues.append(f"lifecycle is {current['lifecycle']}")
         state_name = "degraded" if issues else "ready"
         return envelope("doctor", state_name, run_id=current["run_id"], started_at=current["started_at"], artifact_paths=_artifacts(current), data={"issues": issues, **_public_state(current)}), ("; ".join(issues) if issues else "active state is healthy")
@@ -290,15 +354,104 @@ def _run(args: argparse.Namespace) -> tuple[dict, str]:
     state: dict | None = None
     responses: list[dict] = []
     succeeded = False
+    interrupted = False
     try:
         state = start_server(project, loader, seed=args.seed, datapacks=args.datapack, properties=_properties(args.server_property), timeout=args.timeout, retention=args.retention, probe_packs=tuple(args.probe_pack), server_port=args.server_port, rcon_port=args.rcon_port)
         responses = run_commands(state, args.commands, args.timeout)
         succeeded = True
+    except KeyboardInterrupt:
+        interrupted = True
     finally:
         if state is not None:
             state = stop_server(project, loader, successful=succeeded, timeout=min(args.timeout, 60.0))
     assert state is not None
+    if interrupted:
+        raise InvestigationError(
+            "interrupted",
+            "server run interrupted by signal",
+            details={
+                "run_id": state["run_id"],
+                "artifact_dir": state["artifact_dir"],
+                "log_path": state["log_path"],
+                "cleanup_complete": True,
+            },
+        )
     return envelope("run", "succeeded", run_id=state["run_id"], started_at=state["started_at"], finished_at=state["finished_at"], artifact_paths=_artifacts(state), data={"responses": responses, **_public_state(state)}), f"run {state['run_id']} succeeded; cleanup verified"
+
+
+def _named_values(values: list[str], *, kind: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for value in values:
+        name, separator, item = value.partition("=")
+        if (
+            not separator
+            or re.fullmatch(r"SQUINCH_[A-Z0-9_]+", name) is None
+            or name in result
+            or any(character in item for character in "\0\r\n")
+        ):
+            raise InvestigationError(
+                "client_arguments_invalid", f"{kind} must be a unique SQUINCH_NAME=VALUE: {value}"
+            )
+        result[name] = item
+    return result
+
+
+def _client(args: argparse.Namespace) -> tuple[dict, str]:
+    project, loader = _resolve(args)
+    runtime_artifacts = resolve_artifacts(tuple(args.artifacts), expected_loader=loader)
+    compile_artifacts = []
+    for value in args.compile_artifact:
+        parts = value.split(":")
+        if len(parts) != 3 or parts[1] not in {"fabric", "neoforge"} or parts[2] not in {"named", "loader"}:
+            raise InvestigationError(
+                "client_arguments_invalid",
+                f"compile artifact must be ID:LOADER:named|loader: {value}",
+            )
+        artifact = resolve_artifacts((parts[0],), expected_loader=parts[1])[0]
+        compile_artifacts.append((artifact, parts[2]))
+    probe_environment = _named_values(args.probe_env, kind="probe environment")
+    result_files = _named_values(args.result_env, kind="result environment")
+    overlap = set(probe_environment) & set(result_files)
+    if overlap:
+        raise InvestigationError(
+            "client_arguments_invalid",
+            f"result environments cannot also be probe environments: {sorted(overlap)}",
+        )
+    for variable, filename in result_files.items():
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise InvestigationError(
+                "client_arguments_invalid",
+                f"result filename must be a basename ending in .json: {variable}={filename}",
+            )
+    state = run_client(
+        project,
+        loader,
+        probe_packs=tuple(args.probe_pack),
+        runtime_artifacts=runtime_artifacts,
+        compile_artifacts=tuple(compile_artifacts),
+        probe_environment=probe_environment,
+        result_files=result_files,
+        timeout=args.timeout,
+    )
+    artifact_paths = [
+        state["artifact_dir"],
+        state["log_path"],
+        str(Path(state["artifact_dir"]) / "manifest.json"),
+        str(Path(state["artifact_dir"]) / "summary.json"),
+        *(item["path"] for item in state["results"]),
+    ]
+    return (
+        envelope(
+            "client",
+            "succeeded",
+            run_id=state["run_id"],
+            started_at=state["started_at"],
+            finished_at=state["finished_at"],
+            artifact_paths=artifact_paths,
+            data=_public_state(state),
+        ),
+        f"client lifecycle {state['run_id']} succeeded; cleanup verified",
+    )
 
 
 def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
@@ -312,11 +465,9 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         str(Path(state["artifact_dir"]) / "provenance.json"),
         str(Path(state["artifact_dir"]) / "scenario.toml"),
     ]
-    materialized = result["rtf_fixture"] or result["rtf_ephemeral_preset"]
+    materialized = result["rtf_fixture"]
     if materialized is not None:
         artifact_paths.append(materialized["archive_artifact"])
-        if result["rtf_ephemeral_preset"] is not None:
-            artifact_paths.append(materialized["patch_artifact"])
     value = envelope(
         "scenario",
         "succeeded",
@@ -331,7 +482,6 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
             "provenance": result["provenance"],
             "world_identity": result["world_identity"],
             "rtf_fixture": result["rtf_fixture"],
-            "rtf_ephemeral_preset": result["rtf_ephemeral_preset"],
         },
     )
     return (
@@ -498,6 +648,29 @@ def _cell_scan(args: argparse.Namespace) -> tuple[dict, str]:
     )
 
 
+def _preset_fixture(args: argparse.Namespace) -> tuple[dict, str]:
+    generated = run_preset_fixture(args)
+    value = envelope(
+        "preset-fixture",
+        "succeeded",
+        run_id=generated["run_id"],
+        finished_at=timestamp(),
+        artifact_paths=[
+            generated["artifact_dir"],
+            generated["manifest_path"],
+            generated["preset_path"],
+            generated["canonical_preset_path"],
+            generated["output_path"],
+            generated["log_path"],
+        ],
+        data={"manifest": generated["manifest"]},
+    )
+    return value, (
+        f"preset fixture {generated['run_id']} generated "
+        f"{generated['manifest']['generated']['file_count']} files"
+    )
+
+
 def _active_run_ids() -> set[str]:
     values: set[str] = set()
     if not ACTIVE_ROOT.exists():
@@ -569,12 +742,14 @@ HANDLERS = {
     "doctor": _doctor,
     "command": _command,
     "run": _run,
+    "client": _client,
     "scenario": _scenario,
     "generate": _generate,
     "probe": _probe,
     "compare": _compare,
     "inspect-artifact": _inspect_artifact,
     "cell-scan": _cell_scan,
+    "preset-fixture": _preset_fixture,
     "clean": _clean,
 }
 
@@ -601,19 +776,26 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
+    artifact_paths = [
+        path
+        for path in (
+            error.details.get("artifact_dir"),
+            error.details.get("log_path"),
+        )
+        if isinstance(path, str)
+    ]
+    artifact_dir = error.details.get("artifact_dir")
+    if isinstance(artifact_dir, str):
+        for name in ("manifest.json", "summary.json"):
+            path = Path(artifact_dir) / name
+            if path.is_file():
+                artifact_paths.append(str(path))
     value = envelope(
         args.command,
         "error",
         run_id=error.details.get("run_id"),
         finished_at=timestamp(),
-        artifact_paths=[
-            path
-            for path in (
-                error.details.get("artifact_dir"),
-                error.details.get("log_path"),
-            )
-            if isinstance(path, str)
-        ],
+        artifact_paths=list(dict.fromkeys(artifact_paths)),
         error={"code": error.code, "message": error.message, "details": error.details},
     )
     emit(value, json_mode=args.json, human=f"error [{error.code}]: {error.message}")

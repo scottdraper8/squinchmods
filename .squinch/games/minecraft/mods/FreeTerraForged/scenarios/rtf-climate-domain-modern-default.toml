@@ -1,17 +1,12 @@
 schema_version = 1
 name = "RTF climate-domain evaluation — modern default full climate"
-project = "games/minecraft/mods/FreeTerraForged"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/climate-domain"]
 retention = "keep"
 
-[rtf_ephemeral]
-id = "modern-default-full-climate"
-purpose = "Modern default preset climate-domain evaluation for Phase 4a comparison"
-base_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-base_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
-patch_file = "games/minecraft/investigations/reterraforged/patches/modern-default-full-climate.json"
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--modern-default-full-climate/fixture.toml"
 
 [server_properties]
 view-distance = 4

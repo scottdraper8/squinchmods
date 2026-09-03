@@ -40,7 +40,6 @@ PATH_FIELDS = frozenset(
         "archive_artifact",
         "archive_path",
         "artifact_path",
-        "base_metadata_path",
         "fixture_metadata_path",
         "level_dat",
         "level_name",
@@ -48,9 +47,6 @@ PATH_FIELDS = frozenset(
         "manifest",
         "materialization_path",
         "overlay_path",
-        "patch_artifact",
-        "patch_input_path",
-        "patch_path",
         "path",
         "project",
         "root",
@@ -257,7 +253,6 @@ def _side_record(
         "datapacks": provenance.get("datapacks", []),
         "candidate_inputs": provenance.get("candidate_inputs", []),
         "rtf_fixture": result.get("rtf_fixture"),
-        "rtf_ephemeral_preset": result.get("rtf_ephemeral_preset"),
         "world_identity": result.get("world_identity"),
     }
     code = {

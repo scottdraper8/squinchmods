@@ -2,9 +2,14 @@ schema_version = 1
 name = "FTF compatibility biome preview performance control"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
+launch_task = "prodServer"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/preview-performance-current"]
+companion_artifacts = [
+    "mc1.21.1-fabric-architectury-13.0.8",
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
+]
 retention = "keep"
 
 [server_properties]
@@ -18,15 +23,27 @@ step = 300
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "reterraforged", "architectury", "fabric-api"]
 
 [[probes]]
 id = "squinch:rtf-current-preview-performance"
 version = "1"
 config = { center_x = 0, center_z = 0, zoom = 150 }
 
+[[probes]]
+id = "squinch:rtf-current-preview-lifecycle-performance"
+version = "1"
+config = { center_x = 0, center_z = 0, zoom = 150, warmups = 3, repetitions = 12 }
+
 [[steps]]
 id = "measure-compatibility-preview-stages"
 type = "probe"
 probe = "squinch:rtf-current-preview-performance"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "measure-compatibility-preview-lifecycle"
+type = "probe"
+probe = "squinch:rtf-current-preview-lifecycle-performance"
+jfr = true
 expect = { terminal_state = "pass" }

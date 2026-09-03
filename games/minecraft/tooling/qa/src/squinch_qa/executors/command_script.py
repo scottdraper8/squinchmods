@@ -47,6 +47,17 @@ def _string_list(value: Any, *, key: str) -> list[str]:
     return value
 
 
+def _level_seed(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError("level_seed must be a nonempty string or integer")
+    seed = str(value)
+    if not seed:
+        raise ValueError("level_seed must be a nonempty string or integer")
+    return seed
+
+
 def _launch_command_server(
     *,
     loader: str,
@@ -54,12 +65,11 @@ def _launch_command_server(
     env: dict[str, str],
     logs_dir: Path,
     temp_root: Path,
+    level_name: str,
+    level_seed: str | None,
+    server_runtime: str,
 ):
-    runtime = ctx.test_config.get("server_runtime")
-    if runtime is None:
-        runtime = "forge-production" if loader == "forge" else "gradle-dev"
-
-    if runtime == "forge-production":
+    if server_runtime == "forge-production":
         if ctx.target is None or ctx.target.loader_version is None:
             raise ServerLaunchError(
                 "Forge production command-script requires target loader_version"
@@ -73,9 +83,13 @@ def _launch_command_server(
             java_major=ctx.target.java,
             env=env,
             logs_dir=logs_dir,
+            server_properties={
+                "level-name": level_name,
+                **({"level-seed": level_seed} if level_seed is not None else {}),
+            },
         )
 
-    if runtime == "gradle-dev":
+    if server_runtime == "gradle-dev":
         proc, log_path = launch_server(
             loader,
             ctx.mod_dir,
@@ -85,7 +99,9 @@ def _launch_command_server(
         )
         return proc, log_path, ctx.mod_dir / loader / "run"
 
-    raise ServerLaunchError(f"Unknown command-script server_runtime: {runtime!r}")
+    raise ServerLaunchError(
+        f"Unknown command-script server_runtime: {server_runtime!r}"
+    )
 
 
 class CommandScriptExecutor:
@@ -113,6 +129,7 @@ class CommandScriptExecutor:
         try:
             commands = _string_list(cfg.get("commands"), key="commands")
             expect_output = _string_list(cfg.get("expect_output"), key="expect_output")
+            level_seed = _level_seed(cfg.get("level_seed"))
         except ValueError as e:
             return JobResult(
                 status="error",
@@ -139,6 +156,20 @@ class CommandScriptExecutor:
         timeout_s = float(cfg.get("timeout_s", DEFAULT_SMOKE_TIMEOUT_S))
         shutdown_timeout_s = float(cfg.get("shutdown_timeout_s", 15))
         loader = _loader_from_target_id(ctx.target_id)
+        server_runtime = cfg.get("server_runtime")
+        if server_runtime is None:
+            server_runtime = "forge-production" if loader == "forge" else "gradle-dev"
+        if server_runtime not in {"forge-production", "gradle-dev"}:
+            return JobResult(
+                status="error",
+                started_at=started_at,
+                finished_at=_now_iso(),
+                duration_s=time.monotonic() - t0,
+                failure=FailureDetail(
+                    reason="invalid-command-script-config",
+                    detail=f"unknown server_runtime: {server_runtime!r}",
+                ),
+            )
         loader_run_dir = ctx.mod_dir / loader / "run"
         level_name = qa_level_name(ctx.run_id, ctx.target_id, ctx.test_id)
         logs_dir = ctx.job_dir / "logs"
@@ -160,9 +191,15 @@ class CommandScriptExecutor:
                 jar_sha256=None,
             )
 
-        if ctx.test_config.get("server_runtime") == "gradle-dev" or loader != "forge":
+        if server_runtime == "gradle-dev":
             pre_write_eula(loader_run_dir)
-            configure_qa_server_properties(loader_run_dir, level_name=level_name)
+            configure_qa_server_properties(
+                loader_run_dir,
+                level_name=level_name,
+                properties=(
+                    {"level-seed": level_seed} if level_seed is not None else None
+                ),
+            )
 
         try:
             env = resolve_gradle_env(ctx.repo_root)
@@ -179,6 +216,9 @@ class CommandScriptExecutor:
                     env=env,
                     logs_dir=logs_dir,
                     temp_root=Path(td),
+                    level_name=level_name,
+                    level_seed=level_seed,
+                    server_runtime=server_runtime,
                 )
             except ServerLaunchError as e:
                 return _result(

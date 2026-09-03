@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -91,6 +92,7 @@ public final class RtfInSquareCaveInteractionProbePack implements ProbePack {
         Method classify = classifierClass.getDeclaredMethod(
             "classify",
             PlacedFeature.class,
+            Optional.class,
             net.minecraft.core.HolderLookup.Provider.class
         );
         classify.setAccessible(true);
@@ -102,7 +104,7 @@ public final class RtfInSquareCaveInteractionProbePack implements ProbePack {
         int rescueEligibleUnsafe = 0;
         for (ResourceLocation placedId : placedRegistry.keySet().stream().sorted().toList()) {
             PlacedFeature feature = placedRegistry.get(placedId);
-            Object classification = classify.invoke(null, feature, level.registryAccess());
+            Object classification = classify.invoke(null, feature, Optional.of(placedId), level.registryAccess());
             Method eligibleMethod = classification.getClass().getDeclaredMethod("eligible");
             eligibleMethod.setAccessible(true);
             boolean eligible = (Boolean)eligibleMethod.invoke(classification);

@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.squinchmods.investigate.rtf.preview.LifecycleProbe;
 import raccoonman.reterraforged.world.worldgen.runtime.MinecraftWorldgenPlanCompiler;
 import raccoonman.reterraforged.world.worldgen.runtime.MinecraftBiomeSourceGraphs;
 import raccoonman.reterraforged.world.worldgen.runtime.PreviewRequest;
@@ -41,6 +42,7 @@ import raccoonman.reterraforged.world.worldgen.runtime.TerraForgedChunkGenerator
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenBiomeSelection;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCapabilityDiscovery;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenCompilationPurpose;
+import raccoonman.reterraforged.world.worldgen.runtime.WorldgenContributionRevision;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenFingerprints;
 import raccoonman.reterraforged.world.worldgen.runtime.PreServerWorldgenContext;
 import raccoonman.reterraforged.world.worldgen.runtime.WorldgenPreServerFinalizer;
@@ -64,6 +66,7 @@ public abstract class MixinWorldCreationUiState {
 
 	@Inject(method = "setSettings", at = @At("TAIL"))
 	private void squinch$compileUpdatedPreServerPreview(WorldCreationContext context, CallbackInfo callback) {
+		LifecycleProbe.settingsReloaded();
 		this.squinch$compilePreServerPreview(context);
 	}
 
@@ -76,6 +79,8 @@ public abstract class MixinWorldCreationUiState {
 		LevelStem selected = context.selectedDimensions().get(LevelStem.OVERWORLD).orElse(null);
 		if (selected == null
 			|| !(selected.generator() instanceof NoiseBasedChunkGenerator)
+			|| System.getenv("SQUINCH_PRE_SERVER_CREATE_WORLD_RESULT") != null
+				&& !(selected.generator() instanceof TerraForgedChunkGenerator)
 			|| !SQUINCH_CAPTURED.compareAndSet(false, true)) {
 			return;
 		}
@@ -96,6 +101,9 @@ public abstract class MixinWorldCreationUiState {
 			long seed = context.options().seed();
 			String tags = WorldgenFingerprints.tags(context.worldgenLoadContext());
 			var providers = WorldgenCapabilityDiscovery.discover(getClass().getClassLoader());
+			WorldgenContributionRevision.Snapshot contributions = WorldgenContributionRevision.snapshot(
+				LevelStem.OVERWORLD, providers
+			);
 			sourceResult = PreviewSourceNegotiator.resolve(
 				new PreviewSourceContext(
 					seed,
@@ -110,7 +118,8 @@ public abstract class MixinWorldCreationUiState {
 				providers
 			);
 			TerraForgedChunkGenerator previewGenerator = new TerraForgedChunkGenerator(
-				sourceResult.owned().source(), noiseGenerator.generatorSettings()
+				sourceResult.owned().source(), noiseGenerator.generatorSettings(),
+				sourceResult.owned().planInput(), sourceResult.owned().candidateRoot()
 			);
 			PreviewRequest request = PreviewRequest.create(
 				LevelStem.OVERWORLD,
@@ -120,7 +129,8 @@ public abstract class MixinWorldCreationUiState {
 				new LevelStem(selected.type(), previewGenerator),
 				"world_creation_context",
 				context.dataConfiguration().toString(),
-				new TagEpoch(0L, tags)
+				new TagEpoch(0L, tags),
+				contributions
 			);
 			var plan = MinecraftWorldgenPlanCompiler.compile(
 				request, providers, WorldgenCompilationPurpose.BIOME_PREVIEW
@@ -154,7 +164,9 @@ public abstract class MixinWorldCreationUiState {
 					seed,
 					"world_creation_context",
 					context.dataConfiguration().toString(),
-					tags
+					tags,
+					contributions,
+					providers
 				);
 				var tile = generatorContext.generator.generateZoomed(0, 0, 64, true, () -> false).join()
 			) {
@@ -225,7 +237,9 @@ public abstract class MixinWorldCreationUiState {
 				}
 			}
 			write(result);
-			Minecraft.getInstance().stop();
+			if (System.getenv("SQUINCH_PRE_SERVER_CREATE_WORLD_RESULT") == null) {
+				Minecraft.getInstance().stop();
+			}
 		}
 	}
 

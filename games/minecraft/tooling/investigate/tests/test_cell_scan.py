@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import pytest
 
-from squinch_minecraft_investigate.cell_scan import _predicate, _tiles
+from squinch_minecraft_investigate.cell_scan import (
+    CELL_FIELDS,
+    _fields,
+    _predicate,
+    _tiles,
+    _validate_result,
+)
+
+
+def test_default_fields_are_supported_by_the_current_cell_model() -> None:
+    assert set(_fields([], [], "height")) <= CELL_FIELDS
+    assert "biome_type" not in CELL_FIELDS
 from squinch_minecraft_investigate.errors import InvestigationError
 
 
@@ -21,3 +32,10 @@ def test_predicate_parser_preserves_numeric_and_categorical_expectations() -> No
     }
     with pytest.raises(InvestigationError):
         _predicate("height >= 0.5")
+
+
+def test_cell_result_rejects_malformed_output() -> None:
+    with pytest.raises(InvestigationError) as caught:
+        _validate_result({"mode": "preview", "cold_warm_equal": True}, {"mode": "preview"})
+
+    assert caught.value.code == "cell_scan_result_invalid"

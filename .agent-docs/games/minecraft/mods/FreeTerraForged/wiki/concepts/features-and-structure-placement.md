@@ -94,6 +94,10 @@ unsafe filter ordering, and unregistered direct features remain unchanged. Custo
 systems—including geodes, retrogen, striated formations, and other mechanisms that happen to write
 ore blocks—are outside this behavior. Noise-router large ore veins are also separate.
 
+Acquisition indexes each transform by the exact placed-feature value and its stable holder key.
+Execution consumes that immutable identity index rather than querying the placed-feature registry;
+missing, direct, or conflicting identity delegates to vanilla.
+
 The live plan is immutable and server-owned. It is activated only when the active generator, random
 state, vertical frame, and placed-feature occurrence belong to the same FTF owner; it does not
 dispatch by a literal dimension key. Installing FTF does not alter another generator. Resource
@@ -101,6 +105,10 @@ reload captures a new owner input revision and atomically replaces the plan only
 reclassification.
 
 ## Structures use different authorities
+
+FTF structure-rule order and tag-derived jigsaw adaptation identity are acquisition-time structure
+plan data. A structure-generation invocation pins one immutable plan snapshot, so generation does
+not query structure registries or combine rule/adaptation values from different reload epochs.
 
 There is no common structure-height fix:
 

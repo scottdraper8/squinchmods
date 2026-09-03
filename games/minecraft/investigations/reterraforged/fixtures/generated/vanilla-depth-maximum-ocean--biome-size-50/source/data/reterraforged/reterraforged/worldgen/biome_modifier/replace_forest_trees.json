@@ -1,0 +1,8 @@
+{
+  "type": "reterraforged:replace",
+  "biomes": "minecraft:forest",
+  "replacements": {
+    "minecraft:trees_birch_and_oak": "reterraforged:forest_trees"
+  },
+  "step": "vegetal_decoration"
+}

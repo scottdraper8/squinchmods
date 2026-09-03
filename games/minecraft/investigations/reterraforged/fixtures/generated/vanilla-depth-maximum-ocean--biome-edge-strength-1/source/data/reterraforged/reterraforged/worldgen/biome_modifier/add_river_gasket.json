@@ -1,0 +1,6 @@
+{
+  "type": "reterraforged:add",
+  "features": "reterraforged:river_gasket",
+  "order": "prepend",
+  "step": "raw_generation"
+}

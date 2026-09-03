@@ -1,6 +1,6 @@
 schema_version = 1
 id = "rtf-preview-performance-current"
-version = "1"
+version = "2"
 target_adapter = "reterraforged-1.21.1"
 sources = ["src/main/java"]
 resources = ["src/main/resources"]

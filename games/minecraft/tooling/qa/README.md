@@ -370,12 +370,16 @@ tests:
         - tick query
       expect_output:
         - The game is frozen
+      level_seed: 123456789
       timeout_s: 300
 ```
 
 Loader-specific adapter entries can override or add command-script config keys, so command
 differences stay in central mod config instead of executor code. Tests that need new in-mod GameTest
 classes, debug commands, or fixtures still require changes in the relevant mod submodule.
+`level_seed` accepts an exact integer or nonempty string (including a named Minecraft seed) and is
+written as `level-seed` for both Gradle-development and Forge-production servers. Omit it only when
+the test deliberately permits a randomly selected seed.
 
 For Forge targets, command-script tests default to the production Forge server runtime. Gradle
 userdev `runServer` is still available with `server_runtime: gradle-dev`, but it is not the default

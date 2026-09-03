@@ -4,7 +4,10 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
-companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.15+1.21.1", "mc1.21.1-fabric-moderner-beta-4.1.10"]
+companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-moderner-beta-5.0.0-alpha.3"]
+probe_compile_artifacts = [
+    { id = "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", loader = "fabric", mapping = "loader" },
+]
 retention = "keep"
 
 [server_properties]

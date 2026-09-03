@@ -1,0 +1,21 @@
+schema_version = 1
+id = "shallow-depth-mountain-control--biome-size-900"
+classification = "reusable-stress"
+purpose = "Complete generated registries for shallow-depth-mountain-control--biome-size-900."
+applicable_questions = [
+  "RTF biome reachability census — biomeSize 900 warm inland",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+rtf_version = "0.0.6005"
+base = "source"
+resolved_preset_sha256 = "a7c85d3b8c2d5d0c93e68f3c7190ec003c34a385525298bfdbbe0360687b7ed9"
+source_content_sha256 = "a894ef8fd883d07a3a1eb927093af025ade44bbfd45a4563386d2e0602ec8b32"
+generator_run_id = "20260903T050322Z-c2f91fde8d"
+generator_content_sha256 = "9118e79e49a3886d216d7417b68cbcc1a1debf2a45ec3fb0dddde1bdb74150cc"
+generator_canonical_preset_sha256 = "fcacb2f34ed659b8016704b788de2019dd85d1e8bbbf31d6e921beb7b127629d"
+generator_resolved_preset_sha256 = "a7c85d3b8c2d5d0c93e68f3c7190ec003c34a385525298bfdbbe0360687b7ed9"
+generator_file_count = 194
+patch_sha256 = "07b9dce94558d24a0c9dc29685722cf117841b87c6b4f9e171be350f02d807bd"
