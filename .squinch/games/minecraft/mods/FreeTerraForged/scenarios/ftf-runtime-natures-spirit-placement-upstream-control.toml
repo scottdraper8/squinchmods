@@ -1,0 +1,42 @@
+schema_version = 1
+name = "Upstream Nature's Spirit placement control"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = [
+    "games/minecraft/investigations/reterraforged/probes/placement-telemetry",
+]
+companion_artifacts = [
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-glitchcore-2.1.0.2",
+    "mc1.21.1-fabric-natures-spirit-2.2.5",
+]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "natures_spirit"]
+
+[[probes]]
+id = "squinch:rtf-placement-telemetry"
+version = "1"
+config = { feature_ids = ["natures_spirit:stone_cliff", "natures_spirit:stone_block_feature", "natures_spirit:snow_patch"], bounds = [-24, -120, -21, -117], unit = "chunk", max_wait_ticks = 6000, top_k = 30, bands = [{ id = "full_vertical_range", min_y = -1024, max_y = 1023 }] }
+
+[[steps]]
+id = "generate-and-measure-cliff-outcomes"
+type = "generate"
+unit = "chunk"
+bounds = [-24, -120, -21, -117]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-placement-telemetry"
+expect = { terminal_state = "pass" }

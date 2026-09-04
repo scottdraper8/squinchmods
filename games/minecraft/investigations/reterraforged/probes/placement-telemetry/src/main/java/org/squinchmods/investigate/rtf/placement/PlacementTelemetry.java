@@ -35,7 +35,7 @@ public final class PlacementTelemetry {
         long chunk = new ChunkPos(origin).toLong();
         Stats stats = STATS.computeIfAbsent(new Key(featureId, chunk), ignored -> new Stats());
         stats.invocations.increment();
-        ACTIVE.get().push(new Run(featureId, chunk, cpuTime()));
+        ACTIVE.get().push(new Run(featureId, chunk, cpuTime(), origin.immutable()));
     }
 
     public static void end(boolean successful) {
@@ -48,6 +48,18 @@ public final class PlacementTelemetry {
         stats.cpuNanos.add(Math.max(0L, cpuTime() - run.startedCpuNanos()));
         if (successful) {
             stats.successfulInvocations.increment();
+        }
+        Run root = stack.peekLast();
+        if (root != null && root != run) {
+            Stats rootStats = STATS.computeIfAbsent(
+                new Key(root.featureId(), root.chunk()), ignored -> new Stats()
+            );
+            rootStats.descendantInvocations.increment();
+            if (successful) {
+                rootStats.successfulDescendantInvocations.increment();
+                add(rootStats.descendantSuccessRelativeX, run.origin().getX() - ChunkPos.getX(root.chunk()) * 16);
+                add(rootStats.descendantSuccessRelativeZ, run.origin().getZ() - ChunkPos.getZ(root.chunk()) * 16);
+            }
         }
         if (stack.isEmpty()) {
             ACTIVE.remove();
@@ -97,14 +109,48 @@ public final class PlacementTelemetry {
         if (stack.isEmpty()) {
             return;
         }
-        Run run = stack.peek();
-        long chunk = new ChunkPos(position).toLong();
-        Stats stats = STATS.computeIfAbsent(new Key(run.featureId(), chunk), ignored -> new Stats());
+        Run run = stack.peekLast();
+        Stats stats = STATS.computeIfAbsent(new Key(run.featureId(), run.chunk()), ignored -> new Stats());
         stats.blockWrites.increment();
         stats.blockWriteByY.computeIfAbsent(position.getY(), ignored -> new LongAdder()).increment();
+        add(stats.blockWriteRelativeX, position.getX() - ChunkPos.getX(run.chunk()) * 16);
+        add(stats.blockWriteRelativeZ, position.getZ() - ChunkPos.getZ(run.chunk()) * 16);
         stats.writtenBlocks.computeIfAbsent(
             MinecraftProbeHelpers.blockId(state), ignored -> new LongAdder()
         ).increment();
+    }
+
+    public static void randomOffset(BlockPos origin, BlockPos output) {
+        Deque<Run> stack = ACTIVE.get();
+        if (stack.isEmpty()) {
+            return;
+        }
+        Run root = stack.peekLast();
+        Stats stats = STATS.computeIfAbsent(new Key(root.featureId(), root.chunk()), ignored -> new Stats());
+        stats.randomOffsetOutputs.increment();
+        add(stats.randomOffsetDeltaX, output.getX() - origin.getX());
+        add(stats.randomOffsetDeltaZ, output.getZ() - origin.getZ());
+        add(stats.randomOffsetOutputRelativeX, output.getX() - ChunkPos.getX(root.chunk()) * 16);
+        add(stats.randomOffsetOutputRelativeZ, output.getZ() - ChunkPos.getZ(root.chunk()) * 16);
+        if (!new ChunkPos(origin).equals(new ChunkPos(output))) {
+            stats.randomOffsetOutsideOriginChunk.increment();
+        }
+        if (new ChunkPos(output).toLong() != root.chunk()) {
+            stats.randomOffsetOutsideRootChunk.increment();
+        }
+    }
+
+    public static void worldGenWrite(BlockPos position, BlockState state) {
+        Deque<Run> stack = ACTIVE.get();
+        if (stack.isEmpty()) {
+            return;
+        }
+        Run root = stack.peekLast();
+        Stats stats = STATS.computeIfAbsent(new Key(root.featureId(), root.chunk()), ignored -> new Stats());
+        stats.worldGenWrites.increment();
+        add(stats.worldGenWriteRelativeX, position.getX() - ChunkPos.getX(root.chunk()) * 16);
+        add(stats.worldGenWriteRelativeZ, position.getZ() - ChunkPos.getZ(root.chunk()) * 16);
+        stats.worldGenWrittenPositions.put(position.asLong(), MinecraftProbeHelpers.blockId(state));
     }
 
     public static void sectionPosition(BlockPos position) {
@@ -126,7 +172,7 @@ public final class PlacementTelemetry {
         }
         BlockPos position = LAST_SECTION_POSITION.get();
         if (position == null) {
-            Run run = stack.peek();
+            Run run = stack.peekLast();
             Stats stats = STATS.computeIfAbsent(new Key(run.featureId(), run.chunk()), ignored -> new Stats());
             stats.blockWrites.increment();
             stats.writtenBlocks.computeIfAbsent(
@@ -166,7 +212,11 @@ public final class PlacementTelemetry {
     public record Key(String featureId, long chunk) {
     }
 
-    private record Run(String featureId, long chunk, long startedCpuNanos) {
+    private static void add(ConcurrentHashMap<Integer, LongAdder> values, int key) {
+        values.computeIfAbsent(key, ignored -> new LongAdder()).increment();
+    }
+
+    private record Run(String featureId, long chunk, long startedCpuNanos, BlockPos origin) {
     }
 
     public static final class Stats {
@@ -179,9 +229,26 @@ public final class PlacementTelemetry {
         public final LongAdder biomeChecks = new LongAdder();
         public final LongAdder biomePasses = new LongAdder();
         public final LongAdder blockWrites = new LongAdder();
+        public final LongAdder descendantInvocations = new LongAdder();
+        public final LongAdder successfulDescendantInvocations = new LongAdder();
+        public final LongAdder randomOffsetOutputs = new LongAdder();
+        public final LongAdder randomOffsetOutsideOriginChunk = new LongAdder();
+        public final LongAdder randomOffsetOutsideRootChunk = new LongAdder();
+        public final LongAdder worldGenWrites = new LongAdder();
         public final ConcurrentHashMap<Integer, LongAdder> heightByY = new ConcurrentHashMap<>();
         public final ConcurrentHashMap<Integer, LongAdder> biomePassByY = new ConcurrentHashMap<>();
         public final ConcurrentHashMap<Integer, LongAdder> blockWriteByY = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> descendantSuccessRelativeX = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> descendantSuccessRelativeZ = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> randomOffsetDeltaX = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> randomOffsetDeltaZ = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> randomOffsetOutputRelativeX = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> randomOffsetOutputRelativeZ = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> blockWriteRelativeX = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> blockWriteRelativeZ = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> worldGenWriteRelativeX = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Integer, LongAdder> worldGenWriteRelativeZ = new ConcurrentHashMap<>();
+        public final ConcurrentHashMap<Long, String> worldGenWrittenPositions = new ConcurrentHashMap<>();
         public final ConcurrentHashMap<String, LongAdder> passedBiomes = new ConcurrentHashMap<>();
         public final ConcurrentHashMap<String, LongAdder> writtenBlocks = new ConcurrentHashMap<>();
     }

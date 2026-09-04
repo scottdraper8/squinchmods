@@ -9,24 +9,24 @@ code branch.
 - [`AGENTS.md`](../../../../../AGENTS.md) — durable repository operating rules and architectural
   constraints. Keep it because agents must receive these rules before choosing an investigation or
   implementation path; do not put branch status or investigation conclusions there.
-- [`agent-resume.md`](../../../../../agent-resume.md) — concise routing and resumption state for
-  unfinished work. It points to the authoritative plan and live worktree rather than preserving a
-  session history.
+- [`agent-resume.md`](../../../../../agent-resume.md) — concise routing, accepted state, and current
+  integration boundary. It points to authoritative documents and retained evidence rather than
+  preserving a session history.
 - [`wiki/README.md`](wiki/README.md) — current FTF engineering concepts: mental models, data flow,
   coordinate meanings, ownership boundaries, and compatibility invariants.
-- [`Compatibility-runtime completion plan`](plans/compatibility-runtime-completion.md) — the active
-  dependency-ordered nine-workstream plan and its implementation acceptance gates.
+- [`Compatibility-runtime acceptance`](plans/compatibility-runtime-completion.md) — the implemented
+  runtime, accepted verification surface, and current production-artifact state.
 - [`Minecraft reference`](../../wiki/README.md) — general Minecraft world-generation reference for
   reusable engine concepts such as extended height, placed features, structures, and biome climate.
-- [`plans/`](plans/) — only genuinely unfinished implementation work. Completed investigations and
-  merged feature narratives do not remain here.
+- [`plans/`](plans/) — current product contracts, acceptance records, and genuinely unfinished
+  implementation work. Completed investigation narratives do not remain here.
 - [`refs/branch-map.md`](refs/branch-map.md) — current local FTF branch/worktree state.
 
 ## Documentation boundaries
 
 The FTF wiki explains current FTF-specific engineering behavior. General Minecraft pages explain
-reusable engine behavior. Active plans contain remaining decisions, implementation steps, and
-acceptance gates only.
+reusable engine behavior. Plans contain current product contracts, unresolved decisions, and
+acceptance boundaries only.
 
 `AGENTS.md` remains necessary as the compact policy boundary: evidence standards, safety rules,
 runtime ownership, and documentation hygiene must apply before any task-specific plan is read.

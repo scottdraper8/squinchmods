@@ -1,0 +1,34 @@
+schema_version = 1
+name = "FTF worldgen normalization census — Nature's Spirit NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+companion_artifacts = ["mc1.21.1-neoforge-terrablender-4.1.0.8", "mc1.21.1-neoforge-glitchcore-2.1.0.2", "mc1.21.1-neoforge-natures-spirit-2.2.5"]
+retention = "keep"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 360
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "terrablender", "natures_spirit"]
+
+[[probes]]
+id = "squinch:rtf-worldgen-normalization-census"
+version = "1"
+config = {}
+
+[[steps]]
+id = "census-normalizable-worldgen-graph"
+type = "probe"
+probe = "squinch:rtf-worldgen-normalization-census"
+expect = { terminal_state = "pass" }

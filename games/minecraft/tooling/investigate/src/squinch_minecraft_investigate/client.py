@@ -132,6 +132,22 @@ def _display_runtime_root(environment: dict[str, str]) -> Path:
     return root
 
 
+def _detect_terminal_failure(state: dict) -> BaseException | None:
+    crash_root = Path(state["run_dir"]) / "crash-reports"
+    if not crash_root.is_dir() or crash_root.is_symlink():
+        return None
+    reports = sorted(
+        path for path in crash_root.glob("*.txt") if path.is_file() and not path.is_symlink()
+    )
+    if not reports:
+        return None
+    return InvestigationError(
+        "client_crashed",
+        "client wrote a crash report before producing its required result",
+        details={"crash_reports": [str(path) for path in reports]},
+    )
+
+
 def run_client(
     project: Path,
     loader: str,
@@ -239,6 +255,7 @@ def run_client(
         load_active=load_owned_active,
         prepare=prepare,
         validate=validate,
+        poll_failure=_detect_terminal_failure,
         cleanup=_remove_display_runtime,
         state_fields={
             "display": {

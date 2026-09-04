@@ -139,6 +139,21 @@ def test_client_result_rejects_malformed_output(tmp_path: Path) -> None:
     assert failed.value.code == "client_result_failed"
 
 
+def test_client_detects_terminal_crash_report(tmp_path: Path) -> None:
+    state = {"run_dir": str(tmp_path)}
+    assert client._detect_terminal_failure(state) is None
+
+    crash_root = tmp_path / "crash-reports"
+    crash_root.mkdir()
+    report = crash_root / "crash-test.txt"
+    report.write_text("failure")
+
+    failure = client._detect_terminal_failure(state)
+    assert isinstance(failure, InvestigationError)
+    assert failure.code == "client_crashed"
+    assert failure.details == {"crash_reports": [str(report)]}
+
+
 def test_client_inspects_remapped_runtime_artifact_evidence(tmp_path: Path) -> None:
     source = tmp_path / "source.jar"
     runtime = tmp_path / "runtime.jar"

@@ -33,6 +33,24 @@ Added candidates drawn from Minecraft's main random stream perturb later decorat
 baseline candidate on the existing stream and deriving extension decisions from isolated stable
 inputs leaves later main-stream draws unchanged.
 
+## Cross-chunk placement
+
+`RandomOffsetPlacement` is part of a feature's declared position transform. A variable horizontal
+spread can intentionally cross the chunk containing its input position, so its presence alone does
+not prove an invalid pipeline and does not authorize a global clamp.
+
+Dense whole-chunk features can expose seams when a later offset moves an origin outside the region
+that will execute or retain it. Diagnosis must distinguish candidate generation, modifier output,
+biome-filter rejection, configured-feature rejection, writable-region clipping, and final block
+writes.
+
+FTF compiles a chunk-local contract only when a registered root has one whole-chunk scatter, all
+other root modifiers preserve X/Z, its configured feature is a vanilla random selector, and every
+nested pipeline is supported. The plan retains the exact root and nested offset object identities.
+An active FTF placement wraps only those nested offsets modulo the root chunk. This preserves a
+whole-chunk uniform distribution; clamping would concentrate candidates at edges. Other features,
+unknown graphs, and non-FTF generators retain their original placement behavior.
+
 ## Rescued underground surface features
 
 RTF can rescue a narrow family of conventional surface-search feature pipelines when their original

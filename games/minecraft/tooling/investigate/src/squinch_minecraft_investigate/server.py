@@ -412,7 +412,6 @@ def _refresh_owned_processes(state: dict, *, timeout: float = 5.0) -> list[dict]
 def uninterruptible_owned_processes(
     active_root: Path, *, timeout: float = 5.0
 ) -> list[dict]:
-    """Find exact investigation-owned processes blocked in kernel disk sleep."""
     if timeout <= 0:
         raise InvestigationError(
             "host_health_inconclusive", "owned-process health scan has no time budget"
@@ -517,7 +516,6 @@ def _wait_graceful_server_exit(state: dict, timeout: float) -> bool:
 
 
 def _startup_terminal_log(log_path: Path) -> str | None:
-    """Return a bounded terminal excerpt when launch output proves startup has failed."""
     try:
         with log_path.open("rb") as log_file:
             size = log_file.seek(0, os.SEEK_END)
@@ -554,7 +552,6 @@ def _rollback_server_files(
     companion_artifacts: list[dict[str, str]],
     remove_artifact_dir: bool,
 ) -> list[str]:
-    """Attempt every reversible preparation cleanup and report the complete result."""
     failures: list[str] = []
     for artifact in companion_artifacts:
         target = Path(artifact["materialized_path"])
@@ -1466,5 +1463,4 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
 
 
 def _starting_run_is_orphaned(state: dict) -> bool:
-    """Whether a doctor recovery can safely take over a stranded startup."""
     return not identity_matches(state["launcher"])

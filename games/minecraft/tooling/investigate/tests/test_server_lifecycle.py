@@ -748,7 +748,6 @@ def test_rcon_ready_without_probe_boundary_fails_and_cleans_up(
 def test_probe_boundary_without_listeners_detects_crashed_minecraft_before_wrapper_exit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Catches a production Gradle wrapper hiding a crashed Minecraft child until full timeout."""
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
@@ -789,7 +788,6 @@ def test_probe_boundary_without_listeners_detects_crashed_minecraft_before_wrapp
 def test_terminal_launch_log_detects_crashed_minecraft_before_wrapper_exit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Catches a game crash before the probe boundary while Gradle's wrapper remains alive."""
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)

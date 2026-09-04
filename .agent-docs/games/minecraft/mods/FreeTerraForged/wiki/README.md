@@ -16,5 +16,5 @@ not contain investigations, QA runs, branch state, or feature history.
 - [Compatibility invariants](concepts/compatibility-invariants.md)
 
 General Minecraft mechanisms live in the [Minecraft reference](../../../wiki/README.md).
-Feature-specific decisions and work remaining are recorded in `../plans/` or the relevant PR
-description.
+Feature-specific contracts, acceptance boundaries, and unresolved work are recorded in `../plans/`
+or the relevant PR description.

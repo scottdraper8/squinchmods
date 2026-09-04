@@ -8,7 +8,9 @@
     "MixinCountPlacement",
     "MixinHeightRangePlacement",
     "MixinLevelChunkSection",
-    "MixinPlacedFeature"
+    "MixinPlacedFeature",
+    "MixinRandomOffsetPlacement",
+    "MixinWorldGenRegion"
   ],
   "injectors": {
     "defaultRequire": 1

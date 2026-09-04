@@ -170,6 +170,18 @@ public final class WorldgenNormalizationCensusProbePack implements ProbePack {
             data.addProperty("possible_structure_sets", structureSets.size());
             data.addProperty("possible_structures", structures.size());
             data.addProperty("registered_density_functions", densities.size());
+            if (generator instanceof TerraForgedChunkGenerator terraForged) {
+                terraForged.plan().ifPresent(plan -> {
+                    data.add("plan_diagnostics", plan.diagnostics().toJson());
+                    JsonArray chunkLocalFeatures = new JsonArray();
+                    plan.placedFeatures().chunkLocalClassifications().values().stream()
+                        .filter(classification -> classification.eligible())
+                        .map(classification -> classification.confinement().featureId().toString())
+                        .sorted()
+                        .forEach(chunkLocalFeatures::add);
+                    data.add("chunk_local_placement_features", chunkLocalFeatures);
+                });
+            }
             data.add("feature_types", counts(featureTypes));
             data.add("placement_modifier_types", counts(placementTypes));
             data.add("carver_types", counts(carverTypes));

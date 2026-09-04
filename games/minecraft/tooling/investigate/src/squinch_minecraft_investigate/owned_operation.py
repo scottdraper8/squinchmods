@@ -7,7 +7,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, cast
 
 from .errors import CleanupError, InvestigationError
 from .output import timestamp
@@ -46,8 +46,6 @@ def defer_termination_signals():
 
 
 class Deadline:
-    """One monotonic budget shared by every blocking phase of an operation."""
-
     def __init__(self, timeout: float):
         if timeout <= 0:
             raise InvestigationError("operation_timeout_invalid", "timeout must be positive")
@@ -159,11 +157,11 @@ def run_finite_service(
     timeout: float,
     load_active: Callable[[Path, str], dict],
     validate: Callable[[dict], T],
+    poll_failure: Callable[[dict], BaseException | None] | None = None,
     prepare: Callable[[], None] | None = None,
     cleanup: Callable[[dict], list[str]] | None = None,
     state_fields: dict | None = None,
 ) -> tuple[dict, T]:
-    """Run a finite command in one retained, recoverable service boundary."""
     if timeout <= 0:
         raise InvestigationError("process_service_invalid", "operation timeout must be positive")
     reserved = {
@@ -317,6 +315,10 @@ def run_finite_service(
                     f"an investigation-owned {operation} process entered uninterruptible sleep",
                     details={"processes": blocked, "log_path": str(log_path)},
                 )
+            if poll_failure is not None:
+                detected = poll_failure(state)
+                if detected is not None:
+                    raise detected
             if wrapper.poll() is not None:
                 break
             time.sleep(0.25)
@@ -389,7 +391,7 @@ def run_finite_service(
                 },
             ) from failure
         raise failure
-    return state, validated  # type: ignore[return-value]
+    return state, cast(T, validated)
 
 
 def recover_finite_service(

@@ -17,7 +17,7 @@ abstract class MixinWorldGenRegion {
         CallbackInfoReturnable<Boolean> callback
     ) {
         if (callback.getReturnValue()) {
-            PlacementTelemetry.blockWrite(position, state);
+            PlacementTelemetry.worldGenWrite(position, state);
         }
     }
 }

@@ -1,25 +1,35 @@
 # FreeTerraForged Branch Map
 
-Reflects the live local branches, remote refs, and in-repository submodule state. Verify live Git
-before relying on this summary.
-
+This file records the current local/remote relationship. Verify live Git before relying on it.
 `origin` is `scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
 
 ## Branches
 
-| Branch                                | Remote  | Current state                                                                                                                                                                                                             |
-| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `1.21.1`                              | tracked | Local and `upstream` are aligned at `4a3ab1c`; the in-repository worktree is checked out here.                                                                                                                            |
-| `feat/worldgen-compatibility-runtime` | tracked | Local is `4acd142`, one commit ahead of `origin` at `2c2729c`, with active uncommitted completion/performance work; based on `4a3ab1c`. Continue through the canonical compatibility plans without committing or pushing. |
-| `feat/configurable-strata`            | tracked | Pushed, divergent from production, and awaiting product QA and rebase.                                                                                                                                                    |
-| `feat/configurable-shorelines`        | tracked | Pushed, divergent from production, and awaiting visual/product QA and rebase.                                                                                                                                             |
+| Branch                                | Current state                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `1.21.1`                              | The local in-repository worktree is at `4a3ab1c`. Live `upstream/1.21.1` is `96c31ee`.                                                     |
+| `feat/worldgen-compatibility-runtime` | The active worktree is at `f9be5ca`, 15 commits ahead of `origin` at `2c2729c`. Upstream `96c31ee` is an ancestor through merge `437bc9c`. |
+| `feat/configurable-strata`            | Pushed, divergent from production, and awaiting product QA and upstream integration.                                                       |
+| `feat/configurable-shorelines`        | Pushed, divergent from production, and awaiting visual/product QA and upstream integration.                                                |
 
-The in-repository `FreeTerraForged` worktree and the parent repository's submodule pointer are on
-current `1.21.1`.
+The active compatibility worktree is
+`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`.
 
-The active compatibility runtime and evidence worktree is
-`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. New evidence and
-implementation must continue there from the live `upstream/1.21.1` base.
+## Upstream integration boundary
 
-Inspect the compatibility worktree's live status before rebasing, building, or starting further
-implementation. Live Git supersedes this map.
+The upstream-only graph contains three merged compatibility changes:
+
+- [PR 208](https://github.com/ETcodehome/FreeTerraForged/pull/208) and
+  [PR 210](https://github.com/ETcodehome/FreeTerraForged/pull/210) modify
+  `MixinMultiNoiseBiomeSource`. The compatibility runtime deletes that consumer-side interception
+  and provides possible-biome closure through `UnifiedBiomeSource`, so those patches do not apply to
+  the current architecture.
+- [PR 212](https://github.com/ETcodehome/FreeTerraForged/pull/212) replaces the older reflective
+  `MixinSquarePlacement` workaround with a process-wide `RandomOffsetPlacement` clamp. The current
+  runtime deletes the old workaround and its accessor. The replacement is not acceptable because it
+  changes ordinary placement for non-FTF generators and lacks an exact placed-feature plan identity.
+
+Merge `437bc9c` integrates the upstream ancestry while retaining the deleted
+`MixinMultiNoiseBiomeSource`, omitting upstream's process-wide `MixinRandomOffsetPlacement`, and
+retaining the compatibility runtime's Mixin configuration. The branch instead compiles a generic
+FTF-owner-scoped chunk-local placement contract from public graph shape and exact identities.

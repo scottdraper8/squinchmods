@@ -129,6 +129,11 @@ does not recover feature identity from a live registry. Missing, direct, or conf
 retains vanilla placement. The structure plan likewise owns FTF rule order and tag-derived jigsaw
 adaptations, and one structure-generation invocation pins one plan snapshot across reload.
 
+Variable horizontal spread is not itself a placement defect. Chunk-local correction requires a
+compiled whole-chunk root contract, exact root and nested modifier identities, and an active FTF
+owner. Eligible nested coordinates wrap modulo the root chunk to preserve density. Unknown graphs
+and other generators retain vanilla behavior.
+
 An actual pre-server request exposes contributed outputs when the mechanism has a stable
 registration snapshot. A loaded mechanism with no contribution applicable to that creation graph is
 absent from the plan rather than becoming an unavailable facet.

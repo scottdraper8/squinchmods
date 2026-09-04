@@ -184,9 +184,18 @@ same-column, exact-air-to-solid scan in the compiled plan; upward, tag-defined, 
 pipelines remain on their original behavior. Execution does not re-encode codecs per placement. Full
 configured-height generation remains the fallback regardless of these adaptations.
 
+A non-constant `RandomOffsetPlacement` is ordinary public placement behavior, not evidence that a
+feature is defective. FTF never clamps it globally. Chunk-local correction is compiled only for a
+registered root with one whole-chunk scatter, otherwise position-preserving root modifiers, a
+vanilla random-selector configured feature, and supported nested pipelines containing exact
+horizontal offset identities. During that root's active FTF scope, nested outputs wrap modulo the
+owner chunk; wrapping preserves whole-chunk density instead of piling results on an edge. Direct,
+missing, conflicting, and unknown identities retain their original behavior. The contract is
+selected by graph semantics, not a mod or namespace.
+
 ## Requalification contract
 
-A release is qualified only when the completion plan proves all of the following with current
+A release is qualified only when the acceptance record proves all of the following with current
 exact-version artifacts under catalog policy:
 
 - deterministic extraction, ordering, owner isolation, reload, cancellation, and narrow failures;

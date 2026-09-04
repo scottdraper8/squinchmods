@@ -78,6 +78,14 @@ Runtime selection does not intercept a plain `MultiNoiseBiomeSource`, query a me
 fall back to a vanilla generator. Mechanism finalizers may populate the acquisition graph, but they
 cannot replace the FTF runtime source after normalization.
 
+The point-query interface does not determine the execution strategy. Chunk biome filling reuses the
+biome-cell identity already computed by its request-owned terrain tile. Arbitrary isolated queries
+derive that identity through the lightweight biome-region path and may reuse exact owner-keyed
+results. Large horizontal and three-dimensional locate operations pin one immutable plan for the
+complete invocation and may resolve independent candidates concurrently only when every executed
+facet declares isolated reads; result testing and selection retain vanilla order. These are generic
+query-shape optimizations and do not grant any content mod downstream authority.
+
 The final provider tables, fallback table, transformed root candidates, and every decorator's
 declared outputs form the possible-biome closure. Registry-backed carver and placed-feature
 execution plans compile once from that closure. The immutable decoration snapshot retains final

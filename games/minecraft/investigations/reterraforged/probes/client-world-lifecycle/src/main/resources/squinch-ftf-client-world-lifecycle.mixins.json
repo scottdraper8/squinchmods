@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.rtf.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CreateWorldScreenInvoker",
+    "MixinConfirmScreen",
+    "MixinCreateWorldScreen",
+    "MixinMinecraft",
+    "MixinWorldCreationUiState"
+  ],
+  "mixins": [
+    "MixinMinecraftServer"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
