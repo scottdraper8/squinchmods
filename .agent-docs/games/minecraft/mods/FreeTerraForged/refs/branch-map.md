@@ -5,12 +5,12 @@ This file records the current local/remote relationship. Verify live Git before 
 
 ## Branches
 
-| Branch                                | Current state                                                                                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `1.21.1`                              | The local in-repository worktree is at `4a3ab1c`. Live `upstream/1.21.1` is `96c31ee`.                                                     |
-| `feat/worldgen-compatibility-runtime` | The active worktree is at `f9be5ca`, 15 commits ahead of `origin` at `2c2729c`. Upstream `96c31ee` is an ancestor through merge `437bc9c`. |
-| `feat/configurable-strata`            | Pushed, divergent from production, and awaiting product QA and upstream integration.                                                       |
-| `feat/configurable-shorelines`        | Pushed, divergent from production, and awaiting visual/product QA and upstream integration.                                                |
+| Branch                                | Current state                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `1.21.1`                              | The local in-repository worktree is at `4a3ab1c`. Live `upstream/1.21.1` is `96c31ee`.                        |
+| `feat/worldgen-compatibility-runtime` | The active worktree and `origin` are at `d63e097`. Upstream `96c31ee` is an ancestor through merge `ca6459b`. |
+| `feat/configurable-strata`            | Pushed, divergent from production, and awaiting product QA and upstream integration.                          |
+| `feat/configurable-shorelines`        | Pushed, divergent from production, and awaiting visual/product QA and upstream integration.                   |
 
 The active compatibility worktree is
 `games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`.
@@ -29,7 +29,7 @@ The upstream-only graph contains three merged compatibility changes:
   runtime deletes the old workaround and its accessor. The replacement is not acceptable because it
   changes ordinary placement for non-FTF generators and lacks an exact placed-feature plan identity.
 
-Merge `437bc9c` integrates the upstream ancestry while retaining the deleted
+Merge `ca6459b` integrates the upstream ancestry while retaining the deleted
 `MixinMultiNoiseBiomeSource`, omitting upstream's process-wide `MixinRandomOffsetPlacement`, and
 retaining the compatibility runtime's Mixin configuration. The branch instead compiles a generic
 FTF-owner-scoped chunk-local placement contract from public graph shape and exact identities.

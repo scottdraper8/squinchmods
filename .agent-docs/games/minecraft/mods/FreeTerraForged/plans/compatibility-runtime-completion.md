@@ -79,7 +79,7 @@ runtime dependency, or incorrect metadata.
 
 ## Current integration boundary
 
-Live upstream is `96c31ee`; merge `437bc9c` integrates its ancestry without adopting obsolete
+Live upstream is `96c31ee`; merge `ca6459b` integrates its ancestry without adopting obsolete
 consumer-side preview interception or the process-wide placement clamp. `UnifiedBiomeSource` owns
 possible-biome closure. The placement plan classifies public graph semantics, pins exact root and
 nested modifier identities, and activates only for an FTF generator owner.

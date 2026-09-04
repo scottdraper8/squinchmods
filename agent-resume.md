@@ -18,7 +18,7 @@ evidence supersede it.
 - Repository-wide tooling findings: `.agent-docs/games/minecraft/agentic-development-findings.md`
 
 The active worktree is `games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility` on
-`feat/worldgen-compatibility-runtime` at `f9be5ca`. Preserve every dirty change. Do not reset,
+`feat/worldgen-compatibility-runtime` at `d63e097`. Preserve every dirty change. Do not reset,
 reconstruct, clean, stash, commit, or push without current authorization.
 
 ## Current runtime
@@ -62,7 +62,7 @@ status/doctor results. Never read `/proc/<pid>/stack`.
 
 ## Upstream boundary
 
-Live `upstream/1.21.1` is `96c31ee`, and its ancestry is integrated by merge `437bc9c`. The accepted
+Live `upstream/1.21.1` is `96c31ee`, and its ancestry is integrated by merge `ca6459b`. The accepted
 tree retains the deleted `MixinMultiNoiseBiomeSource` path and omits upstream's process-wide
 `RandomOffsetPlacement` clamp. The replacement is the generic owner-scoped compiled placement
 contract described above; it has no content-mod dispatch and does not alter other generators.
