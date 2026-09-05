@@ -48,6 +48,26 @@ Jigsaw terrain adaptation operates around individual rigid pieces. Gaps in a lar
 structure can lie outside each individual piece's effective adaptation halo. This is distinct from
 the initial start-height decision.
 
+Heightmap projection samples the start position before the jigsaw graph is assembled. Child pieces
+inherit connector-relative positions; they do not independently resample the surface. A child on
+high-relief terrain can therefore retain the start's elevation while extending over a much lower
+slope.
+
+`BURY` adds density around each rigid piece's ground plane. It is neither an enclosure operation nor
+a guarantee that the piece lies below the local surface. If a ground plane is suspended above the
+terrain inside its positive adaptation footprint, the added density can create a visible shelf.
+Evaluate this geometry per rigid piece over the actual nonzero adaptation footprint; a combined
+bounding box or one sample at the structure origin does not establish safety.
+
+Sky-visible shell cells are not, by themselves, a defect oracle for a nominally buried structure.
+Some structures intentionally reach the surface. Measure the claimed failure mechanism directly,
+such as ground-plane suspension or the terrain blocks introduced by adaptation, and use matched
+vanilla controls to distinguish ordinary structure behavior from generator-specific amplification.
+
+When a generator's production density uses filtered, eroded, cached, or tiled terrain data, a
+one-column `ChunkGenerator#getBaseHeight` query may not represent the surface that real chunks use.
+Placement validation must read the same terrain authority as production density generation.
+
 In vanilla 1.21.1, Trial Chambers uses `encapsulate`, while Ancient City uses `beard_box`.
 Adaptation-specific behavior therefore applies to different registered sets.
 
