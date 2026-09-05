@@ -1,0 +1,38 @@
+schema_version = 1
+name = "FTF trail ruins terrain deformation focused scan"
+project = "games/minecraft/investigation-state/worktrees/ftf-trail-ruins"
+loader = "fabric"
+seed = 3216933670
+retention = "keep"
+
+datapacks = [
+  "games/minecraft/investigations/reterraforged/fixtures/modern-default-with-rivers-live-export/reterraforged-preset.zip",
+]
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/trail-ruins-enclosure"]
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 600
+shutdown = 600
+
+[expectations]
+required_mods = ["minecraft", "reterraforged"]
+
+[[probes]]
+id = "squinch:rtf-structure-terrain-deformation"
+version = "7"
+config = { structure_id = "minecraft:trail_ruins", halo = 6, sample_step = 1, example_limit = 80, max_columns = 100000 }
+
+[[steps]]
+id = "generate-neg7552-neg6480"
+type = "generate"
+unit = "chunk"
+bounds = [-478, -411, -466, -399]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-structure-terrain-deformation"
+expect = { terminal_state = "pass" }

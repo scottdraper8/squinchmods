@@ -1,0 +1,36 @@
+schema_version = 1
+id = "modern-default-with-rivers-live-export"
+classification = "reusable-control"
+purpose = "Ordinary-depth, ordinary-terrain RTF baseline (RTF's own live default preset) for empirical structure-placement investigation, representative of what an actual player world uses."
+applicable_questions = [
+  "ordinary-world structure placement and burial",
+  "whether a placement bug requires stress-preset conditions or reproduces under default settings",
+]
+known_limitations = [
+  "not a base+overlay fixture; this is a complete datapack captured live rather than assembled from _base",
+  "captured via the real client world-creation path, not tooling/squinch mc-investigate preset-fixture",
+]
+minecraft_version = "1.21.1"
+provenance = """
+tooling/squinch mc-investigate preset-fixture cannot regenerate any fixture against a worktree based
+on plain upstream/1.21.1: it runs as a headless Fabric DataGeneratorEntrypoint, which per vanilla's
+own datagen API (net.minecraft.data.registries.VanillaRegistries) can only ever produce a
+HolderLookup.Provider, never a real RegistryAccess. Datapacks.makePreset on plain upstream/1.21.1
+still requires an actual RegistryAccess (the compat branch alone widened it to HolderLookup.Provider
+as part of the unrelated, still-incomplete worldgen-compatibility-runtime rewrite; see
+common/src/main/java/raccoonman/reterraforged/data/worldgen/Datapacks.java commit c65ee21). This
+fixture instead comes from the real, already-supported live path: PresetConfigScreen.exportAsDatapack
+using WorldCreationContext.worldgenLoadContext() for a genuine RegistryAccess, driven headlessly via
+`tooling/squinch mc-investigate client` with the existing
+games/minecraft/investigations/reterraforged/probes/client-world-lifecycle probe pack (confirmed
+free of the compat-runtime-only raccoonman.reterraforged.world.worldgen.runtime.* package that makes
+the pre-server-preview probe pack fail to compile outside the compat branch). Captured against
+worktree games/minecraft/investigation-state/worktrees/ftf-trail-ruins (branch
+fix/trail-ruins-encapsulation, upstream/1.21.1 tip f9c254e), run
+games/minecraft/investigation-state/runs/20260904T234748Z-8b0224b2a5, using RTF's own live default
+Preset (Presets.modernDefaultWithRivers()). The client-world-lifecycle probe also confirmed the
+resulting world reaches a real loaded overworld (status: pass in that run's
+results/client-world-result.json), so this datapack is proven loadable, not just exportable.
+"""
+resolved_preset_sha256 = "5ddcc907b6f1875684479b3bc592ee49bf3e87d2b4ddf676e64ebded253ba251"
+datapack = "reterraforged-preset.zip"
