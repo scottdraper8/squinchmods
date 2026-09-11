@@ -1,5 +1,5 @@
 plugins {
-    id "fabric-loom"
+    id "dev.architectury.loom"
 }
 
 dependencies {
@@ -21,7 +21,7 @@ tasks.register("prodServer", net.fabricmc.loom.task.prod.ServerProductionRunTask
     loaderVersion = rootProject.fabric_loader_version
     minecraftVersion = rootProject.minecraft_version
     runDir = file("run")
-    jvmArgs.add("-Xmx4G")
+    jvmArgs.add("-Xmx${providers.environmentVariable("SQUINCH_MC_MAX_HEAP").getOrElse("4G")}")
 }
 
 processResources {

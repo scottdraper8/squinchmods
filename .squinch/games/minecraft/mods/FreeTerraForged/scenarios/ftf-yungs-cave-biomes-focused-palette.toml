@@ -11,7 +11,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-geckolib-4.9.2",
     "mc1.21.1-fabric-yungs-cave-biomes-3.1.1",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
 

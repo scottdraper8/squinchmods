@@ -68,3 +68,41 @@ def generate_regions(
         if progress is not None:
             progress({"completed": index, "total": len(regions), **result})
     return results
+
+
+def release_regions(
+    state: dict,
+    regions: list[dict],
+    timeout: float,
+) -> list[dict]:
+    """Release exact owned force-load tiles and forget each only after acknowledgement."""
+    results: list[dict] = []
+    started = time.monotonic()
+    for index, region in enumerate(reversed(regions), 1):
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise InvestigationError(
+                "generation_release_timeout",
+                "timed out while releasing generated force-load regions",
+            )
+        if region not in state["forceload_regions"]:
+            raise InvestigationError(
+                "generation_release_ownership",
+                "generated force-load region is no longer owned by this run",
+            )
+        command = (
+            f"forceload remove {region['block_min_x']} {region['block_min_z']} "
+            f"{region['block_max_x']} {region['block_max_z']}"
+        )
+        response = run_commands(state, [command], remaining)[0]
+        state["forceload_regions"].remove(region)
+        persist_active(state)
+        results.append(
+            {
+                "index": index,
+                "region": region,
+                "elapsed_seconds": time.monotonic() - started,
+                **response,
+            }
+        )
+    return results

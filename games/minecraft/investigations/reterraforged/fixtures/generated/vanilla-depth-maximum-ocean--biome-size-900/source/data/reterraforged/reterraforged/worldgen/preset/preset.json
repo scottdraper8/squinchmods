@@ -78,7 +78,10 @@
     "mountainScale": 1.0,
     "offshoreDepth": 0.5,
     "volcanismScale": 1.0,
-    "volcanoChance": 0.05
+    "volcanoChance": 0.05,
+    "mountainHorizontalScale": 0.7,
+    "volcanismHorizontalScale": 0.7,
+    "macroDensityPercentage": 1.0
   },
   "miscellaneous": {
     "customBiomeFeatures": true,

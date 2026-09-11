@@ -203,9 +203,11 @@ Fabric or NeoForge in an artifact-owned run directory under an isolated headless
 never uses a personal launcher profile or the project's ordinary run directory. Declare runtime
 catalog artifacts with `--artifact`, compile-only mechanism APIs with
 `--compile-artifact ID:LOADER:named|loader`, probe inputs with `--probe-env SQUINCH_NAME=value`, and
-required result basenames with `--result-env SQUINCH_NAME=result.json`. Runtime companions are not
-implicit compile dependencies. Success requires every result object to report `status: "pass"`, an
-unchanged target worktree, and complete process/display cleanup.
+exact configuration inputs with `--runtime-file SOURCE=config/TARGET`; each file is confined to the
+isolated client's config directory and hashed in retained state. Declare required result basenames
+with `--result-env SQUINCH_NAME=result.json`. Runtime companions are not implicit compile
+dependencies. Success requires every result object to report `status: "pass"`, an unchanged target
+worktree, and complete process/display cleanup.
 
 ### Common RCON usage patterns
 
@@ -498,11 +500,14 @@ failed run as labeled diagnostic evidence, recover or restart the host, and repe
 measurements under matched clean conditions. Functional source evidence and deterministic outputs
 remain separate claims; they do not rehabilitate contaminated timing or memory data.
 
-For "is it actually faster," set `repeat` and a nonzero `offset = [x, z]` on a scenario's generation
-step — the parser requires every translated coordinate window to be disjoint (repeating the same
-window mostly measures loaded/cached behavior, not generation cost) and caps one step at 20
-observations. Each observation retains its exact bounds plus generation/probe/total seconds; the
-step reports every value alongside median, minimum, maximum, and range — never one number hiding the
+For "is it actually faster," set `repeat`, a nonzero `offset = [x, z]`, and
+`release_after_observation = true` on a scenario's generation step. The parser requires every
+translated coordinate window to be disjoint (repeating the same window mostly measures loaded/cached
+behavior, not generation cost) and caps one step at 20 observations. Release happens after the
+terminal probe and is excluded from generation timing; without it, repeated windows accumulate
+force-load tickets, live chunks, heap pressure, and asynchronous work. Each observation retains its
+exact bounds plus generation/probe/release/total seconds; the step reports every timed
+generation/probe value alongside median, minimum, maximum, and range — never one number hiding the
 variance. Set `jfr = true` on any step to record only that step with the owned Minecraft JVM; the
 resulting nonempty, hashed `.jfr` lands under that run's `profiles/` directory and is referenced by
 both the scenario result and manifest. Lifecycle timing separately records startup, verified
@@ -535,14 +540,20 @@ start identities before signaling, removes only force-load regions recorded by t
 any remaining process/listener/file/world/display cleanup problem as a failed run, not a warning.
 Preparation checks active ownership before creating run artifacts and rolls back partial
 managed-file staging. All blocking teardown phases share the caller's one monotonic timeout budget;
-no phase restarts that budget. If an owned process enters uninterruptible sleep, the run retains
-bounded kernel diagnostics and active recovery state; do not probe its procfs stack, because a state
-transition can make that read block the observer too. `doctor --recover` is the explicit recovery
-path for retained incomplete state. Retention is explicit per run via
+no phase restarts that budget. Size the operation timeout for launch, the behavior-bearing probe,
+normal shutdown, and fallback cleanup together; a short diagnostic timeout can expire during Gradle
+or Architectury transformation and leave no budget for user-systemd cleanup. Do not shorten the
+timeout merely to obtain earlier progress diagnostics; use retained phase/event markers and a budget
+long enough for the full lifecycle. If an owned process enters uninterruptible sleep, the run
+retains bounded kernel diagnostics and active recovery state; do not probe its procfs stack, because
+a state transition can make that read block the observer too. `doctor --recover` is the explicit
+recovery path for retained incomplete state. Retention is explicit per run via
 `--retention {discard,keep-on-failure,keep}` (default `discard`). Use
 `mc-investigate clean --older-than-days <n>` (dry run by default; add `--apply` to delete) to prune
-kept runs — it rejects active runs, symlinks, foreign manifests, and paths outside the owned state
-root, and deletes directly after validation; there is no speculative trash layer.
+kept runs. Age cleanup preserves the exact evidence IDs in
+`.squinch/games/minecraft/investigation-retention.toml`; exact deletion of a protected run requires
+`--include-protected`. Cleanup rejects active runs, symlinks, foreign manifests, and paths outside
+the owned state root, and deletes directly after validation; there is no speculative trash layer.
 
 If driving this from an agent session with background task tracking, background tasks and scheduled
 wakeups don't automatically clean themselves up just because the underlying process died — verify

@@ -1,109 +1,97 @@
 # Minecraft Agentic Development Findings
 
-## Status: 2026-09-05
-
-This is the current unresolved backlog for repository-wide Minecraft investigation tooling. It is
-not an incident log or a record of completed work. Mod-specific conclusions belong in that mod's
+Unresolved tooling defects that need human attention. Mod-specific conclusions belong in that mod's
 canonical plan, durable operating rules belong in `agentic-development-guide.md`, and raw evidence
-belongs in retained run artifacts. Remove an item as soon as its root fix and acceptance evidence
-are complete; an empty active section is the intended steady state.
+belongs in retained run artifacts. Remove an entry once its resolution gate is satisfied.
 
 ## Active
 
-### `preset-fixture` cannot regenerate any fixture against a plain-`upstream/1.21.1` worktree
+### Packaged generation can crash or become unkillable on Temurin 21.0.11 independently of JFR
 
-Root cause is architectural, not a stale-data nit: `tooling/squinch mc-investigate preset-fixture`
-runs `PresetFixtureMain` as a headless Fabric `DataGeneratorEntrypoint`
-(`games/minecraft/investigations/reterraforged/cell-scan/src/main/java/org/squinchmods/investigate/rtf/PresetFixtureMain.java`).
-Per vanilla's own datagen API (`net.minecraft.data.registries.VanillaRegistries.createLookup()`, and
-`FabricDataGenerator#getRegistries()`), a headless data generator can only ever produce a
-`HolderLookup.Provider`, never a real `RegistryAccess` — there is no headless bootstrap path that
-materializes one. `Datapacks.makePreset` on plain `upstream/1.21.1`
-(`common/src/main/java/raccoonman/reterraforged/data/worldgen/Datapacks.java`) still requires an
-actual `RegistryAccess` parameter; only the separate, still-incomplete
-`feat/worldgen-compatibility-runtime` branch widened it to accept `HolderLookup.Provider` (commit
-`c65ee21`, entangled with that branch's broader ETL rewrite, not a narrowly portable change).
-Confirmed reproduction: `:fabric:compileSquinchProbeJava` (or `:neoforge:...`) fails with
-`incompatible types: Provider cannot be converted to RegistryAccess` at `PresetFixtureMain.java:40`
-against a clean `upstream/1.21.1` worktree at `f9c254e`, run `20260904T233637Z-ef737190cc`.
+Three retained JVMs crashed in the identical HotSpot frame, `RegisterNMethodOopClosure::do_oop`, on
+Temurin 21.0.11+10. The Fabric run `20260907T010315Z-1c6346bcbf` had no JFR recording or JFR startup
+flag. Its 4 GiB G1 heap reached 4.17 GiB used, repeatedly failed humongous allocations, and crashed
+while rebuilding compiled-code roots during a full collection. Earlier Fabric and NeoForge crashes
+have the same `libjvm.so` offset, but did use step-scoped JFR. JFR is therefore not a necessary
+cause, and the post-JFR host-health check does not prevent or fully detect this failure class.
 
-Downstream symptom of the same gap: the shared RTF fixture base,
-`games/minecraft/investigations/reterraforged/fixtures/_base/data/reterraforged/reterraforged/worldgen/preset/preset.json`,
-predates Preset-codec fields current `upstream/1.21.1` requires (confirmed missing:
-`island.mountainHorizontalScale`, `island.volcanismHorizontalScale`,
-`island.macroDensityPercentage`) — nobody has been able to regenerate it against upstream since
-those fields were added, precisely because `preset-fixture` cannot run there. Any fixture built from
-`_base` crashes registry load on an affected worktree with
-`IllegalStateException: No key <field> in MapLike[...]` and
-`Failed to load datapacks, can't proceed with server load` in the server log. Reproduced with the
-`shallow-depth-mountain-control` fixture (`rtf_version = "0.0.6005"`), same worktree, scenario
-`ftf-trail-ruins-locate-discovery`, run `20260904T232608Z-9e854008fb`. Concrete added cost: the
-crash does not exit the server JVM — it stays alive (observed still running past 420s) rather than
-terminating, so the run only ends when the scenario's own `startup` timeout is exhausted and the
-tracked systemd unit force-kills the process tree, wasting a full cold Gradle build plus the entire
-configured startup timeout with no earlier failure signal.
+The repeated-generation runner also retained every earlier observation's force-load tickets until
+server shutdown. An eight-window benchmark therefore grew from 441 to 3,528 simultaneously forced
+chunks instead of holding one active window. This is the demonstrated cause of the 4 GiB exhaustion
+and a confounder in the profiler-free hangs. The local runner now has exact owned-region release
+after each terminal probe. Its corrected three-revision/three-mode matrix completed 27 of 27 fresh
+JVMs and 189 of 189 measured windows on Temurin 21.0.11+10, including three passes each for the
+previously failing parent/no-C2ME and experimental/no-C2ME cells. Every observation released its
+four acknowledged regions and every run passed cleanup, inactive-state, and zero-JVM gates. Exact
+evidence is retained in
+`games/minecraft/investigations/reterraforged/analysis/c2me-dfc-matrix-20260907/analysis.md`.
 
-Root resolution gate: either port a narrowly-scoped, standalone widening of
-`Datapacks.makePreset`/`Preset.buildPatch`/`Preset.filterToArmedOnly` from `RegistryAccess` to
-`HolderLookup.Provider` onto `upstream/1.21.1` (the `buildPatch`/`buildPatchedRegistries` portion of
-commit `c65ee21` only — not `buildPreviewLookups`, which is compat-runtime-specific and unrelated),
-or accept that `preset-fixture` is compat-branch-only and document the supported alternative for
-every other branch: export a datapack through the real client path
-(`PresetConfigScreen.exportAsDatapack` via `WorldCreationContext.worldgenLoadContext()`, driven
-headlessly through `tooling/squinch mc-investigate client` with a probe pack that stages
-`applyPreset`/exports the resulting `reterraforged-preset.zip`, e.g.
-`games/minecraft/investigations/reterraforged/probes/client-world-lifecycle`). Close only once a run
-against current upstream tip, using either path, reaches a running server rather than a
-registry-load crash. Regardless of which resolution ships, `_base` itself should be regenerated
-afterward so it stops being stale for every other consumer.
+Separate profiler-free generation runs `20260906T233513Z-99905130ee` and
+`20260907T012004Z-caa696b70e` stopped making probe progress while their JVMs were still present.
+Termination of the latter initially left 77 of 125 server threads, and then all 125 threads, in
+uninterruptible `D` state at `exit_mm`; TERM, KILL, RCON, user-systemd, and JVM attach could not
+retire the process. Do not assume that this hang and the full-GC crash share one root cause merely
+because both poison teardown. The corrected matrix falsifies a branch-specific no-C2ME hang, but
+does not identify the lower-level mechanism that turned the old accumulated-ticket workload into an
+`exit_mm` survivor.
 
-### `pre-server-preview` probe pack does not compile outside the compat-runtime branch
+Client run `20260907T043438Z-3ef12fc82e` demonstrates the same operational hazard outside the
+generation benchmark. A 180-second total timeout expired while the Fabric development client was
+still at the Architectury launch boundary. That same budget was exhausted before user-systemd
+cleanup, leaving exact owned PID `92671` in uninterruptible `D` state even after the unit became
+failed. This run contains no Minecraft behavior evidence. The active-state validator initially also
+rejected recovery because it expected an obsolete artifact-local display path rather than the
+current recorded `/run/user/<uid>/squinch-<run suffix>` path. The validator now derives that path
+from the recorded runtime root and run ID, and its focused unit test passes; recovery then correctly
+reported the surviving process instead of rejecting valid owned state.
 
-`games/minecraft/investigations/reterraforged/probes/pre-server-preview/src/main/java/org/squinchmods/investigate/rtf/preview/mixin/MixinWorldCreationUiState.java`
-imports fourteen classes from `raccoonman.reterraforged.world.worldgen.runtime.*`
-(`MinecraftWorldgenPlanCompiler`, `TerraForgedChunkGenerator`, `WorldgenPreServerFinalizer`, and
-others) — a package that exists only on `feat/worldgen-compatibility-runtime`, not on plain
-`upstream/1.21.1`. `git log` shows this probe pack has exactly one commit
-(`64cc521 feat: complete worldgen compatibility investigation`), so it was written and validated
-only against that branch. Reproduced: `:fabric:compileSquinchProbeJava` fails with fourteen
-`package raccoonman.reterraforged.world.worldgen.runtime does not exist` errors against a clean
-`upstream/1.21.1` worktree at `f9c254e`, run `20260904T234544Z-ee26dec265`. Concrete cost: any
-non-compat-branch worktree cannot use this probe pack at all for client/world-creation evidence, and
-the failure only surfaces after a full cold client build, not at probe-pack selection time. A
-sibling probe pack, `games/minecraft/investigations/reterraforged/probes/client-world-lifecycle`,
-covers the same "stage a preset and create a real world" need with zero compat-runtime imports and
-is confirmed to compile and run cleanly at the same upstream revision (run
-`20260904T234748Z-8b0224b2a5`, status `pass`) — that is the correct probe pack to reach for a
-non-compat worktree.
+The preview-to-finished probe supplied a second client-side workload amplification mechanism. Its
+337 sparse viewport points requested chunks across 12,800 blocks. Each broad run generated 8,289 FTF
+chunks and left 154,953 Minecraft chunk holders waiting to unload. That is not a bounded 337-chunk
+workload and must not be used as a repeated client-matrix acceptance test. After recovery, a
+contiguous 7 x 7 center probe completed all 18 production-client revision/mode/loader cells with 24
+GiB heap, eight advertised processors, E-core affinity, clean shutdown, and no surviving JVM. Retain
+the sparse runs only as preview-edge behavior controls; use compact contiguous chunk corpora for
+lifecycle and storage matrices unless distributed generation is itself the behavior under test.
 
-Root resolution gate: either split `pre-server-preview` so its compat-runtime-only pieces
-(`MixinWorldCreationUiState` and whatever depends on it) live behind a capability or build variant
-that is only compiled in on the compat branch, or explicitly document that this probe pack is
-compat-branch-only so it stops being the first thing reached for on other worktrees. No other probe
-pack under `games/minecraft/investigations/reterraforged/probes/` has been audited for the same
-`raccoonman.reterraforged.world.worldgen.runtime` coupling; that audit is part of closing this.
+**Needs:** qualify another Java 21 distribution and repeat a JFR-bearing stress case with
+per-observation force-load release and a heap large enough for the active window. The profiler-free
+Temurin release path is live-qualified. Add a progress watchdog that captures a bounded thread dump
+before termination while JVM attach still responds, and extend the general post-run gate to reject
+surviving or `D`-state owned JVMs whether or not JFR ran. Until then, disable JFR, release repeated
+force-load windows, verify complete cleanup after every JVM, and reboot after any `exit_mm` survivor
+before collecting more timing evidence. Give launch work and cleanup independent bounded budgets; do
+not let a short operation timeout consume all time available to retire an owned process. The
+post-reboot 18-cell production-client matrix exercised the corrected display-path validator and
+clean shutdown path; that portion is resolved even though the lower-level `exit_mm` cause remains
+open.
 
-### Scenario `cleanup_failed` after a large `generate` step can mask fully-valid retained step data
+### Scenario cleanup failure is emitted as successful process execution
 
-A scenario that force-generates a large, scattered chunk volume (11 regions, 1859 chunks total,
-`ftf-trail-ruins-enclosure-scan`, run `20260904T235233Z-3a74d31572`) had every step succeed
-(`scenario-summary.json` reports `"state": "succeeded"` and all eleven `terminal_probe` results are
-present and complete, `shell_scan_capped: false` throughout) but the top-level command still
-returned `error` / `cleanup_failed`, because the final world-save issued over RCON during shutdown
-timed out (`"world save: RCON I/O failed: timed out"`, default `[timeouts] shutdown = 180`). This
-also left a stale entry under `games/minecraft/investigation-state/active/`, requiring
-`mc-investigate doctor --recover` to clear before the worktree could be reused.
+Run `20260907T010315Z-1c6346bcbf` completed all generation steps and then crashed during cleanup.
+The scenario CLI preserved the step data, but emitted `state = "succeeded"` with a `cleanup_failed`
+error and exited zero. This lets automation accept timing from a poisoned host unless it
+independently inspects both the error and `data.cleanup.complete`.
 
-Concrete cost: the top-level `state: "error"` gives no signal that every step actually completed and
-all data is intact in `scenario-summary.json` — an agent or user could reasonably discard a run's
-results as invalid and redo the (expensive, cold-build-plus-1800-chunk) work for nothing. Root
-resolution gate: either give heavy-`generate` scenarios a shutdown timeout scaled to the chunk
-volume requested, or have the CLI distinguish "steps succeeded, cleanup/save failed" from "steps
-failed" in its top-level `state`/`error` fields so retained step data is never conflated with a
-failed run.
+The local CLI now preserves completed step data while emitting an error terminal state and nonzero
+exit code. Focused output-schema and handler/main exit tests pass.
+
+**Needs:** exercise a controlled end-to-end cleanup failure that proves the persisted summary,
+process exit, surviving-process gate, and inactive-state requirement together before removing this
+entry.
+
+### `preset-fixture` cannot compile against plain `upstream/1.21.1`
+
+Fabric headless datagen provides `HolderLookup.Provider`, but `Datapacks.makePreset` on
+`upstream/1.21.1` requires `RegistryAccess`. The widening fix is on
+`fix/preset-fixture-provider-widening` (`40acb11`). Fixture presets also needed three missing
+`IslandSettings` codec fields to avoid registry-load crashes.
+
+**Needs:** merge the widening branch (or PR to `ETcodehome/FreeTerraForged`) and confirm a
+`preset-fixture` run produces a fixture that boots a server.
 
 ## Entry rule
 
-Add only a reproducible, repository-wide tooling defect with a concrete cost and a root resolution
-gate. Do not add reminders, mod behavior, speculative improvements, completed incidents, or
-workarounds. Fold related symptoms into the existing root issue instead of adding another entry.
+Add only a reproducible, repository-wide tooling defect with a concrete cost and a resolution gate.
+Do not add reminders, mod behavior, speculative improvements, completed work, or workarounds. Fold
+related symptoms into the existing root issue instead of adding another entry.

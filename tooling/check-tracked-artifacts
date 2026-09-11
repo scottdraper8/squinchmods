@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bad=()
+while IFS= read -r path; do
+    case "/$path/" in
+        */.gradle/* | */build/* | */run/* | */games/minecraft/qa-state/* | \
+            */games/minecraft/investigation-state/* | */games/minecraft/reference/*)
+            bad+=("$path")
+            continue
+            ;;
+    esac
+    case "$path" in
+        *.class | *.log | *.log.gz | *.jfr | *.mca | */hs_err_pid*)
+            bad+=("$path")
+            ;;
+        *.jar)
+            case "$path" in
+                */gradle/wrapper/gradle-wrapper.jar) ;;
+                *) bad+=("$path") ;;
+            esac
+            ;;
+    esac
+done < <(git ls-files)
+
+if ((${#bad[@]})); then
+    echo "Tracked runtime/build artifacts are not allowed:" >&2
+    printf '  %s\n' "${bad[@]}" >&2
+    exit 1
+fi

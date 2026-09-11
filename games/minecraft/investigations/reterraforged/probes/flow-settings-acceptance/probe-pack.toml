@@ -7,3 +7,4 @@ resources = ["src/main/resources"]
 mixins = ["squinch-rtf-flow-settings-acceptance.mixins.json"]
 configuration_schema = "probe-config-v1.json"
 capabilities = ["level-ownership", "resource-reload", "player-sync", "dimension-sync"]
+required_source_paths = ["common/src/main/java/raccoonman/reterraforged/world/worldgen/runtime"]

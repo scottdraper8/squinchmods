@@ -19,6 +19,6 @@ public abstract class MixinPreview3D {
 
 	@Inject(method = "applyGeneratedFrame", at = @At("TAIL"))
 	private void squinch$observeFrame(IPreviewHandler.FrameResult result, CallbackInfo callback) {
-		LifecycleProbe.frameApplied("3d", (IPreviewHandler) (Object) this);
+		LifecycleProbe.frameApplied("3d", (IPreviewHandler) (Object) this, result);
 	}
 }

@@ -20,12 +20,12 @@ from typing import Any
 
 from .catalog import ResolvedArtifact, resolve_artifacts
 from .errors import CleanupError, InvestigationError
-from .generation import generate_regions
+from .generation import generate_regions, release_regions
 from .fixtures import load_fixture, materialize_fixture
 from .output import timestamp
 from .paths import REPOSITORY_ROOT, STATE_ROOT
 from .probe_requests import submit_probe
-from .profiling import start_jfr, stop_jfr
+from .profiling import start_jfr, stop_jfr, verify_jfr_host_health
 from .processes import identity_matches
 from .server import (
     persist_active,
@@ -376,7 +376,7 @@ def load_scenario(path: str | Path) -> Scenario:
         "command": {"command", "commands"},
         "generate": {
             "unit", "bounds", "candidate_file", "candidate_limit",
-            "authority", "terminal_probe", "repeat", "offset",
+            "authority", "terminal_probe", "repeat", "offset", "release_after_observation",
         },
         "probe": {"probe"},
     }
@@ -470,6 +470,11 @@ def load_scenario(path: str | Path) -> Scenario:
                     raise _error(f"steps[{index}].bounds are inverted")
                 if abs(offset[0]) < width and abs(offset[1]) < depth:
                     raise _error(f"steps[{index}].offset produces overlapping windows")
+            release_after_observation = values.get("release_after_observation", False)
+            if not isinstance(release_after_observation, bool):
+                raise _error(
+                    f"steps[{index}].release_after_observation must be a boolean"
+                )
             values = {
                 "unit": values["unit"],
                 "bounds": bounds,
@@ -479,6 +484,7 @@ def load_scenario(path: str | Path) -> Scenario:
                 "terminal_probe": terminal_probe,
                 "repeat": repeat,
                 "offset": offset,
+                "release_after_observation": release_after_observation,
             }
         else:
             probe_id = values.get("probe")
@@ -1297,15 +1303,32 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                     probe_seconds = time.monotonic() - probe_started
                     terminal = {"request": request, "result": probe_result}
                     checks.append(terminal)
+                released: list[dict[str, Any]] = []
+                release_seconds = 0.0
+                if step.values["release_after_observation"]:
+                    remaining = step.timeout - (time.monotonic() - step_started)
+                    if remaining <= 0:
+                        raise InvestigationError(
+                            "scenario_timeout", f"step {step.step_id} exceeded its timeout"
+                        )
+                    release_started = time.monotonic()
+                    released = release_regions(
+                        state,
+                        [item["region"] for item in generated],
+                        remaining,
+                    )
+                    release_seconds = time.monotonic() - release_started
                 observations.append(
                     {
                         "index": index,
                         "bounds": bounds,
                         "regions": generated,
                         "terminal_probe": terminal,
+                        "released_regions": released,
                         "timing": {
                             "generation_seconds": generation_seconds,
                             "probe_seconds": probe_seconds,
+                            "release_seconds": release_seconds,
                             "total_seconds": generation_seconds + probe_seconds,
                         },
                     }
@@ -1353,6 +1376,10 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                 result["profile"] = profile
                 state.setdefault("profile_artifacts", []).append(profile)
                 persist_active(state)
+                if step_failure is None:
+                    jfr_health = verify_jfr_host_health(state)
+                    if jfr_health is not None:
+                        step_failure = jfr_health
             if step_failure is not None:
                 raise step_failure
             health_check()
@@ -1420,21 +1447,48 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                     cleanup_materialized()
                 except CleanupError as temporary_failure:
                     temporary_cleanup = temporary_failure.details
+                cleanup_error = {
+                    "code": "cleanup_failed",
+                    "message": cleanup.message,
+                    "details": cleanup.details,
+                }
                 if scenario_summary_path is not None:
                     atomic_write_json(
                         scenario_summary_path,
                         _scenario_summary(
                             state,
                             scenario,
-                            "failed" if failure else "succeeded",
+                            "failed",
                             steps,
-                            {
-                                "code": "cleanup_failed",
-                                "message": cleanup.message,
-                                "details": cleanup.details,
-                            },
+                            cleanup_error,
                         ),
                     )
+                if failure is None:
+                    if state.get("finished_at") is None:
+                        state["finished_at"] = timestamp()
+                    state["lifecycle"] = "cleanup_failed"
+                    state["cleanup"] = {
+                        "complete": False,
+                        "message": cleanup.message,
+                        "failures": cleanup.details.get("failures", []),
+                    }
+                    return {
+                        "state": state,
+                        "scenario": state.get(
+                            "scenario",
+                            {"name": scenario.name, "path": str(scenario.path)},
+                        ),
+                        "steps": steps,
+                        "provenance": provenance,
+                        "world_identity": world_identity,
+                        "rtf_fixture": fixture_manifest,
+                        "scenario_summary": str(scenario_summary_path),
+                        "scenario_progress": str(progress_path),
+                        "cleanup_failed": {
+                            **cleanup_error,
+                            "temporary_fixture_cleanup_error": temporary_cleanup,
+                        },
+                    }
                 raise CleanupError(
                     "scenario cleanup did not complete",
                     details={
@@ -1443,8 +1497,6 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "log_path": state["log_path"],
                         "scenario_error": (
                             {"code": failure.code, "message": failure.message}
-                            if failure
-                            else None
                         ),
                         "cleanup_error": cleanup.details,
                         "temporary_fixture_cleanup_error": temporary_cleanup,

@@ -17,6 +17,7 @@ WORKTREES_ROOT = STATE_ROOT / "worktrees"
 ENV_SH = TOOLING_DIR / "env.sh"
 PROBE_RUNTIME_ROOT = PACKAGE_DIR / "probe-runtime"
 PROBE_OVERLAY = PACKAGE_DIR / "gradle" / "probe-overlay.gradle"
+RETENTION_INDEX = REPOSITORY_ROOT / ".squinch/games/minecraft/investigation-retention.toml"
 
 LOADERS = ("fabric", "forge", "neoforge", "quilt")
 

@@ -1,9 +1,10 @@
-# FreeTerraForged compatibility-runtime acceptance
+# FreeTerraForged compatibility-runtime acceptance record
 
-This document records the accepted current implementation and its validation surface. The product
-and architecture contract is `worldgen-compatibility.md`; detailed runtime behavior belongs in the
-companion concept and invariant documents. Live source, dependencies, host state, and retained
-artifacts supersede this summary.
+This commit-pinned record captures the accepted implementation and validation surface at the end of
+the compatibility-runtime workstream. The product and architecture contract is
+`../plans/worldgen-compatibility.md`; detailed runtime behavior belongs in the companion concept and
+invariant documents. Live source, dependencies, host state, and retained artifacts supersede this
+summary.
 
 ## Implemented runtime
 

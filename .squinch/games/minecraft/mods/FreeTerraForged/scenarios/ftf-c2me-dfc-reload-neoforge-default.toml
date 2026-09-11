@@ -1,0 +1,54 @@
+schema_version = 1
+name = "FTF C2ME default DFC generation after reload — packaged NeoForge"
+project = "games/minecraft/investigation-state/worktrees/ftf-c2me-dfc-compatibility"
+loader = "neoforge"
+seed = 3216933670
+retention = "keep-on-failure"
+launch_task = "prodServer"
+companion_artifacts = ["mc1.21.1-neoforge-c2me-0.4.0-alpha.0.120+1.21.1"]
+runtime_absent_files = ["config/c2me.toml"]
+datapacks = [
+  "games/minecraft/investigations/reterraforged/fixtures/modern-default-with-rivers-live-export/reterraforged-preset.zip",
+]
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/c2me-dfc-lifecycle"]
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 600
+shutdown = 180
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "c2me"]
+
+[[probes]]
+id = "squinch:ftf-c2me-dfc-lifecycle"
+version = "1"
+config = { max_wait_ticks = 6000 }
+
+[[steps]]
+id = "generate-before-reload"
+type = "generate"
+unit = "chunk"
+bounds = [16, -76, 23, -69]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-c2me-dfc-lifecycle"
+expect = { terminal_state = "pass" }
+
+[[steps]]
+id = "reload-resources"
+type = "command"
+command = "reload"
+
+[[steps]]
+id = "generate-after-reload"
+type = "generate"
+unit = "chunk"
+bounds = [28, -76, 35, -69]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-c2me-dfc-lifecycle"
+expect = { terminal_state = "pass" }

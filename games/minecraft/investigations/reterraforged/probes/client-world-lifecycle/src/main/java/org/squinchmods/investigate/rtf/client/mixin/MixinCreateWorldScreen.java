@@ -1,11 +1,8 @@
 package org.squinchmods.investigate.rtf.client.mixin;
 
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.network.chat.Component;
 import org.squinchmods.investigate.rtf.client.WorldLifecycleProbe;
@@ -36,31 +33,18 @@ public abstract class MixinCreateWorldScreen {
 		WorldLifecycleProbe.stagingStarted(screen);
 		try {
 			PresetConfigScreen presetScreen = new PresetConfigScreen(screen);
-			Object preset = squinch$defaultPreset();
-			try {
-				presetScreen.getClass().getMethod("applyPreset", preset.getClass()).invoke(presetScreen, preset);
-			} catch (InvocationTargetException failure) {
-				if (failure.getCause() instanceof IOException ioFailure) {
-					throw ioFailure;
-				}
-				throw failure;
+			Preset preset = squinch$defaultPreset();
+			if (WorldLifecycleProbe.previewParityEnabled()) {
+				WorldLifecycleProbe.beginPreviewParity(screen, preset);
+				return;
 			}
-		} catch (ReflectiveOperationException | IOException failure) {
+			presetScreen.applyPreset("squinch-default", Component.literal("squinch-default"), preset);
+		} catch (IOException failure) {
 			throw new IllegalStateException("failed staging the FTF preset datapack", failure);
 		}
 	}
 
-	private static Object squinch$defaultPreset() throws ReflectiveOperationException {
-		Class<?> entryClass = Class.forName(
-			"raccoonman.reterraforged.client.gui.screen.presetconfig.PresetListPage$PresetEntry"
-		);
-		Constructor<?> constructor = entryClass.getDeclaredConstructor(
-			String.class, Component.class, Preset.class, boolean.class, Button.OnPress.class
-		);
-		constructor.setAccessible(true);
-		return constructor.newInstance(
-			"squinch-default", Component.literal("squinch-default"),
-			Presets.modernDefaultWithRivers(), true, (Button.OnPress) button -> { }
-		);
+	private static Preset squinch$defaultPreset() {
+		return Presets.modernDefaultWithRivers();
 	}
 }

@@ -7,3 +7,4 @@ resources = ["src/main/resources"]
 mixins = ["squinch-rtf-spatial-compatibility.mixins.json"]
 configuration_schema = "probe-config-v1.json"
 capabilities = ["server-thread", "finished-chunk", "spatial-topology", "provider-boundaries", "raw-grid"]
+required_source_paths = ["common/src/main/java/raccoonman/reterraforged/world/worldgen/runtime"]

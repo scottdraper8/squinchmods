@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+index=.squinch/games/minecraft/investigation-retention.toml
+pattern='[0-9]{8}T[0-9]{6}Z-[0-9a-f]{10}'
+
+missing=$(
+    comm -23 \
+        <(git grep --cached -h -o -E "$pattern" -- \
+            agent-resume.md .agent-docs .squinch games/minecraft/investigations \
+            ":(exclude)$index" 2>/dev/null | sort -u) \
+        <(sed -nE "s/^[[:space:]]*\"($pattern)\",?[[:space:]]*$/\1/p" "$index" | sort -u)
+)
+
+if [[ -n "$missing" ]]; then
+    echo "Cited investigation runs missing from $index:" >&2
+    while IFS= read -r run_id; do
+        printf '  %s\n' "$run_id" >&2
+    done <<<"$missing"
+    exit 1
+fi

@@ -10,7 +10,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-platform-1.3.3",
     "mc1.21.1-fabric-vanillabackport-1.1.7.10",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

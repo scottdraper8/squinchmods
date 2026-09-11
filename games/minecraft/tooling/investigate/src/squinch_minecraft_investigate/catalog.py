@@ -71,6 +71,14 @@ def _catalog() -> dict[str, dict[str, Any]]:
             raise _error(f"artifact {artifact_id} has an invalid SHA-256")
         if Path(value["filename"]).name != value["filename"] or not value["filename"].endswith(".jar"):
             raise _error(f"artifact {artifact_id} has an invalid filename")
+        dependencies = value.get("required_dependencies", [])
+        if (
+            not isinstance(dependencies, list)
+            or any(not isinstance(item, str) or not item for item in dependencies)
+            or len(dependencies) != len(set(dependencies))
+            or artifact_id in dependencies
+        ):
+            raise _error(f"artifact {artifact_id} has invalid required_dependencies")
         artifacts[artifact_id] = value
     return artifacts
 
@@ -117,3 +125,56 @@ def resolve_artifacts(ids: tuple[str, ...], *, expected_loader: str, expected_mi
             value["filename"], value["sha256"], path,
         ))
     return tuple(resolved)
+
+
+def resolve_artifact_closure(
+    ids: tuple[str, ...], *, expected_loader: str, expected_minecraft: str = "1.21.1"
+) -> tuple[ResolvedArtifact, ...]:
+    artifacts = _catalog()
+    ordered: list[str] = []
+    visited: set[str] = set()
+    visiting: list[str] = []
+
+    def visit(artifact_id: str) -> None:
+        if artifact_id in visited:
+            return
+        if artifact_id in visiting:
+            cycle = " -> ".join((*visiting[visiting.index(artifact_id):], artifact_id))
+            raise _error(f"artifact dependency cycle: {cycle}")
+        value = artifacts.get(artifact_id)
+        if value is None:
+            owner = visiting[-1] if visiting else "scenario"
+            raise _error(f"{owner} references unknown required dependency: {artifact_id}")
+        if value["status"] not in {"approved", "diagnostic-only"}:
+            raise _error(f"artifact dependency is inactive {artifact_id}: {value['status']}")
+        if value["loader"] != expected_loader or value["minecraft_version"] != expected_minecraft:
+            raise _error(f"artifact dependency {artifact_id} does not match scenario loader/version")
+        visiting.append(artifact_id)
+        for dependency in value.get("required_dependencies", []):
+            visit(dependency)
+        visiting.pop()
+        visited.add(artifact_id)
+        ordered.append(artifact_id)
+
+    for artifact_id in ids:
+        visit(artifact_id)
+
+    resolved = resolve_artifacts(
+        tuple(ordered), expected_loader=expected_loader, expected_minecraft=expected_minecraft
+    )
+    projects: dict[str, ResolvedArtifact] = {}
+    filenames: dict[str, ResolvedArtifact] = {}
+    for artifact in resolved:
+        project = projects.setdefault(artifact.project_slug, artifact)
+        if project.sha256 != artifact.sha256:
+            raise _error(
+                f"runtime closure selects conflicting versions of {artifact.project_slug}: "
+                f"{project.id} and {artifact.id}"
+            )
+        filename = filenames.setdefault(artifact.filename, artifact)
+        if filename.sha256 != artifact.sha256:
+            raise _error(
+                f"runtime closure selects conflicting files named {artifact.filename}: "
+                f"{filename.id} and {artifact.id}"
+            )
+    return resolved

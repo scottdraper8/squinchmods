@@ -6,7 +6,7 @@ launch_task = "prodServer"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/generator-stage-wrapper"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

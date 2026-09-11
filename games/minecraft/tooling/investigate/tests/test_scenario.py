@@ -8,7 +8,7 @@ import pytest
 
 import squinch_minecraft_investigate.scenario as scenario_module
 from squinch_minecraft_investigate import server
-from squinch_minecraft_investigate.errors import InvestigationError
+from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
 from squinch_minecraft_investigate.processes import port_is_free
 from squinch_minecraft_investigate.scenario import (
     _candidate_coordinates,
@@ -276,6 +276,7 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
     assert values["repeat"] == 3
     assert values["offset"] == [17, 0]
     assert values["jfr"] is True
+    assert values["release_after_observation"] is False
     summary = _measurement_summary(
         [
             {"timing": {"generation_seconds": value, "probe_seconds": 0.1, "total_seconds": value + 0.1}}
@@ -292,6 +293,10 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
 
     scenario_path.write_text(text.replace("offset = [17, 0]", "offset = [16, 0]"))
     with pytest.raises(InvestigationError, match="overlapping windows"):
+        load_scenario(scenario_path)
+
+    scenario_path.write_text(text.replace("jfr = true", 'release_after_observation = "yes"'))
+    with pytest.raises(InvestigationError, match="release_after_observation must be a boolean"):
         load_scenario(scenario_path)
 
 
@@ -491,3 +496,70 @@ jfr = true
     assert summary["state"] == "failed"
     assert summary["error"]["code"] == "rcon_failed"
     assert summary["steps"] == []
+
+
+@pytest.mark.slow
+def test_cleanup_failure_with_succeeded_steps_returns_data_not_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Steps succeeded but shutdown cleanup failed. The run must return normally
+    with all step data intact and a cleanup_failed key, not raise CleanupError."""
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    monkeypatch.setattr(scenario_module, "start_jfr", lambda *_args: None)
+    monkeypatch.setattr(scenario_module, "stop_jfr", lambda *_args: None)
+    project = tmp_path / "games/minecraft/project"
+    (project / "fabric" / "run").mkdir(parents=True)
+    fixture = Path(__file__).parent / "fixtures" / "fake_gradle_server.py"
+    gradlew = project / "gradlew"
+    gradlew.write_text(f"#!/usr/bin/env bash\nexec python3 {fixture!s}\n")
+    gradlew.chmod(0o644)
+    subprocess.run(["git", "init", "-q"], cwd=project, check=True)
+    subprocess.run(["git", "config", "user.name", "Cleanup Test"], cwd=project, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "cleanup@example.invalid"], cwd=project, check=True
+    )
+    subprocess.run(["git", "add", "gradlew"], cwd=project, check=True)
+    subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
+
+    scenario_path = tmp_path / ".squinch/cleanup-failure.toml"
+    scenario_path.parent.mkdir()
+    scenario_path.write_text(
+        '''schema_version = 1
+name = "cleanup-failure-control"
+project = "games/minecraft/project"
+loader = "fabric"
+seed = 12345
+retention = "discard"
+
+[server_properties]
+fake-child-ignore-term = false
+fake-delay-command-prefix = "save-all"
+fake-command-delay = 2.0
+
+[timeouts]
+startup = 10
+shutdown = 0.5
+step = 2
+
+[[steps]]
+id = "passing-list"
+type = "command"
+command = "list"
+'''
+    )
+    state_root = tmp_path / "state"
+    monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
+    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
+    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+
+    result = run_scenario(load_scenario(scenario_path))
+
+    assert result["cleanup_failed"] is not None
+    assert result["cleanup_failed"]["code"] == "cleanup_failed"
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["state"] == "succeeded"
+    assert result["world_identity"]["actual_seed"] == result["world_identity"]["expected_seed"]
+    artifact_dir = Path(result["state"]["artifact_dir"])
+    summary = json.loads((artifact_dir / "scenario-summary.json").read_text())
+    assert summary["state"] == "failed"
+    assert summary["error"]["code"] == "cleanup_failed"

@@ -5,4 +5,4 @@ target_adapter = "reterraforged-1.21.1"
 sources = ["src/main/java"]
 resources = ["src/main/resources"]
 mixins = ["squinch-ftf-client-world-lifecycle.mixins.json"]
-capabilities = ["client-world-creation", "finished-chunk-biome", "save-timing"]
+capabilities = ["client-world-creation", "actual-preview-frame", "preview-vs-finished-surface", "finished-chunk-biome", "save-timing"]

@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .artifact_inspection import inspect_artifact
-from .catalog import resolve_artifacts
+from .catalog import resolve_artifact_closure, resolve_artifacts
 from .cell_scan import run_cell_scan
 from .client import run_client
 from .preset_fixture import run_preset_fixture
@@ -18,8 +18,17 @@ from .comparison import run_exact_comparison, structured_diff
 from .errors import InvestigationError
 from .generation import generate_regions, tile_chunks
 from .output import emit, envelope, timestamp
-from .paths import ACTIVE_ROOT, LOCKS_ROOT, RUNS_ROOT, lock_path, resolve_project, validate_loader
+from .paths import (
+    ACTIVE_ROOT,
+    LOCKS_ROOT,
+    RETENTION_INDEX,
+    RUNS_ROOT,
+    lock_path,
+    resolve_project,
+    validate_loader,
+)
 from .probe_requests import submit_probe
+from .retention import RUN_ID_PATTERN, load_protected_run_ids
 from .scenario import load_scenario, run_scenario
 from .server import (
     OWNERSHIP,
@@ -115,8 +124,20 @@ def parser() -> argparse.ArgumentParser:
         help="SQUINCH_* probe control environment value",
     )
     client.add_argument(
+        "--runtime-file", action="append", default=[], metavar="SOURCE=config/TARGET",
+        help="Copy an exact input file into the isolated client config directory before launch",
+    )
+    client.add_argument(
         "--result-env", action="append", required=True, metavar="NAME=FILENAME",
         help="SQUINCH_* result path environment and retained JSON basename",
+    )
+    client.add_argument(
+        "--production", action="store_true",
+        help="Launch an isolated production-mapped client instead of the Gradle development client",
+    )
+    client.add_argument(
+        "--cpu-list", metavar="CPU[,CPU-RANGE]",
+        help="Constrain the complete owned client service to an explicit host CPU set",
     )
     client.add_argument("--timeout", type=float, default=300.0)
 
@@ -206,6 +227,11 @@ def parser() -> argparse.ArgumentParser:
     selection.add_argument("--run", action="append", dest="runs")
     selection.add_argument("--older-than-days", type=float)
     clean.add_argument("--apply", action="store_true", help="Delete; without this flag, dry-run")
+    clean.add_argument(
+        "--include-protected",
+        action="store_true",
+        help="Allow exact --run deletion of evidence listed in the retention index",
+    )
 
     return root
 
@@ -396,9 +422,44 @@ def _named_values(values: list[str], *, kind: str) -> dict[str, str]:
     return result
 
 
+def _client_runtime_files(values: list[str]) -> tuple[tuple[Path, str], ...]:
+    result: list[tuple[Path, str]] = []
+    targets: set[str] = set()
+    for value in values:
+        source_value, separator, target_value = value.partition("=")
+        target = Path(target_value)
+        if (
+            not separator
+            or not source_value
+            or target.is_absolute()
+            or ".." in target.parts
+            or target.parts[:1] != ("config",)
+            or len(target.parts) < 2
+        ):
+            raise InvestigationError(
+                "client_arguments_invalid",
+                f"runtime file must be SOURCE=config/TARGET: {value}",
+            )
+        normalized_target = target.as_posix()
+        if normalized_target in targets:
+            raise InvestigationError(
+                "client_arguments_invalid",
+                f"runtime file targets must be unique: {normalized_target}",
+            )
+        source = Path(source_value).expanduser().resolve()
+        if not source.is_file() or source.is_symlink():
+            raise InvestigationError(
+                "client_arguments_invalid",
+                f"runtime file source is not a regular file: {source}",
+            )
+        targets.add(normalized_target)
+        result.append((source, normalized_target))
+    return tuple(result)
+
+
 def _client(args: argparse.Namespace) -> tuple[dict, str]:
     project, loader = _resolve(args)
-    runtime_artifacts = resolve_artifacts(tuple(args.artifacts), expected_loader=loader)
+    runtime_artifacts = resolve_artifact_closure(tuple(args.artifacts), expected_loader=loader)
     compile_artifacts = []
     for value in args.compile_artifact:
         parts = value.split(":")
@@ -411,6 +472,7 @@ def _client(args: argparse.Namespace) -> tuple[dict, str]:
         compile_artifacts.append((artifact, parts[2]))
     probe_environment = _named_values(args.probe_env, kind="probe environment")
     result_files = _named_values(args.result_env, kind="result environment")
+    runtime_files = _client_runtime_files(args.runtime_file)
     overlap = set(probe_environment) & set(result_files)
     if overlap:
         raise InvestigationError(
@@ -431,6 +493,9 @@ def _client(args: argparse.Namespace) -> tuple[dict, str]:
         compile_artifacts=tuple(compile_artifacts),
         probe_environment=probe_environment,
         result_files=result_files,
+        runtime_files=runtime_files,
+        production=args.production,
+        cpu_list=args.cpu_list,
         timeout=args.timeout,
     )
     artifact_paths = [
@@ -468,6 +533,35 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
     materialized = result["rtf_fixture"]
     if materialized is not None:
         artifact_paths.append(materialized["archive_artifact"])
+    cleanup_failed = result.get("cleanup_failed")
+    data = {
+        **_public_state(state),
+        "scenario": result["scenario"],
+        "steps": result["steps"],
+        "provenance": result["provenance"],
+        "world_identity": result["world_identity"],
+        "rtf_fixture": result["rtf_fixture"],
+    }
+    if cleanup_failed is not None:
+        value = envelope(
+            "scenario",
+            "error",
+            run_id=state["run_id"],
+            started_at=state["started_at"],
+            finished_at=state.get("finished_at") or timestamp(),
+            artifact_paths=artifact_paths,
+            data=data,
+            error={
+                "code": cleanup_failed["code"],
+                "message": cleanup_failed["message"],
+                "details": cleanup_failed.get("details", {}),
+            },
+        )
+        return (
+            value,
+            f"scenario {definition.name!r} steps passed (run {state['run_id']}); "
+            f"cleanup failed — run rejected and doctor --recover required",
+        )
     value = envelope(
         "scenario",
         "succeeded",
@@ -475,14 +569,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         started_at=state["started_at"],
         finished_at=state["finished_at"],
         artifact_paths=artifact_paths,
-        data={
-            **_public_state(state),
-            "scenario": result["scenario"],
-            "steps": result["steps"],
-            "provenance": result["provenance"],
-            "world_identity": result["world_identity"],
-            "rtf_fixture": result["rtf_fixture"],
-        },
+        data=data,
     )
     return (
         value,
@@ -683,10 +770,17 @@ def _active_run_ids() -> set[str]:
 
 def _clean(args: argparse.Namespace) -> tuple[dict, str]:
     candidates: list[Path] = []
+    protected = load_protected_run_ids(RETENTION_INDEX)
+    protected_candidates: list[str] = []
     if args.runs:
         for run_id in args.runs:
-            if not run_id or Path(run_id).name != run_id:
+            if not run_id or RUN_ID_PATTERN.fullmatch(run_id) is None:
                 raise InvestigationError("invalid_run_id", f"invalid exact run ID: {run_id!r}")
+            if run_id in protected and not args.include_protected:
+                raise InvestigationError(
+                    "run_protected",
+                    f"run is protected by the investigation retention index: {run_id}",
+                )
             candidates.append(RUNS_ROOT / run_id)
     else:
         if args.older_than_days < 0:
@@ -694,6 +788,9 @@ def _clean(args: argparse.Namespace) -> tuple[dict, str]:
         cutoff = datetime.now(UTC) - timedelta(days=args.older_than_days)
         for path in RUNS_ROOT.iterdir() if RUNS_ROOT.exists() else []:
             if path.is_dir() and datetime.fromtimestamp(path.stat().st_mtime, UTC) < cutoff:
+                if path.name in protected:
+                    protected_candidates.append(path.name)
+                    continue
                 candidates.append(path)
     active = _active_run_ids()
     inspected = []
@@ -732,7 +829,17 @@ def _clean(args: argparse.Namespace) -> tuple[dict, str]:
                     shutil.rmtree(world)
             shutil.rmtree(Path(item["artifact_dir"]))
     action = "deleted" if args.apply else "dry-run"
-    return envelope("clean", "succeeded", finished_at=timestamp(), artifact_paths=[item["artifact_dir"] for item in inspected], data={"action": action, "targets": inspected}), f"{action}: {len(inspected)} owned run(s)"
+    return envelope(
+        "clean",
+        "succeeded",
+        finished_at=timestamp(),
+        artifact_paths=[item["artifact_dir"] for item in inspected],
+        data={
+            "action": action,
+            "targets": inspected,
+            "protected": sorted(protected_candidates),
+        },
+    ), f"{action}: {len(inspected)} owned run(s), {len(protected_candidates)} protected"
 
 
 HANDLERS = {

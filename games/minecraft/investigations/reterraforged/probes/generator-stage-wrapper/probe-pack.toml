@@ -7,3 +7,4 @@ resources = ["src/main/resources"]
 mixins = ["squinch-ftf-generator-stage-wrapper.mixins.json"]
 configuration_schema = "probe-config-v1.json"
 capabilities = ["server-thread", "finished-chunk", "generator-method-wrapper"]
+required_source_paths = ["common/src/main/java/raccoonman/reterraforged/world/worldgen/runtime"]

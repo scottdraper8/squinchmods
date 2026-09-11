@@ -49,6 +49,40 @@ def test_probe_pack_fingerprint_changes_with_source_or_resource(tmp_path: Path) 
     ]
 
 
+def test_probe_pack_required_source_paths_returned(tmp_path: Path) -> None:
+    root = tmp_path / "pack"
+    _pack(root)
+    (root / "probe-pack.toml").write_text(
+        'schema_version = 1\nid = "test"\nversion = "1"\n'
+        'sources = ["src/main/java"]\nresources = ["src/main/resources"]\nmixins = []\n'
+        'required_source_paths = ["common/src/main/java/some/package"]\n'
+    )
+    details = probe_overlay._probe_pack_details(root)
+    assert details["required_source_paths"] == ["common/src/main/java/some/package"]
+
+
+def test_probe_pack_required_source_paths_defaults_to_empty(tmp_path: Path) -> None:
+    root = tmp_path / "pack"
+    _pack(root)
+    details = probe_overlay._probe_pack_details(root)
+    assert details["required_source_paths"] == []
+
+
+def test_validate_required_source_paths_rejects_missing_directory(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    packs = [{"id": "test-pack", "required_source_paths": ["common/src/missing/package"]}]
+    with pytest.raises(InvestigationError, match="does not exist"):
+        probe_overlay._validate_required_source_paths(project, packs)
+
+
+def test_validate_required_source_paths_passes_when_directory_exists(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    (project / "common/src/existing/package").mkdir(parents=True)
+    packs = [{"id": "test-pack", "required_source_paths": ["common/src/existing/package"]}]
+    probe_overlay._validate_required_source_paths(project, packs)
+
+
 def test_probe_pack_rejects_input_directory_outside_its_root(tmp_path: Path) -> None:
     """Catches a pack manifest smuggling unrelated host files into the overlay and provenance."""
     root = tmp_path / "pack"

@@ -10,7 +10,7 @@ companion_artifacts = [
     "mc1.21.1-neoforge-biolith-3.0.14",
     "mc1.21.1-neoforge-no-mans-land-1.5.12",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

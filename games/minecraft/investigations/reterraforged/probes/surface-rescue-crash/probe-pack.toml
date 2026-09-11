@@ -7,3 +7,4 @@ resources = ["src/main/resources"]
 mixins = []
 configuration_schema = "probe-config-v1.json"
 capabilities = ["placement-hooks", "server-thread"]
+required_source_paths = ["common/src/main/java/raccoonman/reterraforged/world/worldgen/runtime"]

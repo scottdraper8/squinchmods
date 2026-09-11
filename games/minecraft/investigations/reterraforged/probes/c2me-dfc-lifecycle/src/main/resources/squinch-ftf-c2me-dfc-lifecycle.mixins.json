@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.rtf.c2me.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinNoiseBasedChunkGenerator",
+    "MixinNoiseChunk"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

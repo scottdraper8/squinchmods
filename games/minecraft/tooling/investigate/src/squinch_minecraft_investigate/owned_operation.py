@@ -158,6 +158,7 @@ def run_finite_service(
     load_active: Callable[[Path, str], dict],
     validate: Callable[[dict], T],
     poll_failure: Callable[[dict], BaseException | None] | None = None,
+    poll_complete: Callable[[dict], bool] | None = None,
     prepare: Callable[[], None] | None = None,
     cleanup: Callable[[dict], list[str]] | None = None,
     state_fields: dict | None = None,
@@ -300,6 +301,7 @@ def run_finite_service(
     failure: BaseException | None = None
     validated: T | None = None
     deadline = time.monotonic() + timeout
+    completed_while_running = False
     try:
         while time.monotonic() < deadline:
             live = live_owned_processes(state)
@@ -319,6 +321,9 @@ def run_finite_service(
                 detected = poll_failure(state)
                 if detected is not None:
                     raise detected
+            if poll_complete is not None and poll_complete(state):
+                completed_while_running = True
+                break
             if wrapper.poll() is not None:
                 break
             time.sleep(0.25)
@@ -327,12 +332,12 @@ def run_finite_service(
                 f"{operation.replace('-', '_')}_timeout",
                 f"{operation} exceeded {timeout:g} seconds",
             )
-        if wrapper.returncode != 0:
+        if not completed_while_running and wrapper.returncode != 0:
             raise InvestigationError(
                 f"{operation.replace('-', '_')}_failed",
                 f"{operation} exited with code {wrapper.returncode}",
             )
-        if not wait_owned_exit(state, 5.0):
+        if not completed_while_running and not wait_owned_exit(state, 5.0):
             raise InvestigationError(
                 f"{operation.replace('-', '_')}_process_leak",
                 f"{operation} service remained active after launch exit",

@@ -397,6 +397,7 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
         private final boolean useTileAuthority;
         private final boolean useFullProvider;
         private final boolean useBatchAuthority;
+        private final boolean useFinishedSurfaceAuthority;
 
         private PreviewParity(ProbeRequest request) {
             JsonObject config = request.config();
@@ -415,6 +416,8 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                 || config.get("use_full_provider").getAsBoolean();
             this.useBatchAuthority = config.has("use_batch_authority")
                 && config.get("use_batch_authority").getAsBoolean();
+            this.useFinishedSurfaceAuthority = config.has("use_finished_surface_authority")
+                && config.get("use_finished_surface_authority").getAsBoolean();
             if (this.horizontalQuartStep < 1 || this.horizontalQuartStep > 4
                 || 4 % this.horizontalQuartStep != 0
                 || this.exampleLimit < 0 || this.exampleLimit > 1024) {
@@ -488,7 +491,10 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             Map<String, Long> selectionTransitionCounts = new TreeMap<>();
             long providerFallbacks = 0;
             long selectionTransitions = 0;
+            long surfaceHeightMismatches = 0;
+            int maximumSurfaceHeightDelta = 0;
             JsonArray mismatchExamples = new JsonArray();
+            JsonArray surfaceHeightMismatchExamples = new JsonArray();
             Cell cell = new Cell();
             Map<Long, Tile> tiles = new HashMap<>();
             Map<Long, BiomePreviewResolver.TileBiomeRequest> tileRequests = new HashMap<>();
@@ -543,21 +549,41 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                             } else {
                                 context.lookup.applyCell(cell.reset(), blockX, blockZ, true, false);
                             }
-                            int surfaceY = clampSurfaceY(context, cell);
-                            int quartY = QuartPos.fromBlock(surfaceY);
+                            int previewSurfaceY = clampSurfaceY(context, cell);
+                            int finishedSurfaceY = this.useFinishedSurfaceAuthority
+                                ? level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, blockX, blockZ)
+                                : previewSurfaceY;
+                            int previewQuartY = QuartPos.fromBlock(previewSurfaceY);
+                            int finishedQuartY = QuartPos.fromBlock(finishedSurfaceY);
+                            int surfaceHeightDelta = Math.abs(finishedSurfaceY - previewSurfaceY);
+                            if (surfaceHeightDelta != 0) {
+                                surfaceHeightMismatches++;
+                                maximumSurfaceHeightDelta = Math.max(
+                                    maximumSurfaceHeightDelta, surfaceHeightDelta
+                                );
+                                if (surfaceHeightMismatchExamples.size() < this.exampleLimit) {
+                                    JsonObject example = new JsonObject();
+                                    example.addProperty("x", blockX);
+                                    example.addProperty("z", blockZ);
+                                    example.addProperty("preview_surface_y", previewSurfaceY);
+                                    example.addProperty("finished_surface_y", finishedSurfaceY);
+                                    example.addProperty("absolute_delta", surfaceHeightDelta);
+                                    surfaceHeightMismatchExamples.add(example);
+                                }
+                            }
 
                             String stored = MinecraftProbeHelpers.biomeId(
-                                ready.chunk().getNoiseBiome(quartX, quartY, quartZ)
+                                ready.chunk().getNoiseBiome(quartX, finishedQuartY, quartZ)
                             );
                             Holder<Biome> previewHolder = sampler == null
-                                ? resolver.resolveQuart(quartX, quartY, quartZ)
+                                ? resolver.resolveQuart(quartX, previewQuartY, quartZ)
                                 : resolvedTile == null
-                                    ? tileRequest.resolveQuart(quartX, quartY, quartZ)
+                                    ? tileRequest.resolveQuart(quartX, previewQuartY, quartZ)
                                     : resolvedTile.biomeAt(blockX - tileBlockX, blockZ - tileBlockZ);
                             if (!resolver.plan().providerSelection().providers().isEmpty()) {
                                 WorldgenPlans.ProviderResult selected = sampler == null
-                                    ? resolver.inspectProviderSelection(quartX, quartY, quartZ)
-                                    : tileRequest.inspectProviderSelection(quartX, quartY, quartZ);
+                                    ? resolver.inspectProviderSelection(quartX, previewQuartY, quartZ)
+                                    : tileRequest.inspectProviderSelection(quartX, previewQuartY, quartZ);
                                 providerDomainCounts.merge(selected.domain().toString(), 1L, Long::sum);
                                 if (selected.usedFallback()) {
                                     providerFallbacks++;
@@ -579,20 +605,22 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                                 mismatches++;
                                 if (mismatchExamples.size() < this.exampleLimit) {
                                     Holder<Biome> directPreviewHolder = resolver.resolveQuart(
-                                        quartX, quartY, quartZ
+                                        quartX, previewQuartY, quartZ
                                     );
                                     Climate.Sampler liveSampler = level.getChunkSource()
                                         .randomState().sampler();
                                     Holder<Biome> liveServerHolder = level.getChunkSource().getGenerator()
                                         .getBiomeSource().getNoiseBiome(
                                             quartX,
-                                            quartY,
+                                            finishedQuartY,
                                             quartZ,
                                             liveSampler
                                         );
                                     JsonObject mismatch = example(
-                                        blockX, surfaceY, blockZ, stored, preview
+                                        blockX, finishedSurfaceY, blockZ, stored, preview
                                     );
+                                    mismatch.addProperty("preview_surface_y", previewSurfaceY);
+                                    mismatch.addProperty("finished_surface_y", finishedSurfaceY);
                                     mismatch.addProperty(
                                         "direct_preview_biome_id",
                                         MinecraftProbeHelpers.biomeId(directPreviewHolder)
@@ -610,10 +638,10 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
                                     mismatch.addProperty("live_cell_x", liveCell.biomeRegionX);
                                     mismatch.addProperty("live_cell_z", liveCell.biomeRegionZ);
                                     Climate.TargetPoint previewTarget = sampler == null
-                                        ? liveSampler.sample(quartX, quartY, quartZ)
-                                        : sampler.sample(quartX, quartY, quartZ);
+                                        ? liveSampler.sample(quartX, previewQuartY, quartZ)
+                                        : sampler.sample(quartX, previewQuartY, quartZ);
                                     Climate.TargetPoint liveTarget = liveSampler.sample(
-                                        quartX, quartY, quartZ
+                                        quartX, finishedQuartY, quartZ
                                     );
                                     mismatch.add("preview_target", target(previewTarget));
                                     mismatch.add("live_target", target(liveTarget));
@@ -673,7 +701,14 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             data.addProperty("batch_tile_count", resolvedTiles.size());
             data.addProperty("batch_resolution_millis", batchResolutionNanos / 1_000_000.0D);
             data.addProperty("parallel_tile_queries", resolver.supportsParallelTileQueries());
-            data.addProperty("surface_y_authority", this.useTileAuthority ? "prepared-preview-tile" : "rtf-preview-cell-model");
+            data.addProperty(
+                "preview_surface_y_authority",
+                this.useTileAuthority ? "prepared-preview-tile" : "rtf-preview-cell-model"
+            );
+            data.addProperty(
+                "stored_surface_y_authority",
+                this.useFinishedSurfaceAuthority ? "finished-world-surface-wg" : "prepared-preview-tile"
+            );
             data.addProperty("climate_sampler_authority", this.useTileAuthority ? "prepared-preview-tile" : "generator-context");
             data.addProperty(
                 "provider_authority",
@@ -709,6 +744,9 @@ public final class RtfBiomePreviewParityProbePack implements ProbePack {
             data.addProperty("sampled_quart_columns", sampled);
             data.addProperty("mismatch_count", mismatches);
             data.addProperty("underground_preview_selection_count", undergroundPreviewSelections);
+            data.addProperty("surface_height_mismatch_count", surfaceHeightMismatches);
+            data.addProperty("maximum_surface_height_delta", maximumSurfaceHeightDelta);
+            data.add("surface_height_mismatch_examples", surfaceHeightMismatchExamples);
             data.addProperty("horizontal_quart_step", this.horizontalQuartStep);
             JsonObject storedBiomeCounts = new JsonObject();
             biomeCounts.forEach(storedBiomeCounts::addProperty);

@@ -342,12 +342,14 @@ def load_owned_active(project: Path, loader: str) -> dict:
         raise InvestigationError("invalid_state", "active state owned process identities are invalid")
     if operation == "client":
         display = state.get("display")
+        display_root = Path(display.get("runtime_root", "")) if isinstance(display, dict) else Path()
+        expected_display = display_root / f"squinch-{run_id[-10:]}"
         if (
             not isinstance(display, dict)
-            or Path(display.get("runtime_dir", "")) != expected_artifact / "display-runtime"
+            or not display_root.is_absolute()
+            or Path(display.get("runtime_dir", "")) != expected_display
             or display.get("backend") != "headless"
-            or not isinstance(display.get("wayland_display"), str)
-            or not display["wayland_display"]
+            or display.get("wayland_display") != expected_display.name
         ):
             raise InvestigationError("invalid_state", "active client display ownership is invalid")
     return state
@@ -628,7 +630,7 @@ def start_server(
             "probe_compile_artifact_invalid", "probe compile artifact mapping must be named or loader"
         )
     overlay_arguments, overlay_details = probe_overlay_command(
-        loader, probe_packs, tuple(compile_artifacts)
+        loader, probe_packs, tuple(compile_artifacts), project=project,
     )
     tracked_status_before = git_status(project)
     with project_lock(lock_path(project, loader)):

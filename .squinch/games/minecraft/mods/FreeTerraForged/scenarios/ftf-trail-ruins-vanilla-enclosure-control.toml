@@ -3,7 +3,7 @@ name = "FTF trail ruins enclosure control (vanilla terrain)"
 project = "games/minecraft/investigation-state/worktrees/ftf-trail-ruins"
 loader = "fabric"
 seed = 3216933670
-retention = "keep"
+retention = "keep-on-failure"
 
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/trail-ruins-enclosure"]
 

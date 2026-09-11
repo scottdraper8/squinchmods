@@ -10,6 +10,9 @@ def runtimeArtifactsProperty = gradle.startParameter.projectProperties.get("squi
 def runtimeOutputProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntimeOutput")
 def clientRunDirProperty = gradle.startParameter.projectProperties.get("squinchClientRunDir")
 def runtimeEvidenceProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntimeEvidence")
+def productionProperty = gradle.startParameter.projectProperties.get("squinchProbeProduction") == "true"
+def neoForgeClientHomeProperty = gradle.startParameter.projectProperties.get("squinchNeoForgeClientHome")
+def launcherProfileTemplateProperty = gradle.startParameter.projectProperties.get("squinchLauncherProfileTemplate")
 
 if (runtimeProperty == null || loaderProperty == null || packsProperty == null || mixinsProperty == null || compileArtifactsProperty == null) {
     throw new GradleException("probe overlay requires runtime, loader, packs, mixins, and compile artifacts")
@@ -106,7 +109,7 @@ gradle.beforeProject { project ->
             if (loaderProperty == "neoforge" && runtimeEvidence == null) {
                 throw new GradleException("NeoForge runtime artifacts require an evidence output")
             }
-            if (loaderProperty == "neoforge") {
+            if (loaderProperty == "neoforge" && !productionProperty) {
                 project.loom.addRemapConfiguration("squinchProbeRuntime") { settings ->
                     settings.sourceSet.set(project.sourceSets.main)
                     settings.targetConfigurationName.set("runtimeOnly")
@@ -125,13 +128,23 @@ gradle.beforeProject { project ->
                     task.outputs.file(runtimeEvidence)
                 }
                 task.doLast {
-                    if (loaderProperty == "fabric") {
+                    if (loaderProperty == "fabric" || productionProperty) {
                         runtimeOutput.mkdirs()
-                        runtimeArtifacts.each { artifact ->
+                        def records = runtimeArtifacts.collect { artifact ->
+                            def staged = new File(runtimeOutput, artifact.filename).canonicalFile
                             java.nio.file.Files.copy(
                                     artifact.file.toPath(),
-                                    new File(runtimeOutput, artifact.filename).toPath(),
+                                    staged.toPath(),
                                     java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                            [
+                                    id: artifact.id,
+                                    source_path: artifact.file.path,
+                                    runtime_path: staged.path,
+                            ]
+                        }
+                        if (loaderProperty == "neoforge") {
+                            runtimeEvidence.parentFile.mkdirs()
+                            runtimeEvidence.text = JsonOutput.prettyPrint(JsonOutput.toJson(records)) + "\n"
                         }
                     } else {
                         runtimeOutput.mkdirs()
@@ -192,9 +205,11 @@ gradle.beforeProject { project ->
         }
         project.tasks.named(probeSourceSet.processResourcesTaskName).configure { task ->
             def archivesName = project.archivesBaseName.toString().toLowerCase(Locale.ROOT)
-            def refmapStem = archivesName == loaderProperty || archivesName.endsWith("-${loaderProperty}")
-                    ? archivesName
-                    : "${archivesName}-${loaderProperty}"
+            def refmapStem = archivesName == loaderProperty
+                    ? "${archivesName}-${loaderProperty}"
+                    : archivesName.endsWith("-${loaderProperty}")
+                            ? archivesName
+                            : "${archivesName}-${loaderProperty}"
             def probeRefmap = "${probeSourceSet.name}-${refmapStem}-refmap.json"
             manifests.each { task.inputs.file(it) }
             resourceRoots.each { task.inputs.dir(it) }
@@ -249,10 +264,87 @@ displayName = "Squinch Investigation Probe"
             from(probeSourceSet.output)
             dependsOn(project.tasks.named(probeSourceSet.classesTaskName))
         }
+        if (loaderProperty == "neoforge" && productionProperty) {
+            if (clientRunDirProperty == null || neoForgeClientHomeProperty == null
+                    || launcherProfileTemplateProperty == null) {
+                throw new GradleException("NeoForge production client requires run, client-home, and profile-template paths")
+            }
+            def clientHome = new File(neoForgeClientHomeProperty).canonicalFile
+            def profileTemplate = new File(launcherProfileTemplateProperty).canonicalFile
+            if (!profileTemplate.isFile()) {
+                throw new GradleException("NeoForge launcher profile template is missing: ${profileTemplate}")
+            }
+            def neoForgeVersion = project.rootProject.property("neoforge_version").toString()
+            def installedVersion = new File(
+                    clientHome,
+                    "versions/neoforge-${neoForgeVersion}/neoforge-${neoForgeVersion}.json")
+            def installerConfiguration = project.configurations.maybeCreate(
+                    "squinchNeoForgeClientInstaller")
+            project.dependencies.add(
+                    installerConfiguration.name,
+                    "net.neoforged:neoforge:${neoForgeVersion}:installer")
+            def productionJava = project.javaToolchains.launcherFor {
+                languageVersion = JavaLanguageVersion.of(21)
+            }
+            def installClient = project.tasks.register("squinchInstallNeoForgeClient", Exec) { task ->
+                task.inputs.files(installerConfiguration)
+                task.inputs.file(profileTemplate)
+                task.outputs.file(installedVersion)
+                task.onlyIf { !installedVersion.isFile() }
+                task.doFirst {
+                    clientHome.mkdirs()
+                    def profiles = new File(clientHome, "launcher_profiles.json")
+                    if (!profiles.isFile()) {
+                        java.nio.file.Files.copy(profileTemplate.toPath(), profiles.toPath())
+                    }
+                    task.workingDir(clientHome)
+                    task.commandLine(
+                            productionJava.get().executablePath.asFile,
+                            "-jar", installerConfiguration.singleFile,
+                            "--install-client", clientHome)
+                }
+            }
+            project.tasks.register("squinchProdClient") { task ->
+                task.group = "squinch"
+                task.description = "Prepares an isolated production-mapped NeoForge client"
+                task.dependsOn(installClient, probeJar, project.tasks.named("remapJar"))
+                if (prepareRuntime != null) {
+                    task.dependsOn(prepareRuntime)
+                }
+                task.doLast {
+                    def runMods = new File(clientRunDirProperty, "mods").canonicalFile
+                    runMods.mkdirs()
+                    def remapTask = project.tasks.named("remapJar").get()
+                    java.nio.file.Files.copy(
+                            remapTask.archiveFile.get().asFile.toPath(),
+                            new File(runMods, "reterraforged-production.jar").toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    java.nio.file.Files.copy(
+                            probeJar.get().archiveFile.get().asFile.toPath(),
+                            new File(runMods, "squinch-investigate-probe.jar").toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+        }
+        if (loaderProperty == "fabric" && clientRunDirProperty != null) {
+            def loomPlugin = project.plugins.findPlugin("dev.architectury.loom")
+                    ?: project.plugins.findPlugin("fabric-loom")
+            def productionClientType = loomPlugin.class.classLoader.loadClass(
+                    "net.fabricmc.loom.task.prod.ClientProductionRunTask")
+            project.tasks.register(
+                    "squinchProdClient",
+                    productionClientType) { task ->
+                task.group = "squinch"
+                task.description = "Runs an isolated production-mapped client with evidence probes"
+                task.runDir.set(new File(clientRunDirProperty).canonicalFile)
+			task.jvmArgs.add("-Xmx24G")
+                task.jvmArgs.add("-XX:ActiveProcessorCount=8")
+            }
+        }
         def attachProbe = { names, selectedProbeJar ->
             project.tasks.matching { it.name in names }.configureEach { task ->
                 dependsOn(selectedProbeJar)
-                if (prepareRuntime != null && task.name == "runClient") {
+                if (prepareRuntime != null && task.name in ["runClient", "squinchProdClient"]) {
                     dependsOn(prepareRuntime)
                 }
                 if (task.name == "runClient" && loaderProperty == "neoforge") {
@@ -264,7 +356,8 @@ displayName = "Squinch Investigation Probe"
                     })
                 }
                 task.doFirst {
-                    def runDirectory = task.name == "runClient" && clientRunDirProperty != null
+                    def runDirectory = task.name in ["runClient", "squinchProdClient"]
+                            && clientRunDirProperty != null
                             ? new File(clientRunDirProperty)
                             : project.file("run")
                     project.copy {
@@ -304,7 +397,7 @@ displayName = "Squinch Investigation Probe"
                     }
                     dependsOn(probeJar)
                 }
-                attachProbe(["prodServer"], productionProbeJar)
+                attachProbe(["prodServer", "squinchProdClient"], productionProbeJar)
             }
             project.pluginManager.withPlugin("fabric-loom") {
                 configureRemap("fabric-loom")

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import argparse
+from pathlib import Path
+from types import SimpleNamespace
+
 import jsonschema
 import pytest
 
+from squinch_minecraft_investigate import cli
 from squinch_minecraft_investigate.output import envelope
 
 ACTIVE_DATA = {
@@ -58,6 +63,68 @@ def test_scenario_envelope_requires_identity_steps_and_provenance() -> None:
     del data["provenance"]
     with pytest.raises(jsonschema.ValidationError):
         envelope("scenario", "succeeded", run_id="run-1", data=data)
+
+
+def test_scenario_envelope_cleanup_failed_preserves_step_data_with_error() -> None:
+    """Steps succeeded but cleanup failed. The envelope must reject the run while retaining data."""
+    data = dict(ACTIVE_DATA)
+    data.update(
+        {
+            "scenario": {"name": "smoke", "path": "/tmp/smoke.toml", "sha256": "abc"},
+            "steps": [{"id": "s1", "type": "command", "state": "succeeded"}],
+            "provenance": {"code": {"head": "deadbeef"}},
+            "world_identity": {"actual_seed": 123},
+        }
+    )
+    value = envelope(
+        "scenario",
+        "error",
+        run_id="run-1",
+        data=data,
+        error={"code": "cleanup_failed", "message": "save timed out", "details": {}},
+    )
+    assert value["state"] == "error"
+    assert value["error"]["code"] == "cleanup_failed"
+    assert value["data"]["steps"][0]["state"] == "succeeded"
+
+
+def test_scenario_handler_rejects_cleanup_failure_and_main_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = {
+        **ACTIVE_DATA,
+        "operation": "server",
+        "run_id": "run-1",
+        "started_at": "2026-08-01T00:00:00Z",
+        "finished_at": "2026-08-01T00:01:00Z",
+        "artifact_dir": "/tmp/run-1",
+        "log_path": "/tmp/run-1/server.log",
+    }
+    result = {
+        "state": state,
+        "scenario": {"name": "smoke", "path": "/tmp/smoke.toml", "sha256": "abc"},
+        "steps": [{"id": "s1", "type": "command", "state": "succeeded"}],
+        "provenance": {"code": {"head": "deadbeef"}},
+        "world_identity": {"actual_seed": 123},
+        "rtf_fixture": None,
+        "scenario_summary": "/tmp/run-1/scenario-summary.json",
+        "scenario_progress": "/tmp/run-1/scenario-progress.jsonl",
+        "cleanup_failed": {
+            "code": "cleanup_failed",
+            "message": "save timed out",
+            "details": {},
+        },
+    }
+    monkeypatch.setattr(cli, "load_scenario", lambda _path: SimpleNamespace(name="smoke"))
+    monkeypatch.setattr(cli, "run_scenario", lambda _definition: result)
+
+    value, _message = cli._scenario(argparse.Namespace(scenario_file=Path("smoke.toml")))
+
+    assert value["state"] == "error"
+    assert value["data"]["steps"] == result["steps"]
+    monkeypatch.setitem(cli.HANDLERS, "scenario", lambda _args: (value, "rejected"))
+    monkeypatch.setattr(cli, "emit", lambda *_args, **_kwargs: None)
+    assert cli.main(["scenario", "smoke.toml", "--json"]) == 1
 
 
 def test_command_envelope_requires_responses() -> None:

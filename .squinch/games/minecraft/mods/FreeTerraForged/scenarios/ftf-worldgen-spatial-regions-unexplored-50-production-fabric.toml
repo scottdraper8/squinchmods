@@ -10,7 +10,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
     "mc1.21.1-fabric-regions-unexplored-0.6.2",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-50/fixture.toml"
 

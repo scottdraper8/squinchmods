@@ -7,7 +7,7 @@ seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
 companion_artifacts = ["mc1.21.1-neoforge-terrablender-4.1.0.8", "mc1.21.1-neoforge-glitchcore-2.1.0.2", "mc1.21.1-neoforge-natures-spirit-2.2.5"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

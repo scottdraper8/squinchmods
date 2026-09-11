@@ -6,7 +6,7 @@ seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-compatibility"]
 companion_artifacts = ["mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-glitchcore-2.1.0.2", "mc1.21.1-fabric-biomes-o-plenty-21.1.0.14"]
-retention = "keep"
+retention = "keep-on-failure"
 [server_properties]
 view-distance = 4
 simulation-distance = 4

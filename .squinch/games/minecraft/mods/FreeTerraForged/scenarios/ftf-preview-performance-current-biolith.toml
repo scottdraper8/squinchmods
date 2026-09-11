@@ -13,7 +13,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
     "mc1.21.1-fabric-biolith-3.0.14",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

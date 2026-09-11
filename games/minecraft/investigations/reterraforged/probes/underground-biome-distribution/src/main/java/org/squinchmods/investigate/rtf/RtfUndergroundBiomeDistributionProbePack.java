@@ -1,7 +1,11 @@
 package org.squinchmods.investigate.rtf;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -18,6 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Climate;
+import net.minecraft.world.level.levelgen.Heightmap;
 import org.squinchmods.investigate.FinishedChunkSelection;
 import org.squinchmods.investigate.MinecraftProbeHelpers;
 import org.squinchmods.investigate.ProbeExecution;
@@ -109,22 +114,59 @@ public final class RtfUndergroundBiomeDistributionProbePack implements ProbePack
                 return this.selection.result(snapshot, new JsonObject());
             }
 
-            Climate.Sampler sampler = level.getChunkSource().randomState().sampler();
-            BiomeSource biomeSource = level.getChunkSource().getGenerator().getBiomeSource();
+            var randomState = level.getChunkSource().randomState();
+            var generator = level.getChunkSource().getGenerator();
+            Climate.Sampler sampler = randomState.sampler();
+            BiomeSource biomeSource = generator.getBiomeSource();
             Counts all = new Counts();
             Map<String, Counts> byBand = new LinkedHashMap<>();
             List<ColumnTrace> directTraces = new ArrayList<>();
+            MessageDigest directSelections = digest();
+            MessageDigest directSurfaceHeights = digest();
+            MessageDigest directSurfaceBiomes = digest();
+            long surfaceSamples = 0L;
+            long surfaceHeightSum = 0L;
+            int surfaceHeightMin = Integer.MAX_VALUE;
+            int surfaceHeightMax = Integer.MIN_VALUE;
             this.bands.forEach(band -> byBand.put(band.id(), new Counts()));
 
             for (int blockX = this.minX; blockX <= this.maxX; blockX += this.horizontalStep) {
                 int quartX = QuartPos.fromBlock(blockX);
                 for (int blockZ = this.minZ; blockZ <= this.maxZ; blockZ += this.horizontalStep) {
                     int quartZ = QuartPos.fromBlock(blockZ);
+                    int surfaceY = generator.getBaseHeight(
+                        blockX,
+                        blockZ,
+                        Heightmap.Types.WORLD_SURFACE_WG,
+                        level,
+                        randomState
+                    );
+                    String surfaceBiome = MinecraftProbeHelpers.biomeId(biomeSource.getNoiseBiome(
+                        quartX,
+                        QuartPos.fromBlock(surfaceY),
+                        quartZ,
+                        sampler
+                    ));
+                    update(directSurfaceHeights, blockX);
+                    update(directSurfaceHeights, blockZ);
+                    update(directSurfaceHeights, surfaceY);
+                    update(directSurfaceBiomes, blockX);
+                    update(directSurfaceBiomes, surfaceY);
+                    update(directSurfaceBiomes, blockZ);
+                    update(directSurfaceBiomes, surfaceBiome);
+                    surfaceSamples++;
+                    surfaceHeightSum += surfaceY;
+                    surfaceHeightMin = Math.min(surfaceHeightMin, surfaceY);
+                    surfaceHeightMax = Math.max(surfaceHeightMax, surfaceY);
                     ColumnTrace trace = this.reportVerticalRuns ? new ColumnTrace(blockX, blockZ) : null;
                     for (int blockY = this.minY; blockY <= this.maxY; blockY += this.verticalStep) {
                         int quartY = QuartPos.fromBlock(blockY);
                         Holder<Biome> selected = biomeSource.getNoiseBiome(quartX, quartY, quartZ, sampler);
                         String biome = MinecraftProbeHelpers.biomeId(selected);
+                        update(directSelections, blockX);
+                        update(directSelections, blockY);
+                        update(directSelections, blockZ);
+                        update(directSelections, biome);
                         boolean cave = this.caveBiomes.contains(biome);
                         all.add(biome, cave);
                         if (trace != null) {
@@ -236,6 +278,25 @@ public final class RtfUndergroundBiomeDistributionProbePack implements ProbePack
             JsonObject bands = new JsonObject();
             byBand.forEach((id, counts) -> bands.add(id, counts.toJson()));
             data.add("bands", bands);
+            data.addProperty(
+                "direct_biome_sha256",
+                HexFormat.of().formatHex(directSelections.digest())
+            );
+            JsonObject directSurface = new JsonObject();
+            directSurface.addProperty("authority", "generator-base-height-world-surface-wg");
+            directSurface.addProperty("sampled_columns", surfaceSamples);
+            directSurface.addProperty("height_min", surfaceHeightMin);
+            directSurface.addProperty("height_max", surfaceHeightMax);
+            directSurface.addProperty("height_sum", surfaceHeightSum);
+            directSurface.addProperty(
+                "height_sha256",
+                HexFormat.of().formatHex(directSurfaceHeights.digest())
+            );
+            directSurface.addProperty(
+                "surface_biome_sha256",
+                HexFormat.of().formatHex(directSurfaceBiomes.digest())
+            );
+            data.add("direct_surface", directSurface);
             if (this.reportVerticalRuns) {
                 JsonObject verticalRuns = new JsonObject();
                 verticalRuns.add("direct", verticalRunSummary(directTraces));
@@ -283,6 +344,27 @@ public final class RtfUndergroundBiomeDistributionProbePack implements ProbePack
 
     private static boolean bool(JsonObject config, String key, boolean fallback) {
         return config.has(key) ? config.get(key).getAsBoolean() : fallback;
+    }
+
+    private static MessageDigest digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    private static void update(MessageDigest digest, int value) {
+        digest.update((byte) (value >>> 24));
+        digest.update((byte) (value >>> 16));
+        digest.update((byte) (value >>> 8));
+        digest.update((byte) value);
+    }
+
+    private static void update(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        update(digest, bytes.length);
+        digest.update(bytes);
     }
 
     private static Set<String> caveBiomes(JsonObject config) {

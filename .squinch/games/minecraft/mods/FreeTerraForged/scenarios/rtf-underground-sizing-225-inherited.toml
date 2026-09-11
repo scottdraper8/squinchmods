@@ -8,7 +8,7 @@ probe_packs = [
   "games/minecraft/investigations/reterraforged/probes/spatial-coherence",
   "games/minecraft/investigations/reterraforged/probes/biome-palette",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

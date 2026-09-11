@@ -7,6 +7,8 @@
     "MixinConfirmScreen",
     "MixinCreateWorldScreen",
     "MixinMinecraft",
+    "MixinPreview2D",
+    "MixinPreview3D",
     "MixinWorldCreationUiState"
   ],
   "mixins": [

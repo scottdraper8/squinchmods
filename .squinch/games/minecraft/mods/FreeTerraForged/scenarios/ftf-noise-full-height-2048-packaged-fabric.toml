@@ -8,7 +8,7 @@ subject_compile_artifact = "games/minecraft/investigation-state/worktrees/ftf-wo
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"
 companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

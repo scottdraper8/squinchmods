@@ -3,7 +3,7 @@ repos:
     rev: v6.0.0
     hooks:
     -   id: check-added-large-files
-        args: ['--maxkb=102400']
+        args: ['--maxkb=5120']
     -   id: trailing-whitespace
         exclude: &rtf_fixture_bytes ^games/minecraft/investigations/reterraforged/fixtures/.*/(data/|pack\.mcmeta$)
     -   id: end-of-file-fixer
@@ -33,6 +33,18 @@ repos:
 
 -   repo: local
     hooks:
+    -   id: tracked-artifact-boundary
+        name: reject tracked runtime and investigation artifacts
+        entry: tooling/check-tracked-artifacts
+        language: system
+        pass_filenames: false
+        always_run: true
+    -   id: investigation-retention-index
+        name: require cited investigation runs in retention index
+        entry: tooling/check-investigation-retention
+        language: system
+        pass_filenames: false
+        always_run: true
     -   id: prettier
         name: prettier (markdown)
         entry: prettier --write

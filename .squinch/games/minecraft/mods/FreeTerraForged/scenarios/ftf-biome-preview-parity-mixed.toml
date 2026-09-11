@@ -9,7 +9,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-biolith-3.0.14",
     "mc1.21.1-fabric-terrestria-7.0.3",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
 

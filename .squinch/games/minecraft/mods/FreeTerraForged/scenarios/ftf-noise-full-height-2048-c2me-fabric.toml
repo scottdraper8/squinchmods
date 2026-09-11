@@ -5,7 +5,7 @@ loader = "fabric"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"
 companion_artifacts = ["mc1.21.1-fabric-c2me-0.4.0-alpha.0.27+1.21.1"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [[runtime_files]]
 source = "games/minecraft/investigations/reterraforged/inputs/c2me-ftf.toml"

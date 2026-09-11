@@ -8,6 +8,7 @@ import pytest
 
 from squinch_minecraft_investigate import cli
 from squinch_minecraft_investigate.cli import tile_chunks
+from squinch_minecraft_investigate import generation
 from squinch_minecraft_investigate.output import _schema, envelope
 
 
@@ -78,3 +79,31 @@ def test_generate_command_reports_the_real_region_count(tmp_path: Path, monkeypa
 
     assert message == "generated 1 region tile(s)"
     assert value["data"]["regions"] == fake_regions
+
+
+def test_release_regions_forgets_only_each_acknowledged_owned_tile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = {"block_min_x": 1, "block_min_z": 2, "block_max_x": 3, "block_max_z": 4}
+    second = {"block_min_x": 5, "block_min_z": 6, "block_max_x": 7, "block_max_z": 8}
+    state = {"forceload_regions": [first, second]}
+    commands: list[str] = []
+    snapshots: list[list[dict[str, int]]] = []
+
+    def run(_state: dict, values: list[str], _timeout: float) -> list[dict]:
+        commands.extend(values)
+        return [{"command": values[0], "response": "Unmarked"}]
+
+    monkeypatch.setattr(generation, "run_commands", run)
+    monkeypatch.setattr(
+        generation,
+        "persist_active",
+        lambda current: snapshots.append(list(current["forceload_regions"])),
+    )
+
+    released = generation.release_regions(state, [first, second], 10)
+
+    assert commands == ["forceload remove 5 6 7 8", "forceload remove 1 2 3 4"]
+    assert [item["region"] for item in released] == [second, first]
+    assert snapshots == [[first], []]
+    assert state["forceload_regions"] == []

@@ -1,0 +1,43 @@
+schema_version = 1
+name = "FTF C2ME density-function compiler generated default — packaged Fabric"
+project = "games/minecraft/investigation-state/worktrees/ftf-c2me-dfc-compatibility"
+loader = "fabric"
+seed = 3216933670
+retention = "keep-on-failure"
+launch_task = "prodServer"
+companion_artifacts = [
+  "mc1.21.1-fabric-c2me-0.4.0-alpha.0.27+1.21.1",
+  "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
+]
+runtime_absent_files = ["config/c2me.toml"]
+datapacks = [
+  "games/minecraft/investigations/reterraforged/fixtures/modern-default-with-rivers-live-export/reterraforged-preset.zip",
+]
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/c2me-dfc-lifecycle"]
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 600
+shutdown = 180
+
+[expectations]
+required_mods = ["minecraft", "reterraforged", "c2me"]
+
+[[probes]]
+id = "squinch:ftf-c2me-dfc-lifecycle"
+version = "1"
+config = { max_wait_ticks = 6000 }
+
+[[steps]]
+id = "generate-default-window"
+type = "generate"
+unit = "chunk"
+bounds = [16, -76, 27, -65]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-c2me-dfc-lifecycle"
+expect = { terminal_state = "pass" }

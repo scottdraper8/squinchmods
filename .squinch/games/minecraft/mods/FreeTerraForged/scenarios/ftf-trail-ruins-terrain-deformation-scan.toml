@@ -3,7 +3,7 @@ name = "FTF trail ruins terrain deformation scan"
 project = "games/minecraft/investigation-state/worktrees/ftf-trail-ruins"
 loader = "fabric"
 seed = 3216933670
-retention = "keep"
+retention = "keep-on-failure"
 
 datapacks = [
   "games/minecraft/investigations/reterraforged/fixtures/modern-default-with-rivers-live-export/reterraforged-preset.zip",

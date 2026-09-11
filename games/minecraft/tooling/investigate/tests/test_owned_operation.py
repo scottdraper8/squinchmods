@@ -86,6 +86,39 @@ def test_finite_service_removes_active_state_only_after_validation_and_cleanup(
     assert not arguments["active_path"].exists()
 
 
+def test_finite_service_accepts_terminal_result_while_wrapper_is_live(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments = _arguments(tmp_path, monkeypatch)
+
+    class LiveWrapper(_Wrapper):
+        returncode = None
+
+        def poll(self) -> None:
+            return None
+
+    def launch(**kwargs):
+        wrapper = LiveWrapper()
+        service = {
+            "unit": "squinch-mc-run-1.service",
+            "cgroup": "/test",
+            "wrapper": _identity(40),
+        }
+        kwargs["publish_start"](wrapper, service, service["wrapper"])
+        return wrapper, service, _identity(41)
+
+    monkeypatch.setattr(owned_operation, "launch_service", launch)
+
+    state, result = owned_operation.run_finite_service(
+        **arguments,
+        poll_complete=lambda _state: True,
+        validate=lambda _state: "complete",
+    )
+
+    assert result == "complete"
+    assert state["lifecycle"] == "succeeded"
+
+
 def test_finite_service_preserves_failure_evidence_after_clean_teardown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -14,12 +14,12 @@ code branch.
   preserving a session history.
 - [`wiki/README.md`](wiki/README.md) — current FTF engineering concepts: mental models, data flow,
   coordinate meanings, ownership boundaries, and compatibility invariants.
-- [`Compatibility-runtime acceptance`](plans/compatibility-runtime-completion.md) — the implemented
+- [`Compatibility-runtime acceptance`](refs/compatibility-runtime-acceptance.md) — the implemented
   runtime, accepted verification surface, and current production-artifact state.
 - [`Minecraft reference`](../../wiki/README.md) — general Minecraft world-generation reference for
   reusable engine concepts such as extended height, placed features, structures, and biome climate.
-- [`plans/`](plans/) — current product contracts, acceptance records, and genuinely unfinished
-  implementation work. Completed investigation narratives do not remain here.
+- [`plans/`](plans/) — current product contracts and genuinely unfinished implementation work.
+  Completed investigation narratives do not remain here.
 - [`refs/branch-map.md`](refs/branch-map.md) — current local FTF branch/worktree state.
 
 ## Documentation boundaries

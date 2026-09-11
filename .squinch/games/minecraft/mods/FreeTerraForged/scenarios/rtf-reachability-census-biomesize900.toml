@@ -4,7 +4,7 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 seed = 12345
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
-retention = "keep"
+retention = "keep-on-failure"
 
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/shallow-depth-mountain-control--biome-size-900/fixture.toml"
 

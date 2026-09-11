@@ -4,7 +4,7 @@ project = "games/minecraft/investigations/vanilla-control"
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/climate-domain"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

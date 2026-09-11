@@ -1,0 +1,251 @@
+{
+  "structures": {
+    "structures": {}
+  },
+  "miscellaneous": {
+    "vanillaLavaLakes": false,
+    "vanillaLavaSprings": false,
+    "mountainBiomeUsage": 0.5,
+    "volcanoBiomeUsage": 0.5,
+    "naturalSnowDecorator": true,
+    "customBiomeFeatures": false,
+    "vanillaSprings": false,
+    "oreCompatibleStoneOnly": true,
+    "erosionDecorator": true,
+    "plainStoneErosion": false,
+    "smoothLayerDecorator": true,
+    "strataRegionSize": 901,
+    "strataDecorator": true
+  },
+  "presentation": {
+    "lastModified": "2026-09-04-0926"
+  },
+  "flow": {
+    "flowParticles": true,
+    "boatFlowDynamics": true,
+    "navigableWaterfalls": true
+  },
+  "island": {
+    "islandHorizontalScale": 7.001667,
+    "offshoreDepth": 0.1,
+    "macroDensityPercentage": 1.0,
+    "islandBaseScale": 0.1,
+    "islandVerticalScale": 1.9998939,
+    "enableArchipelago": true,
+    "islandDensity": 0.6002436,
+    "islandSize": 500.0,
+    "islandHeight": 0.1,
+    "volcanismScale": 0.85,
+    "mountainScale": 0.4997785,
+    "volcanismHorizontalScale": 1.9995923,
+    "mountainHorizontalScale": 3.0,
+    "mountainChance": 0.6001463,
+    "volcanoChance": 1.0,
+    "beachWidth": 0.5,
+    "beachCoverage": 1.0
+  },
+  "filters": {
+    "erosion": {
+      "dropletVelocity": 0.85,
+      "erosionRate": 0.65,
+      "depositeRate": 0.35,
+      "dropletsPerChunk": 500,
+      "dropletLifetime": 32,
+      "dropletVolume": 0.85
+    },
+    "smoothing": {
+      "iterations": 5,
+      "smoothingRadius": 5.0,
+      "smoothingRate": 1.0
+    }
+  },
+  "climate": {
+    "temperature": {
+      "min": 0.0,
+      "max": 1.0,
+      "bias": 0.0,
+      "seedOffset": 0,
+      "scale": 16,
+      "falloff": 4
+    },
+    "moisture": {
+      "min": 0.0,
+      "max": 1.0,
+      "bias": 0.0,
+      "seedOffset": 0,
+      "scale": 20,
+      "falloff": 1
+    },
+    "biomeShape": {
+      "macroNoiseSize": 24,
+      "biomeWarpScale": 500,
+      "biomeWarpStrength": 500,
+      "undergroundBiomeClimateInfluence": 0.14995436,
+      "biomeSize": 2000,
+      "undergroundBiomeSize": 150,
+      "undergroundBiomeVerticalSize": 75,
+      "undergroundBiomeCoverage": 0.7995966
+    },
+    "biomeEdgeShape": {
+      "gain": 5.0369415,
+      "lacunarity": 5.2139177,
+      "strength": 500,
+      "type": "SIMPLEX",
+      "scale": 500,
+      "octaves": 5
+    }
+  },
+  "terrain": {
+    "torridonian": {
+      "weight": 1.5,
+      "baseScale": 0.85223365,
+      "verticalScale": 1.0,
+      "horizontalScale": 5.0
+    },
+    "mountains": {
+      "weight": 2.0,
+      "baseScale": 1.3178694,
+      "verticalScale": 1.5034364,
+      "horizontalScale": 4.9887576
+    },
+    "volcano": {
+      "weight": 0.50687283,
+      "baseScale": 1.5017182,
+      "verticalScale": 1.5034364,
+      "horizontalScale": 5.0021477
+    },
+    "plateau": {
+      "weight": 1.0,
+      "baseScale": 1.0,
+      "verticalScale": 1.2542956,
+      "horizontalScale": 5.0016446
+    },
+    "badlands": {
+      "weight": 0.5,
+      "baseScale": 1.1975945,
+      "verticalScale": 1.2542956,
+      "horizontalScale": 3.001235
+    },
+    "plains": {
+      "weight": 3.0,
+      "baseScale": 2.0,
+      "verticalScale": 1.0,
+      "horizontalScale": 3.000698
+    },
+    "hills": {
+      "weight": 2.5,
+      "baseScale": 1.0,
+      "verticalScale": 1.0,
+      "horizontalScale": 3.0014362
+    },
+    "dales": {
+      "weight": 1.5,
+      "baseScale": 1.0,
+      "verticalScale": 1.0,
+      "horizontalScale": 3.0003624
+    },
+    "general": {
+      "globalHorizontalScale": 5.0,
+      "fancyMountains": true,
+      "legacyMountainScaling": false,
+      "mountainVariety": 1.0,
+      "terrainSeedOffset": 0,
+      "terrainRegionSize": 5000,
+      "globalVerticalScale": 1.0
+    },
+    "steppe": {
+      "weight": 1.5,
+      "baseScale": 2.0,
+      "verticalScale": 1.0,
+      "horizontalScale": 3.0005639
+    }
+  },
+  "rivers": {
+    "branchRivers": {
+      "bankWidth": 30,
+      "bedWidth": 20,
+      "fade": 1.0,
+      "bedDepth": 5,
+      "minBankHeight": 0,
+      "maxBankHeight": 10
+    },
+    "lakes": {
+      "sizeMin": 42,
+      "sizeMax": 500,
+      "minBankHeight": 2,
+      "maxBankHeight": 10,
+      "chance": 0.59965634,
+      "minStartDistance": 0.0,
+      "maxStartDistance": 0.03,
+      "depth": 20
+    },
+    "wetlands": {
+      "chance": 0.37542954,
+      "sizeMin": 100,
+      "sizeMax": 500
+    },
+    "seedOffset": 0,
+    "riverCount": 17,
+    "mainRivers": {
+      "bankWidth": 50,
+      "bedWidth": 22,
+      "fade": 1.0,
+      "bedDepth": 10,
+      "minBankHeight": 0,
+      "maxBankHeight": 10
+    }
+  },
+  "world": {
+    "continent": {
+      "continentNoiseGain": 0.5,
+      "continentNoiseLacunarity": 4.0,
+      "continentSkipping": 0.35,
+      "continentSizeVariance": 0.75,
+      "continentType": "UPLIFT",
+      "continentScale": 10000,
+      "continentJitter": 1.0
+    },
+    "controlPoints": {
+      "shallowOcean": 0.21993127,
+      "beach": 0.75,
+      "coast": 0.92,
+      "inland": 1.0,
+      "islandInland": 0.0,
+      "islandCoast": 0.09965636,
+      "deepOcean": 0.09965636
+    },
+    "properties": {
+      "lavaLevel": -950,
+      "oceanDepth": 1000,
+      "spawnX": -158311,
+      "spawnZ": -157799,
+      "spawnType": "USER_SELECTED",
+      "worldHeight": 1024,
+      "worldDepth": 1024,
+      "seaLevel": 63
+    }
+  },
+  "surface": {
+    "erosion": {
+      "dirtMin": 1024,
+      "rockSteepness": 0.8015464,
+      "dirtSteepness": 0.40206185,
+      "screeSteepness": 0.6005155,
+      "rockVariance": 40,
+      "rockMin": 1024,
+      "dirtVariance": 40
+    }
+  },
+  "caves": {
+    "ravineCarverProbability": 0.0075,
+    "largeOreVeins": true,
+    "legacyCarverDistribution": false,
+    "caveCarverProbability": 0.05,
+    "deepCaveCarverProbability": 0.07,
+    "cheeseCaveProbability": 1.0,
+    "spaghettiCaveProbability": 1.0,
+    "noodleCaveProbability": 1.0,
+    "entranceCaveProbability": 0.0,
+    "cheeseCaveDepthOffset": 1.5625
+  }
+}

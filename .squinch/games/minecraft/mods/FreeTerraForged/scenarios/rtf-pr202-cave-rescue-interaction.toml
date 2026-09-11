@@ -9,7 +9,7 @@ probe_packs = [
     "games/minecraft/investigations/reterraforged/probes/underground-feature-enclosure",
     "games/minecraft/investigations/reterraforged/probes/placement-telemetry",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

@@ -9,7 +9,7 @@ probe_packs = [
   "games/minecraft/investigations/reterraforged/probes/biome-palette",
   "games/minecraft/investigations/reterraforged/probes/climate-domain",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

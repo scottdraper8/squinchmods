@@ -13,6 +13,7 @@ Thumbs.db
 
 # Project
 META-INF/
+/logs/
 games/minecraft/reference/
 games/minecraft/qa-state/
 games/minecraft/investigation-state/

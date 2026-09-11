@@ -81,3 +81,43 @@ source_id = "source-example"
 
     with pytest.raises(InvestigationError, match="catalog artifact hash mismatch"):
         catalog.resolve_artifacts(("example",), expected_loader="fabric")
+
+
+def test_runtime_closure_expands_and_deduplicates_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values = {
+        "root": {"required_dependencies": ["api", "library"]},
+        "library": {"required_dependencies": ["api"]},
+        "api": {},
+    }
+    for value in values.values():
+        value.update({"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"})
+    resolved = {
+        key: catalog.ResolvedArtifact(
+            key, key, "1.21.1", "fabric", f"{key}.jar", key[0] * 64, tmp_path / f"{key}.jar"
+        )
+        for key in values
+    }
+    monkeypatch.setattr(catalog, "_catalog", lambda: values)
+    monkeypatch.setattr(
+        catalog, "resolve_artifacts",
+        lambda ids, **_kwargs: tuple(resolved[item] for item in ids),
+    )
+
+    result = catalog.resolve_artifact_closure(("root", "api"), expected_loader="fabric")
+
+    assert [item.id for item in result] == ["api", "library", "root"]
+
+
+def test_runtime_closure_rejects_dependency_cycles(monkeypatch: pytest.MonkeyPatch) -> None:
+    values = {
+        "one": {"required_dependencies": ["two"]},
+        "two": {"required_dependencies": ["one"]},
+    }
+    for value in values.values():
+        value.update({"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"})
+    monkeypatch.setattr(catalog, "_catalog", lambda: values)
+
+    with pytest.raises(InvestigationError, match="dependency cycle"):
+        catalog.resolve_artifact_closure(("one",), expected_loader="fabric")

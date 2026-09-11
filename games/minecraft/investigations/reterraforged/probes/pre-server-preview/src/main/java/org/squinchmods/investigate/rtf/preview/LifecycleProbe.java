@@ -9,12 +9,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.google.gson.JsonArray;
@@ -79,11 +84,16 @@ public final class LifecycleProbe {
 		FRAMES.put(label, 0);
 	}
 
-	public static synchronized void frameApplied(String label, IPreviewHandler handler) {
+	public static synchronized void frameApplied(
+		String label,
+		IPreviewHandler handler,
+		IPreviewHandler.FrameResult frame
+	) {
 		if (uiRound == null || FINISHED.get() || !HANDLERS.containsKey(handler)) {
 			return;
 		}
 		FRAMES.merge(label, 1, Integer::sum);
+		uiRound.captureFrame(label, handler, frame);
 	}
 
 	public static void stagingStarted(CreateWorldScreen screen) {
@@ -251,6 +261,27 @@ public final class LifecycleProbe {
 		return method.invoke(handler);
 	}
 
+	private static MessageDigest sha256() {
+		try {
+			return MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException failure) {
+			throw new IllegalStateException("SHA-256 is unavailable", failure);
+		}
+	}
+
+	private static void update(MessageDigest digest, int value) {
+		digest.update((byte) (value >>> 24));
+		digest.update((byte) (value >>> 16));
+		digest.update((byte) (value >>> 8));
+		digest.update((byte) value);
+	}
+
+	private static void update(MessageDigest digest, String value) {
+		byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+		update(digest, bytes.length);
+		digest.update(bytes);
+	}
+
 	private enum UiStage {
 		WAIT_INITIAL_FRAMES,
 		WAIT_ACTIVE_REPLACEMENT,
@@ -265,6 +296,7 @@ public final class LifecycleProbe {
 		private final long heapBefore;
 		private final Instant started = Instant.now();
 		private final List<WeakReference<Object>> retired = new ArrayList<>();
+		private final Map<String, JsonObject> frameSnapshots = new java.util.LinkedHashMap<>();
 		private UiStage stage = UiStage.WAIT_INITIAL_FRAMES;
 		private Map<String, Integer> finalFrameBaseline = Map.of();
 		private Object lastObservedKey;
@@ -304,6 +336,66 @@ public final class LifecycleProbe {
 				case WAIT_ACTIVE_REPLACEMENT -> this.cancelActiveGenerationWhenReady();
 				case WAIT_FINAL_FRAMES -> this.verifyFinalFramesWhenReady();
 				case VERIFY_RETIRED_OWNERS -> this.verifyRetirementAndFinish();
+			}
+		}
+
+		private void captureFrame(
+			String label,
+			IPreviewHandler handler,
+			IPreviewHandler.FrameResult frame
+		) {
+			try {
+				Object sidecar = field(frame, "biomes");
+				if (sidecar == null) {
+					throw new IllegalStateException(label + " applied a frame without biome selections");
+				}
+				int size = (int) field(sidecar, "size");
+				String[] palette = (String[]) field(sidecar, "palette");
+				short[] indices = (short[]) field(sidecar, "indices");
+				int[] raster = (int[]) field(frame, "rasterPayload");
+				if (size <= 0 || indices.length != Math.multiplyExact(size, size) || raster == null) {
+					throw new IllegalStateException(label + " applied an invalid biome frame");
+				}
+				MessageDigest biomeDigest = sha256();
+				Map<String, Integer> counts = new TreeMap<>();
+				for (int z = 0; z < size; z++) {
+					for (int x = 0; x < size; x++) {
+						int index = indices[z * size + x] & 0xFFFF;
+						if (index >= palette.length) {
+							throw new IllegalStateException(label + " biome palette index is out of range");
+						}
+						String biome = palette[index];
+						update(biomeDigest, x);
+						update(biomeDigest, z);
+						update(biomeDigest, biome);
+						counts.merge(biome, 1, Integer::sum);
+					}
+				}
+				MessageDigest rasterDigest = sha256();
+				for (int pixel : raster) {
+					update(rasterDigest, pixel);
+				}
+				Object cacheKey = field(previewState(handler), "cacheKey");
+				JsonObject result = new JsonObject();
+				result.addProperty("seed", seed(cacheKey));
+				result.addProperty("center_x", (int) field(frame, "centerX"));
+				result.addProperty("center_z", (int) field(frame, "centerZ"));
+				result.addProperty("zoom", handler.getZoom());
+				result.addProperty("width", size);
+				result.addProperty("height", size);
+				result.addProperty("sampled_pixels", indices.length);
+				result.addProperty(
+					"biome_grid_sha256", HexFormat.of().formatHex(biomeDigest.digest())
+				);
+				result.addProperty(
+					"applied_raster_sha256", HexFormat.of().formatHex(rasterDigest.digest())
+				);
+				JsonObject biomeCounts = new JsonObject();
+				counts.forEach(biomeCounts::addProperty);
+				result.add("biome_counts", biomeCounts);
+				this.frameSnapshots.put(label, result);
+			} catch (ReflectiveOperationException failure) {
+				throw new IllegalStateException("cannot capture applied " + label + " preview frame", failure);
 			}
 		}
 
@@ -370,6 +462,9 @@ public final class LifecycleProbe {
 			if (retained > 0) {
 				throw new IllegalStateException(retained + " stale cache owners remain strongly reachable");
 			}
+			if (!this.frameSnapshots.keySet().containsAll(Set.of("2d", "3d"))) {
+				throw new IllegalStateException("final applied biome frames are incomplete: " + this.frameSnapshots.keySet());
+			}
 			JsonObject result = new JsonObject();
 			result.addProperty("after_datapack_reload", this.afterReload);
 			result.addProperty("elapsed_ms", Duration.between(this.started, Instant.now()).toMillis());
@@ -381,6 +476,9 @@ public final class LifecycleProbe {
 			JsonObject frames = new JsonObject();
 			FRAMES.forEach(frames::addProperty);
 			result.add("frames", frames);
+			JsonObject finalFrames = new JsonObject();
+			this.frameSnapshots.forEach((label, frame) -> finalFrames.add(label, frame.deepCopy()));
+			result.add("final_applied_frames", finalFrames);
 			UI_ROUNDS.add(result);
 			completedUiRounds++;
 			uiRound = null;

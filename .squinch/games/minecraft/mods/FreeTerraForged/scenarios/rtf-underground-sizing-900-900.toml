@@ -4,7 +4,7 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-coherence", "games/minecraft/investigations/reterraforged/probes/biome-palette"]
-retention = "keep"
+retention = "keep-on-failure"
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/deep-world-ocean-stress--biome-size-900-underground-900/fixture.toml"
 
 [server_properties]

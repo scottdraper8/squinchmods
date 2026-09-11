@@ -17,7 +17,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-frozenlib-2.2.4",
     "mc1.21.1-fabric-wilder-wild-4.2.1",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

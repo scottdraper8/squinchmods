@@ -14,5 +14,5 @@ known_limitations = [
 minecraft_version = "1.21.1"
 rtf_version = "0.0.6005"
 base = "../_base"
-resolved_preset_sha256 = "70a6f61eab1640ac4b65f102b8d08efbec79a42b4f6542fae17dfdf0ff7e3487"
+resolved_preset_sha256 = "331bcd32bd629b4bba5161555f3f585431ae004da4288644e3cabf88962dc7b7"
 historical_archive_sha256 = "b1487bcf52fdb3e27a2a76ea5e7f505f7e925aa00e63ce7f9b9f4bd44fb7c878"

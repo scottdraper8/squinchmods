@@ -79,26 +79,29 @@ repeatability, exactly-once behavior, ordering, seed/noise ownership, reload beh
 concurrency must be proven before runtime acquisition may depend on it.
 
 Preview, generation, diagnostics, and future consumers are zero-knowledge. They consume FTF plans
-and results and never select a third-party mechanism path. Any unavoidable version-qualified
-mechanism bridge remains inside runtime acquisition, normalizes immediately, and fails closed when
-its proven contract changes. Private-field semantic inference, registration replay, and per-mod
-consumer Mixins are not compatibility contracts.
+and results and never select a third-party mechanism path. An unavoidable internal mechanism bridge
+remains inside runtime acquisition, normalizes immediately, and is selected by a complete structural
+contract rather than a release-number allowlist. Unchanged releases work without an adapter edit; an
+actual seam change disables the bridge atomically and fails only a contribution proven to require
+it. Private-field semantic inference, registration replay, and per-mod consumer Mixins are not
+compatibility contracts.
 
 Server-finalization bridges observe one mechanism-owned boundary after all data and code
 contributions are collected and do not replay callbacks. Pre-server request resolution is a
 different lifecycle and must have its own proven contract; a post-server snapshot does not establish
-preset-editor availability. Any qualified early-finalization resolver remains inside acquisition,
-never in the preview consumer. A snapshot is usable only when its mechanism version, dimension or
-dimension type, world identity, seed, completion state, holder ownership, and possible outputs match
-the FTF owner. Snapshot data is copied before publication and rebound to the request's registries
-without retaining mutable source collections.
+preset-editor availability. Any structurally qualified early-finalization resolver remains inside
+acquisition, never in the preview consumer. A snapshot is usable only when its mechanism identity,
+dimension or dimension type, world identity, seed, completion state, holder ownership, and possible
+outputs match the FTF owner. Snapshot data is copied before publication and rebound to the request's
+registries without retaining mutable source collections.
 
 A process-global callback list is not itself a request-owned factory merely because it can mutate an
-isolated generator. A qualified mechanism finalizer may be advanced at acquisition only when FTF
-contains its mutation in a codec-cloned graph, freezes public outputs, proves stable ordered output
-across natural repeated invocations, invalidates on late registration, and substitutes those frozen
-outputs when the same graph later finalizes. Preview still never invokes callbacks. Without those
-properties, the acceptable seam remains an immutable resolved snapshot or pure owner-scoped factory.
+isolated generator. A structurally qualified mechanism finalizer may be advanced at acquisition only
+when FTF contains its mutation in a codec-cloned graph, freezes public outputs, proves stable
+ordered output across natural repeated invocations, invalidates on late registration, and
+substitutes those frozen outputs when the same graph later finalizes. Preview still never invokes
+callbacks. Without those properties, the acceptable seam remains an immutable resolved snapshot or
+pure owner-scoped factory.
 
 Capability applicability is creation-graph scoped. Loader-global mechanism presence cannot claim a
 facet or fail a request without evidence that the selected graph contains or requires that

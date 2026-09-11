@@ -1,0 +1,38 @@
+schema_version = 1
+name = "FTF experimental biome invariance — C2ME DFC on — NeoForge"
+project = "games/minecraft/investigations/vanilla-control"
+loader = "neoforge"
+launch_task = "prodServer"
+subject_artifact = "games/minecraft/investigation-state/worktrees/ftf-experimental-chunk-fixes/neoforge/build/libs/reterraforged-0.0.6005.jar"
+subject_compile_artifact = "games/minecraft/investigation-state/worktrees/ftf-experimental-chunk-fixes/neoforge/build/libs/reterraforged-0.0.6005-shadow.jar"
+seed = 3216933670
+retention = "keep-on-failure"
+companion_artifacts = ["mc1.21.1-neoforge-c2me-0.4.0-alpha.0.120+1.21.1"]
+datapacks = ["games/minecraft/investigations/reterraforged/fixtures/modern-default-with-rivers-live-export/reterraforged-preset.zip"]
+probe_packs = ["games/minecraft/investigations/reterraforged/probes/underground-biome-distribution"]
+[[runtime_files]]
+source = "games/minecraft/investigations/reterraforged/inputs/c2me-dfc-true.toml"
+target = "config/c2me.toml"
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+[timeouts]
+startup = 600
+step = 600
+shutdown = 180
+[expectations]
+required_mods = ["minecraft", "reterraforged", "c2me"]
+[[probes]]
+id = "squinch:rtf-underground-biome-distribution"
+version = "1"
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 2400, sample_min_x = -32768, sample_max_x = 32768, sample_min_z = -32768, sample_max_z = 32768, horizontal_step_blocks = 512, sample_min_y = -64, sample_max_y = 63, vertical_step_blocks = 4, report_vertical_runs = true, bands = [{ id = "lower", min_y = -64, max_y = -1 }, { id = "middle", min_y = 0, max_y = 31 }, { id = "upper", min_y = 32, max_y = 63 }] }
+[[steps]]
+id = "hash-3d-biome-field"
+type = "generate"
+unit = "chunk"
+bounds = [0, 0, 0, 0]
+authority = "finished-chunk"
+terminal_probe = "squinch:rtf-underground-biome-distribution"
+release_after_observation = true
+expect = { terminal_state = "pass" }

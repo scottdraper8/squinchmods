@@ -341,9 +341,14 @@ def signal_service(
     unit = str(service.get("unit", ""))
     if not re.fullmatch(r"squinch-mc-[a-z0-9-]+\.service", unit):
         raise InvestigationError("process_service_invalid", f"invalid owned unit name: {unit}")
-    _systemctl(
-        "kill", f"--signal={sig.name}", "--kill-whom=all", unit, timeout=timeout
+    result = _systemctl(
+        "kill", f"--signal={sig.name}", "--kill-whom=all", unit,
+        check=False, timeout=timeout,
     )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        if not any(marker in detail.lower() for marker in ("not loaded", "could not be found")):
+            raise InvestigationError("process_service_failed", detail)
 
 
 def stop_service(service: dict, *, timeout: float = SYSTEMD_TIMEOUT_SECONDS) -> None:

@@ -61,25 +61,46 @@ tooling/squinch mc-investigate client \
   --loader fabric \
   --probe-pack games/minecraft/investigations/reterraforged/probes/pre-server-preview \
   --artifact lithostitched-fabric \
+  --runtime-file games/minecraft/investigations/example.toml=config/example.toml \
   --probe-env SQUINCH_PREVIEW_CASE=regeneration \
   --result-env SQUINCH_PREVIEW_RESULT=preview-result.json \
+  --production \
+  --cpu-list 16-31 \
   --json
 ```
 
 The command owns a run-local client directory, runtime mods, result files, headless Wayland runtime,
-and systemd service/cgroup. Each `--compile-artifact ID:LOADER:MAPPING` is compile-only; each
-`--artifact ID` is runtime-only. Probe and result environment names must start with `SQUINCH_`, and
-every required result must be a JSON object whose `status` is `pass`. Cleanup is part of success and
-a surviving owned process retains recoverable active state.
+and systemd service/cgroup. Each `--compile-artifact ID:LOADER:MAPPING` is compile-only. Each
+`--artifact ID` is a runtime root whose transitive catalog `required_dependencies` are validated,
+deduplicated, conflict-checked, and staged dependency-first. Probe and result environment names must
+start with `SQUINCH_`, and each `--runtime-file SOURCE=config/TARGET` is copied into the isolated
+run before launch and hashed in the manifest. Runtime-file targets cannot escape the run's `config`
+directory. During execution, crash reports, structured fail results, successful completion of all
+required results, and termination of the inner client application are terminal signals independent
+of the longer-lived display and build wrappers. Every required result must be a JSON object whose
+`status` is `pass`. Cleanup is part of success and a surviving owned process retains recoverable
+active state.
 
-For an isolated generation benchmark, set `repeat` and a nonzero `offset = [x, z]` on a generation
-step. The parser requires every translated coordinate window to be disjoint and caps one step at 20
-observations. Each observation retains its exact bounds plus generation, probe, and total seconds;
-the step also reports every value with median, minimum, maximum, and range. Set `jfr = true` on any
-step to record only that step with the owned Minecraft JVM. The resulting nonempty, hashed `.jfr` is
-stored under that run's `profiles/` directory and referenced by both the scenario result and
-manifest. Lifecycle timing separately records startup, verified world-open, save, shutdown, and
-cleanup rather than folding those costs into generation.
+`--production` packages the subject and probe and launches them in a production-mapped client, which
+is required when an exact third-party artifact targets production names or synthetic loader methods
+that are absent from the Gradle development runtime. Fabric and NeoForge use separate owned launch
+paths; NeoForge installs the requested project version into the investigation cache and resolves
+metadata-pinned Mojang libraries without using launcher accounts or profiles. `--cpu-list`
+constrains the entire owned service to an explicit processor set. A result whose probe-level status
+is `fail` may still be a completed behavior-bearing falsification artifact; callers must distinguish
+an asserted behavioral mismatch from launch failure and still require complete cleanup.
+
+For an isolated generation benchmark, set `repeat`, a nonzero `offset = [x, z]`, and
+`release_after_observation = true` on a generation step. The parser requires every translated
+coordinate window to be disjoint and caps one step at 20 observations. Releasing each exact owned
+force-load set after its terminal probe prevents earlier windows from remaining live and poisoning
+later heap and timing behavior; release time is recorded but excluded from generation/total timing.
+Each observation retains its exact bounds plus generation, probe, release, and total seconds; the
+step also reports every timed generation/probe value with median, minimum, maximum, and range. Set
+`jfr = true` on any step to record only that step with the owned Minecraft JVM. The resulting
+nonempty, hashed `.jfr` is stored under that run's `profiles/` directory and referenced by both the
+scenario result and manifest. Lifecycle timing separately records startup, verified world-open,
+save, shutdown, and cleanup rather than folding those costs into generation.
 
 The retained RTF benchmark is
 `.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml`. Use it
@@ -256,11 +277,16 @@ process identities before fallback signaling, removes only force-load regions re
 and treats any remaining process/listener/file/world cleanup problem as failure. `doctor --recover`
 is the explicit recovery path for retained incomplete state. Launch preparation is transactional,
 and every blocking stop phase consumes the same monotonic timeout budget; the timeout is not
-restarted for each phase.
+restarted for each phase. Choose a timeout that includes launch/transformation, the probe, normal
+shutdown, and fallback cleanup; a short diagnostic timeout can expire before cleanup has any
+remaining budget.
 
 `clean` is a dry run unless `--apply` is supplied. It accepts exact `--run` IDs or an explicit
 `--older-than-days` selection and rejects active runs, symlinks, foreign manifests, or paths outside
-the owned state root. It deletes directly after validation; there is no speculative trash layer.
+the owned state root. Age cleanup preserves evidence named in
+`.squinch/games/minecraft/investigation-retention.toml`. Exact deletion of one of those runs
+requires the deliberately narrow `--include-protected` override. It deletes directly after
+validation; there is no speculative trash layer.
 
 ## Testing policy: tests must earn their keep
 

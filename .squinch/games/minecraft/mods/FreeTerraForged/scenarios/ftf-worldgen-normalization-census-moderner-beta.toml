@@ -8,7 +8,7 @@ companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-f
 probe_compile_artifacts = [
     { id = "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", loader = "fabric", mapping = "loader" },
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 level-type = "moderner_beta:moderner_beta"

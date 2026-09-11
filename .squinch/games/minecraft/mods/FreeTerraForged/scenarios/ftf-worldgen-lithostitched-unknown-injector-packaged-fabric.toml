@@ -17,7 +17,7 @@ companion_artifacts = [
 probe_compile_artifacts = [
     { id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta4", loader = "neoforge", mapping = "named" },
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

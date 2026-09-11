@@ -5,7 +5,7 @@ loader = "neoforge"
 launch_task = "prodServer"
 seed = 3216933670
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

@@ -1,35 +1,39 @@
-# FreeTerraForged Branch Map
+# FreeTerraForged branch map
 
-This file records the current local/remote relationship. Verify live Git before relying on it.
-`origin` is `scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
+This file records durable branch roles and integration boundaries. Live Git is authoritative; use
+`git fetch --all --prune` and inspect the graph before relying on any recorded snapshot. `origin` is
+`scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
 
-## Branches
+## Branch roles
 
-| Branch                                | Current state                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `1.21.1`                              | The local in-repository worktree is at `4a3ab1c`. Live `upstream/1.21.1` is `96c31ee`.                        |
-| `feat/worldgen-compatibility-runtime` | The active worktree and `origin` are at `d63e097`. Upstream `96c31ee` is an ancestor through merge `ca6459b`. |
-| `feat/configurable-strata`            | Pushed, divergent from production, and awaiting product QA and upstream integration.                          |
-| `feat/configurable-shorelines`        | Pushed, divergent from production, and awaiting visual/product QA and upstream integration.                   |
+| Branch                                | Role                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| `1.21.1`                              | Local production baseline tracking the same-named origin and upstream branches. |
+| `feat/worldgen-compatibility-runtime` | Active compatibility worktree and integration branch.                           |
+| `fix/c2me-dfc-compatibility`          | Open C2ME DFC behavior and performance workstream.                              |
+| `feat/configurable-strata`            | Pushed feature branch awaiting product QA and upstream integration.             |
+| `feat/configurable-shorelines`        | Pushed feature branch awaiting visual/product QA and upstream integration.      |
 
 The active compatibility worktree is
-`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`.
+`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. Its exact commit and the
+current production-tip relationship belong in `agent-resume.md`, where they form one replaceable
+state snapshot instead of being duplicated here.
 
-## Upstream integration boundary
+## Integration boundary
 
-The upstream-only graph contains three merged compatibility changes:
+The upstream archipelago redesign from PR #207 is integrated in the compatibility branch. The old
+local archipelago plan is retired; remaining island and broader biome/terrain work is an open
+reconciliation investigation recorded in
+`games/minecraft/investigations/reterraforged/analysis/archipelago-biome-surface-followup.md`.
 
-- [PR 208](https://github.com/ETcodehome/FreeTerraForged/pull/208) and
-  [PR 210](https://github.com/ETcodehome/FreeTerraForged/pull/210) modify
-  `MixinMultiNoiseBiomeSource`. The compatibility runtime deletes that consumer-side interception
-  and provides possible-biome closure through `UnifiedBiomeSource`, so those patches do not apply to
-  the current architecture.
-- [PR 212](https://github.com/ETcodehome/FreeTerraForged/pull/212) replaces the older reflective
-  `MixinSquarePlacement` workaround with a process-wide `RandomOffsetPlacement` clamp. The current
-  runtime deletes the old workaround and its accessor. The replacement is not acceptable because it
-  changes ordinary placement for non-FTF generators and lacks an exact placed-feature plan identity.
+The upstream graph also contains compatibility approaches that the consolidated runtime supersedes:
 
-Merge `ca6459b` integrates the upstream ancestry while retaining the deleted
-`MixinMultiNoiseBiomeSource`, omitting upstream's process-wide `MixinRandomOffsetPlacement`, and
-retaining the compatibility runtime's Mixin configuration. The branch instead compiles a generic
-FTF-owner-scoped chunk-local placement contract from public graph shape and exact identities.
+- PRs #208 and #210 modify `MixinMultiNoiseBiomeSource`. The compatibility runtime removes that
+  consumer-side interception and provides possible-biome closure through `UnifiedBiomeSource`.
+- PR #212 applies a process-wide `RandomOffsetPlacement` clamp. The compatibility runtime instead
+  compiles an FTF-owner-scoped placement contract from public graph shape and exact identities, so
+  ordinary generators retain vanilla behavior.
+
+Reconcile later upstream changes by behavior and ownership contract, not by replaying superseded
+Mixins. The current product boundary and acceptance gates are in
+`../plans/worldgen-compatibility.md`.

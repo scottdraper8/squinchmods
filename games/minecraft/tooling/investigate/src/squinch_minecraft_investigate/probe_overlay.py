@@ -69,6 +69,14 @@ def _probe_pack_details(root: Path) -> dict:
         input_files.append(
             {"path": relative, "sha256": file_hash, "size": path.stat().st_size}
         )
+    required_source_paths = value.get("required_source_paths", [])
+    if not isinstance(required_source_paths, list) or not all(
+        isinstance(item, str) and item for item in required_source_paths
+    ):
+        raise InvestigationError(
+            "probe_pack_invalid",
+            f"required_source_paths must be an array of strings: {manifest}",
+        )
     return {
         "id": pack_id,
         "version": str(value.get("version", "")),
@@ -81,7 +89,27 @@ def _probe_pack_details(root: Path) -> dict:
         "resources": [str(path) for path in resource_paths],
         "mixins": mixins,
         "capabilities": value.get("capabilities", []),
+        "required_source_paths": required_source_paths,
     }
+
+
+def _validate_required_source_paths(project: Path, packs: list[dict]) -> None:
+    resolved_project = project.expanduser().resolve()
+    for pack in packs:
+        for relative in pack.get("required_source_paths", []):
+            required = resolved_project / relative
+            if not required.is_dir():
+                raise InvestigationError(
+                    "probe_pack_source_missing",
+                    f"probe pack {pack['id']!r} requires {relative!r} in the project "
+                    f"source tree, but the directory does not exist — this pack likely "
+                    f"needs a different branch",
+                    details={
+                        "pack_id": pack["id"],
+                        "required_path": relative,
+                        "project": str(resolved_project),
+                    },
+                )
 
 
 def probe_overlay_command(
@@ -92,6 +120,10 @@ def probe_overlay_command(
     runtime_output: Path | None = None,
     client_run_dir: Path | None = None,
     runtime_evidence: Path | None = None,
+    project: Path | None = None,
+    production: bool = False,
+    neoforge_client_home: Path | None = None,
+    launcher_profile_template: Path | None = None,
 ) -> tuple[list[str], dict]:
     if loader not in {"fabric", "neoforge"}:
         raise InvestigationError(
@@ -103,6 +135,8 @@ def probe_overlay_command(
         )
     packs = [_probe_pack_details(PROBE_RUNTIME_ROOT)]
     packs.extend(_probe_pack_details(path) for path in probe_packs)
+    if project is not None:
+        _validate_required_source_paths(project, packs)
     pack_ids = [pack["id"] for pack in packs]
     if len(pack_ids) != len(set(pack_ids)):
         raise InvestigationError("probe_pack_invalid", "probe pack IDs must be unique")
@@ -160,4 +194,10 @@ def probe_overlay_command(
         arguments.append(f"-PsquinchClientRunDir={client_run_dir}")
     if runtime_evidence is not None:
         arguments.append(f"-PsquinchProbeRuntimeEvidence={runtime_evidence}")
+    if production:
+        arguments.append("-PsquinchProbeProduction=true")
+    if neoforge_client_home is not None:
+        arguments.append(f"-PsquinchNeoForgeClientHome={neoforge_client_home}")
+    if launcher_profile_template is not None:
+        arguments.append(f"-PsquinchLauncherProfileTemplate={launcher_profile_template}")
     return arguments, details

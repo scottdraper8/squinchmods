@@ -12,7 +12,7 @@ companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-glitchcore-2.1.0.2",
 ]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

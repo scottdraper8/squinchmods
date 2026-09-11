@@ -152,6 +152,36 @@ required_dependencies = []
 source_id = "source-c2me"
 
 [[artifacts]]
+id = "mc1.21.1-neoforge-c2me-0.4.0-alpha.0.120+1.21.1"
+project_slug = "c2me-neoforge"
+project_id = "COlSi5iR"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "0.4.0-alpha.0.120+1.21.1"
+version_id = "kvrPcTsz"
+filename = "c2me-neoforge-mc1.21.1-0.4.0-alpha.0.120.jar"
+sha256 = "67fe384ae84f947e999a02ebde5f5e7de3a632803304a625beee9c4268509a76"
+status = "diagnostic-only"
+reason = "Latest Minecraft 1.21.1 NeoForge C2ME release for density compiler parity and concurrency testing"
+required_dependencies = []
+source_id = "source-c2me-neoforge"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-c2me-0.4.0-alpha.0.112+1.21.1"
+project_slug = "c2me-neoforge"
+project_id = "COlSi5iR"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "0.4.0-alpha.0.112+1.21.1"
+version_id = "GzlGNw5O"
+filename = "c2me-neoforge-mc1.21.1-0.4.0-alpha.0.112.jar"
+sha256 = "961e80018496036a47421617c9891bb58c71c13ad82211f557a81d0a14579ffd"
+status = "diagnostic-only"
+reason = "Exact reported C2ME 0.4 regression artifact; fallback control because latest 1.21.1 release fails earlier in the NeoForge development runtime"
+required_dependencies = []
+source_id = "source-c2me-neoforge"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-cloth-config-15.0.140"
 project_slug = "cloth-config"
 project_id = "9s6osm5g"
@@ -362,6 +392,21 @@ required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta4"]
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
+id = "mc1.21.1-neoforge-regions-unexplored-0.6.2-lithostitched-beta6"
+project_slug = "regions-unexplored"
+project_id = "Tkikq67H"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "0.6.2-neoforge-21.1"
+version_id = "5A8LFnXX"
+filename = "regions-unexplored-0.6.2-neoforge-21.1.jar"
+sha256 = "ccf32ed714f2724f54406b9e02a8d6f94d87dc5c72397bc39b3d6ed8f32412ea"
+status = "diagnostic-only"
+reason = "Current NeoForge Regions Unexplored code-listener matrix locked to current Lithostitched"
+required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta6"]
+source_id = "source-regions-unexplored"
+
+[[artifacts]]
 id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta4"
 project_slug = "lithostitched"
 project_id = "XaDC71GB"
@@ -392,6 +437,36 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
 source_id = "source-lithostitched-upstream"
 
 [[artifacts]]
+id = "mc1.21.1-fabric-lithostitched-1.8.0-beta6"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "1.8.0+beta6-fabric-21.1"
+version_id = "LC0qLyud"
+filename = "lithostitched-1.8.0+beta6-fabric-21.1.jar"
+sha256 = "e32f7b1b36e7ab1955fd4972cc0b992512edbda866798a86096dde0835189274"
+status = "diagnostic-only"
+reason = "Current Fabric public biome-injector and code-listener acquisition contract target"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
+source_id = "source-lithostitched-upstream"
+
+[[artifacts]]
+id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta6"
+project_slug = "lithostitched"
+project_id = "XaDC71GB"
+minecraft_version = "1.21.1"
+loader = "neoforge"
+version_number = "1.8.0+beta6-neoforge-21.1"
+version_id = "xDAotknu"
+filename = "lithostitched-1.8.0+beta6-neoforge-21.1.jar"
+sha256 = "df6ad6f061435fd1795bfe3af627e4cebb25b977b7cbbc088bbad0174109d571"
+status = "diagnostic-only"
+reason = "Current NeoForge public biome-injector and code-listener acquisition contract target"
+required_dependencies = []
+source_id = "source-lithostitched-upstream"
+
+[[artifacts]]
 id = "mc1.21.1-fabric-platform-1.3.3"
 project_slug = "platform"
 project_id = "i6fiqm5y"
@@ -419,6 +494,21 @@ sha256 = "c0c2f1a83cbdc1f252255823e33230ace9db6f5fd6da010a739f46f7a6d3a6a7"
 status = "diagnostic-only"
 reason = "Current Fabric release: generation executes its realized opaque source, while preview requires a public request-owned source factory"
 required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithostitched-1.8.0-beta5"]
+source_id = "source-regions-unexplored"
+
+[[artifacts]]
+id = "mc1.21.1-fabric-regions-unexplored-0.6.2-lithostitched-beta6"
+project_slug = "regions-unexplored"
+project_id = "Tkikq67H"
+minecraft_version = "1.21.1"
+loader = "fabric"
+version_number = "0.6.2-fabric-21.1"
+version_id = "SffwLsGY"
+filename = "regions-unexplored-0.6.2-fabric-21.1.jar"
+sha256 = "c0c2f1a83cbdc1f252255823e33230ace9db6f5fd6da010a739f46f7a6d3a6a7"
+status = "diagnostic-only"
+reason = "Current Fabric Regions Unexplored code-listener matrix locked to current Lithostitched"
+required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithostitched-1.8.0-beta6"]
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
@@ -867,6 +957,18 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["c2me-base/src", "c2me-rewrites-chunk-system/src", "c2me-opts-worldgen-vanilla/src", "c2me-opts-dfc/src", "src"]
+
+[[sources]]
+id = "source-c2me-neoforge"
+repository = "https://github.com/RelativityMC/C2ME-neoforge.git"
+requested_ref = "ver/1.21.1"
+resolved_commit = "92646290596cd9a39df3fb1f0ed2da0071bf1fdb"
+minecraft_version = "1.21.1"
+checkout = "games/minecraft/reference/sources/1.21.1/mods/c2me-neoforge"
+status = "available"
+shallow = true
+blob_filter = true
+sparse_paths = ["patches/main", "scripts", "README.md", "current-upstream"]
 
 [[sources]]
 id = "source-cloth-config"

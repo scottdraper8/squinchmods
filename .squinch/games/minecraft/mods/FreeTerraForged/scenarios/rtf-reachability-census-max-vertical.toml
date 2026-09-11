@@ -5,7 +5,7 @@ loader = "fabric"
 seed = 12345
 rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/maximum-vertical-range-cave-decoration-stress/fixture.toml"
 probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
-retention = "keep"
+retention = "keep-on-failure"
 
 [server_properties]
 view-distance = 4

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import InvestigationError
-from .processes import identity_matches
+from .processes import confirm_uninterruptible, identity_matches, proc_identity
 
 
 @dataclass(frozen=True)
@@ -133,3 +133,23 @@ def stop_jfr(recording: JfrRecording, java_home: str | None) -> dict:
         "start_output": recording.start_output,
         "stop_output": output,
     }
+
+
+def verify_jfr_host_health(state: dict) -> InvestigationError | None:
+    blocked: list[dict] = []
+    for expected in state.get("owned_processes", []):
+        if not isinstance(expected, dict) or "pid" not in expected:
+            continue
+        actual = proc_identity(int(expected["pid"]))
+        if actual is None or actual["state"] != "D":
+            continue
+        confirmed = confirm_uninterruptible(expected)
+        if confirmed is not None:
+            blocked.append({"pid": confirmed["pid"], "state": confirmed["state"]})
+    if not blocked:
+        return None
+    return InvestigationError(
+        "jfr_host_degraded",
+        "an owned process entered uninterruptible sleep after JFR recording",
+        details={"processes": blocked, "run_id": state.get("run_id")},
+    )

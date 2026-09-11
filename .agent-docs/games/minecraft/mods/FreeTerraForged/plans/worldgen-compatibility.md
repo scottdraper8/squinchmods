@@ -1,8 +1,8 @@
 # FreeTerraForged worldgen compatibility
 
 This is the product and architecture contract for the compatibility runtime. Implementation and
-evidence sequencing live in `compatibility-runtime-completion.md`. Read the companion concept and
-invariant documents completely:
+evidence sequencing are retained in `../refs/compatibility-runtime-acceptance.md`. Read the
+companion concept and invariant documents completely:
 
 - `../wiki/concepts/biome-selection-and-compatibility-runtime.md`
 - `../wiki/concepts/compatibility-invariants.md`
@@ -127,7 +127,19 @@ is not replayed downstream.
 
 ### Lithostitched
 
-Qualified versions are acquired through their finalized creation graph and normalized immediately.
+Declarative inputs are acquired from public registries, load predicates, and codecs without using
+the internal finalizer bridge. Code-registered inputs require the isolated finalizer bridge because
+Lithostitched does not publish a complete finalized snapshot or request-owned resolver. Mechanism
+release numbers are provenance only and must never form an acceptance allowlist.
+
+The code-listener bridge is enabled by an atomic structural check of its complete event and
+finalizer seam, not by a version string. An unchanged implementation therefore works across releases
+without an FTF edit. Event registration records whether the selected process has code contributions;
+only then may pre-server acquisition invoke the isolated finalizer. If the inspected seam changes,
+its Mixins are not partially applied and an observed code contribution receives a bounded
+bridge-contract failure. Merely installing Lithostitched remains non-applicable, and declarative
+extraction remains independent of that failure.
+
 The acquisition bridge must establish purity, repeatability, ordering, owner isolation, reload, and
 concurrency. Preview uses an isolated generator shell and frozen/rebound holder graph; it never
 replays callbacks downstream. Add-points, force, dispatch, partial replacement, and full replacement
