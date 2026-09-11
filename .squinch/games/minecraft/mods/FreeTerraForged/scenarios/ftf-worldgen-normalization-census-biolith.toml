@@ -3,8 +3,8 @@ name = "FTF worldgen normalization census — Biolith"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/worldgen-normalization-census"]
 companion_artifacts = ["mc1.21.1-fabric-biolith-3.0.14"]
 retention = "keep-on-failure"
 
@@ -19,15 +19,15 @@ step = 360
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "biolith"]
+required_mods = ["minecraft", "freeterraforged", "biolith"]
 
 [[probes]]
-id = "squinch:rtf-worldgen-normalization-census"
+id = "squinch:ftf-worldgen-normalization-census"
 version = "1"
 config = {}
 
 [[steps]]
 id = "census-normalizable-worldgen-graph"
 type = "probe"
-probe = "squinch:rtf-worldgen-normalization-census"
+probe = "squinch:ftf-worldgen-normalization-census"
 expect = { terminal_state = "pass" }

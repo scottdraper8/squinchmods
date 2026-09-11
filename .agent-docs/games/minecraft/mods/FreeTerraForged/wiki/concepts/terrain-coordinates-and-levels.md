@@ -1,6 +1,6 @@
 # Terrain Coordinates and Levels
 
-RTF passes terrain through several coordinate spaces. Most vertical bugs come from treating a
+FTF passes terrain through several coordinate spaces. Most vertical bugs come from treating a
 normalized value, block coordinate, dimension size, or local water offset as interchangeable.
 
 ## Dimension bounds

@@ -1,8 +1,0 @@
-{
-  "type": "reterraforged:replace",
-  "biomes": "minecraft:swamp",
-  "replacements": {
-    "minecraft:trees_swamp": "reterraforged:swamp_trees"
-  },
-  "step": "vegetal_decoration"
-}

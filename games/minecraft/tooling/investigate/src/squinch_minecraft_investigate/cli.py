@@ -13,10 +13,9 @@ from .artifact_inspection import inspect_artifact
 from .catalog import resolve_artifact_closure, resolve_artifacts
 from .cell_scan import run_cell_scan
 from .client import run_client
-from .preset_fixture import run_preset_fixture
 from .comparison import run_exact_comparison, structured_diff
 from .errors import InvestigationError
-from .generation import generate_regions, tile_chunks
+from .generation import generate_regions
 from .output import emit, envelope, timestamp
 from .paths import (
     ACTIVE_ROOT,
@@ -27,6 +26,7 @@ from .paths import (
     resolve_project,
     validate_loader,
 )
+from .preset_fixture import run_preset_fixture
 from .probe_requests import submit_probe
 from .retention import RUN_ID_PATTERN, load_protected_run_ids
 from .scenario import load_scenario, run_scenario
@@ -181,16 +181,16 @@ def parser() -> argparse.ArgumentParser:
     inspect.add_argument("artifact", nargs="+", type=Path, help="Exact production JAR path")
 
     cell_scan = subparsers.add_parser(
-        "cell-scan", help="Run the standalone RTF preview/tile model without a game process"
+        "cell-scan", help="Run the standalone FTF preview/tile model without a game process"
     )
-    cell_scan.add_argument("--project", required=True, help="Exact RTF project/worktree path")
+    cell_scan.add_argument("--project", required=True, help="Exact FTF project/worktree path")
     cell_scan.add_argument("--preset", required=True, type=Path, help="fixture.toml or resolved preset JSON")
     cell_scan.add_argument("--seed", required=True)
     cell_scan.add_argument("--mode", choices=("preview", "tile", "adaptive"), default="preview")
     cell_scan.add_argument("--bounds", nargs=4, type=float, metavar=("MIN_X", "MIN_Z", "MAX_X", "MAX_Z"))
     cell_scan.add_argument("--center", nargs=2, type=float, default=(0.0, 0.0), metavar=("X", "Z"))
     cell_scan.add_argument("--zoom", type=float, default=4.0)
-    cell_scan.add_argument("--tile-size", type=int, default=4, help="RTF tile factor; preview parity is 4, runtime parity is 3")
+    cell_scan.add_argument("--tile-size", type=int, default=4, help="FTF tile factor; preview parity is 4, runtime parity is 3")
     cell_scan.add_argument("--batch-count", type=int, default=6)
     cell_scan.add_argument("--sample-step", type=int, default=1)
     cell_scan.add_argument("--field", action="append", default=[])
@@ -210,7 +210,7 @@ def parser() -> argparse.ArgumentParser:
     cell_scan.add_argument("--json", action="store_true", help="Emit the versioned JSON envelope")
 
     preset_fixture = subparsers.add_parser(
-        "preset-fixture", help="Generate a complete RTF datapack from one resolved preset"
+        "preset-fixture", help="Generate a complete FTF datapack from one resolved preset"
     )
     preset_fixture.add_argument("--project", required=True, help="Exact FTF project/worktree path")
     preset_fixture.add_argument(
@@ -530,7 +530,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         str(Path(state["artifact_dir"]) / "provenance.json"),
         str(Path(state["artifact_dir"]) / "scenario.toml"),
     ]
-    materialized = result["rtf_fixture"]
+    materialized = result["ftf_fixture"]
     if materialized is not None:
         artifact_paths.append(materialized["archive_artifact"])
     cleanup_failed = result.get("cleanup_failed")
@@ -540,7 +540,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         "steps": result["steps"],
         "provenance": result["provenance"],
         "world_identity": result["world_identity"],
-        "rtf_fixture": result["rtf_fixture"],
+        "ftf_fixture": result["ftf_fixture"],
     }
     if cleanup_failed is not None:
         value = envelope(
@@ -559,8 +559,10 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         )
         return (
             value,
-            f"scenario {definition.name!r} steps passed (run {state['run_id']}); "
-            f"cleanup failed — run rejected and doctor --recover required",
+            (
+                f"scenario {definition.name!r} steps passed (run {state['run_id']}); "
+                f"cleanup failed — run rejected and doctor --recover required"
+            ),
         )
     value = envelope(
         "scenario",
@@ -731,7 +733,7 @@ def _cell_scan(args: argparse.Namespace) -> tuple[dict, str]:
     )
     return value, (
         f"{result['mode']} cell scan {scan['run_id']} inspected "
-        f"{result['scan']['inspected']} RTF cells ({result['authority']})"
+        f"{result['scan']['inspected']} FTF cells ({result['authority']})"
     )
 
 

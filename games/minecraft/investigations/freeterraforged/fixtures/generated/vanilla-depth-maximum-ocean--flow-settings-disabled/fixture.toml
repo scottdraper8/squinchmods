@@ -1,0 +1,14 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--flow-settings-disabled"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--flow-settings-disabled."
+applicable_questions = [
+  "FTF world-owned flow settings acceptance — disabled Fabric",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "19ceb1868062571381b75be9ec1bd6ca8a78956e6427c8438ccc5bac20c5b1c3"

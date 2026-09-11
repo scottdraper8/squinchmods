@@ -4,8 +4,8 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "neoforge"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/flow-settings-acceptance"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/flow-settings-acceptance"]
 retention = "keep-on-failure"
 
 [server_properties]
@@ -19,10 +19,10 @@ step = 600
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[probes]]
-id = "squinch:rtf-flow-settings-acceptance"
+id = "squinch:ftf-flow-settings-acceptance"
 version = "1"
 config = { expected_overworld_settings = 7 }
 
@@ -34,7 +34,7 @@ command = "list"
 [[steps]]
 id = "capture-flow-settings-before-reload"
 type = "probe"
-probe = "squinch:rtf-flow-settings-acceptance"
+probe = "squinch:ftf-flow-settings-acceptance"
 expect = { terminal_state = "pass" }
 
 [[steps]]
@@ -45,5 +45,5 @@ command = "reload"
 [[steps]]
 id = "verify-packaged-flow-settings-sync"
 type = "probe"
-probe = "squinch:rtf-flow-settings-acceptance"
+probe = "squinch:ftf-flow-settings-acceptance"
 expect = { terminal_state = "pass" }

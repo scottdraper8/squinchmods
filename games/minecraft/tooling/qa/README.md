@@ -35,11 +35,11 @@ Each Minecraft mod's QA config (targets, profiles, tests, expected failures) liv
 ```
 
 — inside squinchmods itself, **not** inside the mod's own submodule checkout. This is deliberate:
-`redstone-backport` and `ReTerraForged` are both mod submodules, and `ReTerraForged` specifically is
-a fork used for upstream contribution work, so it (and any future upstream-facing fork) should never
-need squinchmods-specific files on a branch that might get PR'd upstream. Mods are discovered
-dynamically by scanning `.squinch/games/minecraft/mods/*/config.yml` — adding a new mod means adding
-a new config file here, not touching any tooling code.
+`redstone-backport` and `FreeTerraForged` are both mod submodules, and `FreeTerraForged`
+specifically is a fork used for upstream contribution work, so it (and any future upstream-facing
+fork) should never need squinchmods-specific files on a branch that might get PR'd upstream. Mods
+are discovered dynamically by scanning `.squinch/games/minecraft/mods/*/config.yml` — adding a new
+mod means adding a new config file here, not touching any tooling code.
 
 The mod's actual source checkout (used for builds, server launches, git commit lookups) is at
 `games/minecraft/mods/<mod-dir-name>/` — `load_mod_config` returns both the parsed config and that
@@ -65,11 +65,11 @@ mod's config — both resolve to the same mod.
 # Plan all default-profile targets for redstone-backport:
 squinch qa plan redstone-backport --profile default
 
-# Plan ReTerraForged pre-pr profile, filtered to one target:
-squinch qa plan ReTerraForged --profile pre-pr --target neoforge-1.21.1
+# Plan FreeTerraForged pre-pr profile, filtered to one target:
+squinch qa plan FreeTerraForged --profile pre-pr --target neoforge-1.21.1
 
 # Using the mod.id form (case-insensitive):
-squinch qa plan reterraforged --profile dev
+squinch qa plan freeterraforged --profile dev
 
 # Explicit repo root (useful from any working directory):
 squinch qa plan redstone-backport --profile default --repo-root /path/to/squinchmods
@@ -242,7 +242,7 @@ games/minecraft/qa-state/current/
 │       └── pregen/
 │           ├── .ready
 │           └── world/
-└── reterraforged/
+└── freeterraforged/
     └── neoforge-1.21.1/
         └── pregen/
             ├── .ready

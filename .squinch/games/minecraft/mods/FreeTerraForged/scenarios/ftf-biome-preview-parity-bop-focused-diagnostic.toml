@@ -3,8 +3,8 @@ name = "FTF + Biomes O' Plenty focused preview-path diagnostic"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-preview-parity"]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-glitchcore-2.1.0.2",
@@ -23,10 +23,10 @@ step = 360
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "biomesoplenty"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biomesoplenty"]
 
 [[probes]]
-id = "squinch:rtf-biome-preview-parity"
+id = "squinch:ftf-biome-preview-parity"
 version = "1"
 config = { bounds = [5, 28, 10, 30], unit = "chunk", max_wait_ticks = 2400, horizontal_quart_step = 1, example_limit = 128, use_server_generator_context = true }
 
@@ -36,5 +36,5 @@ type = "generate"
 unit = "chunk"
 bounds = [5, 28, 10, 30]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-biome-preview-parity"
+terminal_probe = "squinch:ftf-biome-preview-parity"
 expect = { terminal_state = "pass" }

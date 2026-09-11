@@ -34,7 +34,7 @@ graph LR
 
     subgraph Mods [Mod Submodules]
         Mod1[redstone-backport]
-        Mod2[ReTerraForged]
+        Mod2[FreeTerraForged]
     end
 
     subgraph Remote [GitHub Actions]

@@ -4,8 +4,8 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-palette"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/deep-world-ocean-stress/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-palette"]
 companion_artifacts = [
     "mc1.21.1-fabric-architectury-13.0.8",
     "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
@@ -26,10 +26,10 @@ step = 900
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "biomesoplenty"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biomesoplenty"]
 
 [[probes]]
-id = "squinch:rtf-biome-palette"
+id = "squinch:ftf-biome-palette"
 version = "1"
 config = { bounds = [80, 80, 88, 88], unit = "chunk", max_wait_ticks = 2400, min_y = -600, max_y = 319, horizontal_quart_step = 1, vertical_quart_step = 1, top_k = 20, example_limit = 12, bands = [
   { id = "deep", min_y = -600, max_y = -65 },
@@ -46,5 +46,5 @@ repeat = 3
 offset = [16, 0]
 jfr = true
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-biome-palette"
+terminal_probe = "squinch:ftf-biome-palette"
 expect = { region_count = 3, terminal_state = "pass" }

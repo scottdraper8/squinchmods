@@ -106,7 +106,7 @@ def test_scenario_handler_rejects_cleanup_failure_and_main_exits_nonzero(
         "steps": [{"id": "s1", "type": "command", "state": "succeeded"}],
         "provenance": {"code": {"head": "deadbeef"}},
         "world_identity": {"actual_seed": 123},
-        "rtf_fixture": None,
+        "ftf_fixture": None,
         "scenario_summary": "/tmp/run-1/scenario-summary.json",
         "scenario_progress": "/tmp/run-1/scenario-progress.jsonl",
         "cleanup_failed": {
@@ -310,7 +310,7 @@ def test_client_envelope_requires_verified_results_and_cleanup() -> None:
 
 def test_preset_fixture_envelope_requires_complete_generated_evidence() -> None:
     manifest = {
-        "kind": "rtf-preset-fixture",
+        "kind": "ftf-preset-fixture",
         "run_id": "run-1",
         "project": "/tmp/project",
         "head": "deadbeef",

@@ -1,0 +1,10 @@
+schema_version = 1
+id = "ftf-flow-settings-acceptance"
+version = "1"
+target_adapter = "freeterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-ftf-flow-settings-acceptance.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["level-ownership", "resource-reload", "player-sync", "dimension-sync"]
+required_source_paths = ["common/src/main/java/etcodehome/freeterraforged/world/worldgen/runtime"]

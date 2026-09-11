@@ -4,10 +4,10 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/biolith-sub-biome-boundary/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/biolith-sub-biome-boundary/fixture.toml"
 probe_packs = [
-    "games/minecraft/investigations/reterraforged/probes/biolith-snapshot",
-    "games/minecraft/investigations/reterraforged/probes/biome-preview-parity",
+    "games/minecraft/investigations/freeterraforged/probes/biolith-snapshot",
+    "games/minecraft/investigations/freeterraforged/probes/biome-preview-parity",
 ]
 companion_artifacts = [
     "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
@@ -26,7 +26,7 @@ step = 900
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "biolith"]
+required_mods = ["minecraft", "freeterraforged", "biolith"]
 
 [[probes]]
 id = "squinch:ftf-biolith-snapshot"
@@ -34,7 +34,7 @@ version = "1"
 config = {}
 
 [[probes]]
-id = "squinch:rtf-biome-preview-batch-equivalence"
+id = "squinch:ftf-biome-preview-batch-equivalence"
 version = "1"
 config = { center_x = 0, center_z = 0, zoom = 64, example_limit = 64, required_transitions = ["minecraft:plains -> minecraft:the_void"] }
 
@@ -47,5 +47,5 @@ expect = { terminal_state = "pass" }
 [[steps]]
 id = "prove-criterion-output-and-batch-equivalence"
 type = "probe"
-probe = "squinch:rtf-biome-preview-batch-equivalence"
+probe = "squinch:ftf-biome-preview-batch-equivalence"
 expect = { terminal_state = "pass" }

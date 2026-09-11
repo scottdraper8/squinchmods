@@ -15,7 +15,7 @@ from .cell_scan import (
     _tracked_status,
 )
 from .errors import InvestigationError
-from .fixtures import RTF_PRESET_PATH
+from .fixtures import FTF_PRESET_PATH
 from .owned_operation import run_finite_service
 from .paths import RUNS_ROOT, active_path, lock_path, resolve_project, validate_loader
 from .server import (
@@ -29,18 +29,17 @@ from .state import atomic_write_json
 
 REQUIRED_GENERATED_PATHS = (
     "pack.mcmeta",
-    RTF_PRESET_PATH,
+    FTF_PRESET_PATH,
     "data/minecraft/dimension_type/overworld.json",
     "data/minecraft/worldgen/noise_settings/overworld.json",
-    "data/minecraft/worldgen/world_preset/normal.json",
-    "data/reterraforged/tags/worldgen/density_function/additional_noise_router_functions.json",
+    "data/freeterraforged/tags/worldgen/density_function/additional_noise_router_functions.json",
 )
 
 REGISTRY_ROOTS = {
-    "configured_features": "data/reterraforged/worldgen/configured_feature",
+    "configured_features": "data/freeterraforged/worldgen/configured_feature",
     "density_functions": "data/minecraft/worldgen/density_function",
-    "noise_modules": "data/reterraforged/reterraforged/worldgen/noise",
-    "placed_features": "data/reterraforged/worldgen/placed_feature",
+    "noise_modules": "data/freeterraforged/freeterraforged/worldgen/noise",
+    "placed_features": "data/freeterraforged/worldgen/placed_feature",
 }
 
 
@@ -149,7 +148,7 @@ def _inspect_generated_fixture(output: Path, canonical_preset_path: Path) -> dic
         raise InvestigationError(
             "preset_fixture_incomplete", f"generated fixture is missing: {missing}"
         )
-    preset_path = output / RTF_PRESET_PATH
+    preset_path = output / FTF_PRESET_PATH
     generated_preset = _read_json_object(preset_path, "generated preset")
     canonical_preset = _read_json_object(canonical_preset_path, "canonical preset")
     if generated_preset != canonical_preset:
@@ -172,17 +171,19 @@ def _inspect_generated_fixture(output: Path, canonical_preset_path: Path) -> dic
     }
 
 
-def run_preset_fixture(args) -> dict:
-    project = resolve_project(args.project)
+def generate_preset_fixture(
+    *, project_value: str | Path, preset: Path, timeout: float
+) -> dict:
+    project = resolve_project(project_value)
     validate_loader(project, "fabric")
-    if args.timeout <= 0:
+    if timeout <= 0:
         raise InvestigationError("invalid_preset_fixture", "timeout must be positive")
     if not CELL_SCAN_OVERLAY.is_file():
         raise InvestigationError(
             "preset_fixture_missing", f"standalone overlay is missing: {CELL_SCAN_OVERLAY}"
         )
 
-    preset, preset_manifest = _read_preset(args.preset)
+    preset, preset_manifest = _read_preset(preset)
 
     active = active_path(project, "fabric")
     blocked = uninterruptible_owned_processes(active.parent)
@@ -236,7 +237,7 @@ def run_preset_fixture(args) -> dict:
         lock_path=lock_path(project, "fabric"),
         command=command,
         environment=environment,
-        timeout=args.timeout,
+        timeout=timeout,
         load_active=load_owned_active,
         prepare=prepare,
         validate=validate,
@@ -251,7 +252,7 @@ def run_preset_fixture(args) -> dict:
         "ownership": OWNERSHIP,
         "schema_version": 1,
         "run_id": run_id,
-        "kind": "rtf-preset-fixture",
+        "kind": "ftf-preset-fixture",
         "artifact_dir": str(artifact_dir),
         "project": str(project),
         "head": head,
@@ -287,3 +288,11 @@ def run_preset_fixture(args) -> dict:
         "log_path": str(log_path),
         "manifest": manifest,
     }
+
+
+def run_preset_fixture(args) -> dict:
+    return generate_preset_fixture(
+        project_value=args.project,
+        preset=args.preset,
+        timeout=args.timeout,
+    )

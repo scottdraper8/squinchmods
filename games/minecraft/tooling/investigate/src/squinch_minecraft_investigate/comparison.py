@@ -4,11 +4,12 @@ import hashlib
 import json
 import re
 import subprocess
+import uuid
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
-import uuid
+from typing import Any
 
 from .errors import CleanupError, InvestigationError
 from .paths import STATE_ROOT, WORKTREES_ROOT
@@ -65,8 +66,7 @@ def _git(project: Path, *arguments: str) -> str:
         result = subprocess.run(
             ["git", "-C", str(project), *arguments],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -181,8 +181,8 @@ def _seconds(started: str | None, finished: str | None) -> float | None:
     if not started or not finished:
         return None
     try:
-        start = datetime.fromisoformat(started.replace("Z", "+00:00"))
-        finish = datetime.fromisoformat(finished.replace("Z", "+00:00"))
+        start = datetime.fromisoformat(started)
+        finish = datetime.fromisoformat(finished)
     except ValueError:
         return None
     return round((finish - start).total_seconds(), 6)
@@ -252,7 +252,7 @@ def _side_record(
         "scenario": provenance.get("scenario"),
         "datapacks": provenance.get("datapacks", []),
         "candidate_inputs": provenance.get("candidate_inputs", []),
-        "rtf_fixture": result.get("rtf_fixture"),
+        "ftf_fixture": result.get("ftf_fixture"),
         "world_identity": result.get("world_identity"),
     }
     code = {
@@ -429,7 +429,7 @@ def run_exact_comparison(
             "left": sides["before"],
             "right": sides["after"],
         }
-    except BaseException as exc:
+    except BaseException as exc:  # noqa: BLE001 - cleanup must also cover signals
         failure = exc
         if current is not None:
             preserved.add(current)

@@ -3,10 +3,10 @@ name = "FTF + Nature's Spirit spatial compatibility — biome size 900"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-compatibility"]
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/spatial-compatibility"]
 companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-natures-spirit-2.2.5"]
 retention = "keep-on-failure"
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900/fixture.toml"
 
 [server_properties]
 view-distance = 4
@@ -17,9 +17,9 @@ startup = 360
 step = 1200
 shutdown = 120
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "natures_spirit"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "natures_spirit"]
 [[probes]]
-id = "squinch:rtf-spatial-compatibility"
+id = "squinch:ftf-spatial-compatibility"
 version = "1"
 config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 24000, sample_min_block_x = -2048, sample_max_block_x = 2040, sample_min_block_z = -2048, sample_max_block_z = 2040, sample_step_blocks = 8 }
 [[steps]]
@@ -28,5 +28,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-spatial-compatibility"
+terminal_probe = "squinch:ftf-spatial-compatibility"
 expect = { terminal_state = "pass" }

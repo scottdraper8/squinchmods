@@ -1,8 +1,0 @@
-{
-  "type": "reterraforged:replace",
-  "biomes": "minecraft:old_growth_pine_taiga",
-  "replacements": {
-    "minecraft:trees_old_growth_pine_taiga": "reterraforged:redwood_trees"
-  },
-  "step": "vegetal_decoration"
-}

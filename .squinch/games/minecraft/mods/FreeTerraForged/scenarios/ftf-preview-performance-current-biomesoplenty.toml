@@ -3,8 +3,8 @@ name = "FTF current preview policy + Biomes O' Plenty performance"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-preview-parity"]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-glitchcore-2.1.0.2",
@@ -23,15 +23,15 @@ step = 300
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "biomesoplenty"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biomesoplenty"]
 
 [[probes]]
-id = "squinch:rtf-biome-preview-batch-equivalence"
+id = "squinch:ftf-biome-preview-batch-equivalence"
 version = "1"
 config = { center_x = 0, center_z = 0, zoom = 150, example_limit = 64 }
 
 [[steps]]
 id = "measure-multi-provider-preview"
 type = "probe"
-probe = "squinch:rtf-biome-preview-batch-equivalence"
+probe = "squinch:ftf-biome-preview-batch-equivalence"
 expect = { terminal_state = "pass" }

@@ -1,0 +1,15 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--climate-cold-dry"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--climate-cold-dry."
+applicable_questions = [
+  "FTF + current Regions Unexplored spatial compatibility — cold dry climate",
+  "FTF + current Terrestria spatial compatibility — cold dry climate",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "a53b5f968bb4d1edcac70d8712f40336249365280ae468f59b664cfab786e49a"

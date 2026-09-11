@@ -8,7 +8,7 @@ import pytest
 
 import squinch_minecraft_investigate.scenario as scenario_module
 from squinch_minecraft_investigate import server
-from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
+from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.processes import port_is_free
 from squinch_minecraft_investigate.scenario import (
     _candidate_coordinates,
@@ -312,33 +312,33 @@ def test_real_loader_log_shapes_produce_exact_runtime_mod_identities() -> None:
     """Catches provenance that records build declarations instead of the loader's actual mod list."""
     fabric = """[main/INFO] (FabricLoader) Loading 2 mods:
 \t- minecraft 1.21.1
-\t- reterraforged 0.0.6005
+\t- freeterraforged 0.0.6005
 [main/INFO] (Minecraft) Starting server
 """
     fabric_production = """[02:03:32] [main/INFO]: Loading 2 mods:
 \t- minecraft 1.21.1
-\t- reterraforged 0.0.6005
+\t- freeterraforged 0.0.6005
 [02:03:33] [main/INFO]: Starting minecraft server version 1.21.1
 """
     neoforge = """[main/INFO] (ModDiscoverer)
      Mod List:
         Name Version (Mod Id)
         Minecraft 1.21.1 (minecraft)
-        ReTerraForged 0.0.6005 (reterraforged)
+        FreeTerraForged 0.0.6005 (freeterraforged)
 [main/INFO] (LaunchServiceHandler) Launching target 'forgeserverdev'
 """
 
     assert parse_mod_list(fabric, "fabric") == [
         {"id": "minecraft", "version": "1.21.1"},
-        {"id": "reterraforged", "version": "0.0.6005"},
+        {"id": "freeterraforged", "version": "0.0.6005"},
     ]
     assert parse_mod_list(fabric_production, "fabric") == [
         {"id": "minecraft", "version": "1.21.1"},
-        {"id": "reterraforged", "version": "0.0.6005"},
+        {"id": "freeterraforged", "version": "0.0.6005"},
     ]
     assert [item["id"] for item in parse_mod_list(neoforge, "neoforge")] == [
         "minecraft",
-        "reterraforged",
+        "freeterraforged",
     ]
 
 
@@ -370,7 +370,7 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
     scenario_path = tmp_path / ".squinch/failure.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        f'''schema_version = 1
+        '''schema_version = 1
 name = "assertion-cleanup-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -387,7 +387,7 @@ id = "failing-expectation"
 type = "command"
 command = "list"
 jfr = true
-expect = {{ response_contains = "deliberately absent" }}
+expect = { response_contains = "deliberately absent" }
 '''
     )
     state_root = tmp_path / "state"
@@ -448,7 +448,7 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
     scenario_path = tmp_path / ".squinch/generation-timeout.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        f'''schema_version = 1
+        '''schema_version = 1
 name = "generation-timeout-control"
 project = "games/minecraft/project"
 loader = "fabric"

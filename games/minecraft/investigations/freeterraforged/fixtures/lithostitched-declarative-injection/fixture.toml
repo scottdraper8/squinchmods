@@ -1,0 +1,16 @@
+schema_version = 2
+id = "lithostitched-declarative-injection"
+classification = "reusable-control"
+purpose = "Exercise pre-server declarative Lithostitched injector and region extraction without code-event listeners."
+applicable_questions = [
+  "Lithostitched declarative acquisition before mechanism finalization",
+  "injector priority, dimension, target, output, and load-predicate normalization",
+  "region membership and weight normalization",
+]
+known_limitations = [
+  "Uses registered vanilla biome holders so the fixture isolates the mechanism",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "331bcd32bd629b4bba5161555f3f585431ae004da4288644e3cabf88962dc7b7"

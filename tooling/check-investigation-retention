@@ -4,18 +4,57 @@ set -euo pipefail
 index=.squinch/games/minecraft/investigation-retention.toml
 pattern='[0-9]{8}T[0-9]{6}Z-[0-9a-f]{10}'
 
-missing=$(
-    comm -23 \
-        <(git grep --cached -h -o -E "$pattern" -- \
-            agent-resume.md .agent-docs .squinch games/minecraft/investigations \
-            ":(exclude)$index" 2>/dev/null | sort -u) \
-        <(sed -nE "s/^[[:space:]]*\"($pattern)\",?[[:space:]]*$/\1/p" "$index" | sort -u)
+cited=$(mktemp)
+protected=$(mktemp)
+files=$(mktemp)
+trap 'rm -f "$cited" "$protected" "$files"' EXIT
+
+{
+    git grep --cached -l -E "$pattern" -- \
+        agent-resume.md .agent-docs .squinch games/minecraft/investigations \
+        ":(exclude)$index" 2>/dev/null || true
+} | sort -u >"$files"
+
+invalid=$(
+    while IFS= read -r path; do
+        case "$path" in
+            .agent-docs/games/minecraft/mods/*/refs/*acceptance*.md | \
+                games/minecraft/investigations/*/analysis/*.md | \
+                games/minecraft/investigations/*/analysis/*/*.md) ;;
+            *) printf '%s\n' "$path" ;;
+        esac
+    done <"$files"
 )
+if [[ -n "$invalid" ]]; then
+    echo "Exact investigation run IDs are limited to focused analyses and acceptance references:" >&2
+    while IFS= read -r path; do
+        printf '  %s\n' "$path" >&2
+    done <<<"$invalid"
+    exit 1
+fi
+
+{
+    git grep --cached -h -o -E "$pattern" -- \
+        agent-resume.md .agent-docs .squinch games/minecraft/investigations \
+        ":(exclude)$index" 2>/dev/null || true
+} | sort -u >"$cited"
+sed -nE "s/^[[:space:]]*\"($pattern)\",?[[:space:]]*$/\1/p" "$index" | sort -u >"$protected"
+
+missing=$(comm -23 "$cited" "$protected")
 
 if [[ -n "$missing" ]]; then
     echo "Cited investigation runs missing from $index:" >&2
     while IFS= read -r run_id; do
         printf '  %s\n' "$run_id" >&2
     done <<<"$missing"
+    exit 1
+fi
+
+stale=$(comm -13 "$cited" "$protected")
+if [[ -n "$stale" ]]; then
+    echo "Protected investigation runs without a current tracked citation:" >&2
+    while IFS= read -r run_id; do
+        printf '  %s\n' "$run_id" >&2
+    done <<<"$stale"
     exit 1
 fi

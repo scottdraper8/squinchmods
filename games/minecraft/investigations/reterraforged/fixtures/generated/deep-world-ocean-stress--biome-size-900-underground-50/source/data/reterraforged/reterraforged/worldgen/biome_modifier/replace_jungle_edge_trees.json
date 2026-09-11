@@ -1,8 +1,0 @@
-{
-  "type": "reterraforged:replace",
-  "biomes": "minecraft:sparse_jungle",
-  "replacements": {
-    "minecraft:trees_sparse_jungle": "reterraforged:jungle_edge_trees"
-  },
-  "step": "vegetal_decoration"
-}

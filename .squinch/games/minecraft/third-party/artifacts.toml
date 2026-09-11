@@ -137,51 +137,6 @@ required_dependencies = ["mc1.21.1-neoforge-terrablender-4.1.0.8"]
 source_id = "source-natures-spirit-1.21.1"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-c2me-0.4.0-alpha.0.27+1.21.1"
-project_slug = "c2me-fabric"
-project_id = "VSNURh3q"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "0.4.0-alpha.0.27+1.21.1"
-version_id = "gRm1ZAvc"
-filename = "c2me-fabric-mc1.21.1-0.4.0-alpha.0.27.jar"
-sha256 = "f0a488fa26a1d1c7668f644527c470941d41474da2d7d620620da13473509b84"
-status = "diagnostic-only"
-reason = "Latest Minecraft 1.21.1 C2ME backport for parallel chunk-generation correctness testing"
-required_dependencies = []
-source_id = "source-c2me"
-
-[[artifacts]]
-id = "mc1.21.1-neoforge-c2me-0.4.0-alpha.0.120+1.21.1"
-project_slug = "c2me-neoforge"
-project_id = "COlSi5iR"
-minecraft_version = "1.21.1"
-loader = "neoforge"
-version_number = "0.4.0-alpha.0.120+1.21.1"
-version_id = "kvrPcTsz"
-filename = "c2me-neoforge-mc1.21.1-0.4.0-alpha.0.120.jar"
-sha256 = "67fe384ae84f947e999a02ebde5f5e7de3a632803304a625beee9c4268509a76"
-status = "diagnostic-only"
-reason = "Latest Minecraft 1.21.1 NeoForge C2ME release for density compiler parity and concurrency testing"
-required_dependencies = []
-source_id = "source-c2me-neoforge"
-
-[[artifacts]]
-id = "mc1.21.1-neoforge-c2me-0.4.0-alpha.0.112+1.21.1"
-project_slug = "c2me-neoforge"
-project_id = "COlSi5iR"
-minecraft_version = "1.21.1"
-loader = "neoforge"
-version_number = "0.4.0-alpha.0.112+1.21.1"
-version_id = "GzlGNw5O"
-filename = "c2me-neoforge-mc1.21.1-0.4.0-alpha.0.112.jar"
-sha256 = "961e80018496036a47421617c9891bb58c71c13ad82211f557a81d0a14579ffd"
-status = "diagnostic-only"
-reason = "Exact reported C2ME 0.4 regression artifact; fallback control because latest 1.21.1 release fails earlier in the NeoForge development runtime"
-required_dependencies = []
-source_id = "source-c2me-neoforge"
-
-[[artifacts]]
 id = "mc1.21.1-fabric-cloth-config-15.0.140"
 project_slug = "cloth-config"
 project_id = "9s6osm5g"
@@ -945,30 +900,6 @@ status = "available"
 shallow = true
 blob_filter = true
 sparse_paths = ["src/main/java", "src/main/resources"]
-
-[[sources]]
-id = "source-c2me"
-repository = "https://github.com/RelativityMC/C2ME-fabric.git"
-requested_ref = "backports/1.21.1"
-resolved_commit = "410ac356776431f537857d71edfca84a6a266c55"
-minecraft_version = "1.21.1"
-checkout = "games/minecraft/reference/sources/1.21.1/mods/c2me"
-status = "available"
-shallow = true
-blob_filter = true
-sparse_paths = ["c2me-base/src", "c2me-rewrites-chunk-system/src", "c2me-opts-worldgen-vanilla/src", "c2me-opts-dfc/src", "src"]
-
-[[sources]]
-id = "source-c2me-neoforge"
-repository = "https://github.com/RelativityMC/C2ME-neoforge.git"
-requested_ref = "ver/1.21.1"
-resolved_commit = "92646290596cd9a39df3fb1f0ed2da0071bf1fdb"
-minecraft_version = "1.21.1"
-checkout = "games/minecraft/reference/sources/1.21.1/mods/c2me-neoforge"
-status = "available"
-shallow = true
-blob_filter = true
-sparse_paths = ["patches/main", "scripts", "README.md", "current-upstream"]
 
 [[sources]]
 id = "source-cloth-config"

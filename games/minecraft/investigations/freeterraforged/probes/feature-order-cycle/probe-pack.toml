@@ -1,0 +1,9 @@
+schema_version = 1
+id = "ftf-feature-order-cycle"
+version = "1"
+target_adapter = "minecraft-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-ftf-feature-order-cycle.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["startup-feature-order", "duplicate-feature-identity"]

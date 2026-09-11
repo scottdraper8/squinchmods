@@ -3,7 +3,7 @@ name = "FTF + YUNG's Cave Biomes focused finished palette"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-palette"]
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-palette"]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-yungs-api-5.1.8",
@@ -13,7 +13,7 @@ companion_artifacts = [
 ]
 retention = "keep-on-failure"
 
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
 
 [server_properties]
 view-distance = 4
@@ -26,10 +26,10 @@ step = 900
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "yungscavebiomes"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "yungscavebiomes"]
 
 [[probes]]
-id = "squinch:rtf-biome-palette"
+id = "squinch:ftf-biome-palette"
 version = "1"
 config = { bounds = [60, 350, 68, 360], unit = "chunk", max_wait_ticks = 6000, min_y = -64, max_y = 320, horizontal_quart_step = 1, vertical_quart_step = 2, top_k = 40, example_limit = 24, include_climate_axes = false }
 
@@ -44,5 +44,5 @@ type = "generate"
 unit = "chunk"
 bounds = [60, 350, 68, 360]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-biome-palette"
+terminal_probe = "squinch:ftf-biome-palette"
 expect = { terminal_state = "pass" }

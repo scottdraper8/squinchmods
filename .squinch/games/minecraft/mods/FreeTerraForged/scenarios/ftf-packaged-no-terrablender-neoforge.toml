@@ -4,7 +4,7 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "neoforge"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 retention = "keep-on-failure"
 
 [server_properties]
@@ -18,7 +18,7 @@ step = 600
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[steps]]
 id = "verify-production-server"

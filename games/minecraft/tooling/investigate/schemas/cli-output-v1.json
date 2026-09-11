@@ -366,7 +366,7 @@
           "data": {
             "required": ["authority", "mode", "manifest", "result"],
             "properties": {
-              "authority": {"enum": ["prediction", "rtf-horizontal-cell-model"]},
+              "authority": {"enum": ["prediction", "ftf-horizontal-cell-model"]},
               "mode": {"enum": ["preview", "tile", "adaptive"]},
               "manifest": {"type": "object"},
               "result": {
@@ -393,7 +393,7 @@
                 "type": "object",
                 "required": ["kind", "run_id", "project", "head", "preset", "generated", "tracked_source_unchanged", "cleanup"],
                 "properties": {
-                  "kind": {"const": "rtf-preset-fixture"},
+                  "kind": {"const": "ftf-preset-fixture"},
                   "run_id": {"type": "string", "minLength": 1},
                   "project": {"type": "string", "minLength": 1},
                   "head": {"type": "string", "minLength": 1},

@@ -3,8 +3,8 @@ name = "FTF provider graph — Still Life + Lithosphere"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census", "games/minecraft/investigations/reterraforged/probes/feature-graph-census", "games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/reachability-census", "games/minecraft/investigations/freeterraforged/probes/feature-graph-census", "games/minecraft/investigations/freeterraforged/probes/worldgen-normalization-census"]
 companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithosphere-1.8.2", "mc1.21.1-fabric-still-life-0.1.1"]
 retention = "keep-on-failure"
 [server_properties]
@@ -16,28 +16,28 @@ startup = 360
 step = 900
 shutdown = 120
 [expectations]
-required_mods = ["minecraft", "reterraforged", "mr_lithosphere", "mr_still_life"]
+required_mods = ["minecraft", "freeterraforged", "mr_lithosphere", "mr_still_life"]
 [[probes]]
-id = "squinch:rtf-worldgen-normalization-census"
+id = "squinch:ftf-worldgen-normalization-census"
 version = "1"
 config = {}
 [[probes]]
-id = "squinch:rtf-feature-graph-census"
+id = "squinch:ftf-feature-graph-census"
 version = "1"
 config = {}
 [[probes]]
-id = "squinch:rtf-composition-audit"
+id = "squinch:ftf-composition-audit"
 version = "1"
 config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 4, surface_threshold_y = 62 }
 [[steps]]
 id = "census-normalizable-worldgen-graph"
 type = "probe"
-probe = "squinch:rtf-worldgen-normalization-census"
+probe = "squinch:ftf-worldgen-normalization-census"
 expect = { terminal_state = "pass" }
 [[steps]]
 id = "census-final-feature-graph"
 type = "probe"
-probe = "squinch:rtf-feature-graph-census"
+probe = "squinch:ftf-feature-graph-census"
 expect = { terminal_state = "pass" }
 [[steps]]
 id = "audit-composition"
@@ -45,5 +45,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-composition-audit"
+terminal_probe = "squinch:ftf-composition-audit"
 expect = { terminal_state = "pass" }

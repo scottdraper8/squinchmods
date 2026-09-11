@@ -3,8 +3,8 @@ name = "Ore plan verification: shallow-depth control"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/shallow-depth-mountain-control/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/placement-telemetry"]
 retention = "discard"
 
 [server_properties]
@@ -18,10 +18,10 @@ step = 600
 shutdown = 60
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[probes]]
-id = "squinch:rtf-placement-telemetry"
+id = "squinch:ftf-placement-telemetry"
 version = "1"
 config = { feature_ids = ["minecraft:ore_coal_upper", "minecraft:ore_iron_small", "minecraft:ore_diamond", "minecraft:ore_redstone"], bounds = [0, 0, 15, 15], unit = "chunk", max_wait_ticks = 1200, top_k = 20, bands = [
   { id = "vanilla_range", min_y = -64, max_y = 319 },
@@ -33,5 +33,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 15, 15]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-placement-telemetry"
+terminal_probe = "squinch:ftf-placement-telemetry"
 expect = { terminal_state = "pass" }

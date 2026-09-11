@@ -1,9 +1,0 @@
-schema_version = 1
-id = "rtf-cell-cache"
-version = "1"
-target_adapter = "reterraforged-1.21.1"
-sources = ["src/main/java"]
-resources = ["src/main/resources"]
-mixins = []
-configuration_schema = "probe-config-v1.json"
-capabilities = ["server-thread", "rtf-runtime-tile-cache", "cell-model"]

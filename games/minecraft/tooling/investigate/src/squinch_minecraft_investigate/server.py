@@ -15,10 +15,14 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .errors import CleanupError, InvestigationError
 from .catalog import ResolvedArtifact
+from .errors import CleanupError, InvestigationError
 from .output import timestamp
-from .owned_operation import Deadline, defer_termination_signals, terminate_owned_service
+from .owned_operation import (
+    Deadline,
+    defer_termination_signals,
+    terminate_owned_service,
+)
 from .paths import (
     ENV_SH,
     RUNS_ROOT,
@@ -26,6 +30,7 @@ from .paths import (
     lock_path,
     validate_loader,
 )
+from .probe_overlay import git_status, probe_overlay_command
 from .processes import (
     confirm_uninterruptible,
     free_port,
@@ -36,12 +41,11 @@ from .processes import (
     port_is_free,
     proc_identity,
     process_kernel_diagnostics,
-    signal_recorded_process,
     service_members,
+    signal_recorded_process,
     signal_service,
     stop_service,
 )
-from .probe_overlay import git_status, probe_overlay_command
 from .rcon import RconError, execute
 from .state import atomic_write_json, project_lock, read_json
 
@@ -50,7 +54,7 @@ DEVELOPMENT_PROBE_JAR = "squinch-investigate-probe.jar"
 DEVELOPMENT_PROBE_MARKER = "META-INF/squinch-development-probe"
 PRODUCTION_SERVER_JARS = (
     "architectury-production.jar",
-    "reterraforged-production.jar",
+    "freeterraforged-production.jar",
 )
 STARTUP_TERMINAL_LOG_MARKERS = (
     "Failed to start the minecraft server",
@@ -912,7 +916,7 @@ def start_server(
                     cleanup_failures.extend(
                         terminate_owned_service(state, 15.0, label="server")
                     )
-                except BaseException as failure:
+                except BaseException as failure:  # noqa: BLE001 - cleanup must survive signals
                     cleanup_failures.append(f"server launch cleanup failed: {failure}")
                 owned_process_alive = bool(state.get("remaining_owned_processes"))
             if not owned_process_alive:

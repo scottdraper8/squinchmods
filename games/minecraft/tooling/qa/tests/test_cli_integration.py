@@ -49,12 +49,12 @@ _MOD_PROFILE_TESTS = {
             "crafter-basic",
         ],
     },
-    "ReTerraForged": _BASE_PROFILE_TESTS,
+    "FreeTerraForged": _BASE_PROFILE_TESTS,
 }
 
 _MOD_TARGETS = {
     "redstone-backport": ["forge-1.20.1", "forge-1.21.4"],
-    "ReTerraForged": ["neoforge-1.21.1", "fabric-1.21.1"],
+    "FreeTerraForged": ["neoforge-1.21.1", "fabric-1.21.1"],
 }
 
 
@@ -103,25 +103,25 @@ class TestRedstoneBackport:
         assert len(data["jobs"]) == len(_BASE_PROFILE_TESTS["default"])
 
 
-class TestReTerraForged:
+class TestFreeTerraForged:
     @pytest.mark.parametrize("profile", PROFILES)
     def test_deterministic_output(self, fake_repo, profile):
-        _, out1 = _run_plan(fake_repo, "ReTerraForged", "--profile", profile)
-        _, out2 = _run_plan(fake_repo, "ReTerraForged", "--profile", profile)
+        _, out1 = _run_plan(fake_repo, "FreeTerraForged", "--profile", profile)
+        _, out2 = _run_plan(fake_repo, "FreeTerraForged", "--profile", profile)
         assert out1 == out2
 
     @pytest.mark.parametrize("profile", PROFILES)
     def test_structural_expectations(self, fake_repo, profile):
-        code, output = _run_plan(fake_repo, "ReTerraForged", "--profile", profile)
+        code, output = _run_plan(fake_repo, "FreeTerraForged", "--profile", profile)
         data = json.loads(output)
         jobs = data["jobs"]
 
         assert code == 0
         assert data["schema"] == 1
-        assert data["mod"]["id"] == "reterraforged"
+        assert data["mod"]["id"] == "freeterraforged"
         assert data["profile"]["name"] == profile
-        expected_targets = _MOD_TARGETS["ReTerraForged"]
-        expected_tests = _MOD_PROFILE_TESTS["ReTerraForged"][profile]
+        expected_targets = _MOD_TARGETS["FreeTerraForged"]
+        expected_tests = _MOD_PROFILE_TESTS["FreeTerraForged"][profile]
         assert len(jobs) == len(expected_targets) * len(expected_tests)
 
         job_target_ids = {j["target"]["id"] for j in jobs}
@@ -131,7 +131,7 @@ class TestReTerraForged:
     def test_pre_pr_pregen_uses_large_preset_without_changing_default(self, fake_repo):
         _, default_output = _run_plan(
             fake_repo,
-            "ReTerraForged",
+            "FreeTerraForged",
             "--profile",
             "default",
             "--target",
@@ -139,7 +139,7 @@ class TestReTerraForged:
         )
         _, pre_pr_output = _run_plan(
             fake_repo,
-            "ReTerraForged",
+            "FreeTerraForged",
             "--profile",
             "pre-pr",
             "--target",
@@ -156,11 +156,11 @@ class TestReTerraForged:
         assert pre_pr_pregen["test"]["config"]["timeout_s"] == 7200
 
     def test_mod_id_lookup_works(self, fake_repo):
-        """Lookup by mod.id 'reterraforged' (not filesystem name 'ReTerraForged')."""
-        code, output = _run_plan(fake_repo, "reterraforged", "--profile", "dev")
+        """Lookup by mod.id 'freeterraforged' (not filesystem name 'FreeTerraForged')."""
+        code, output = _run_plan(fake_repo, "freeterraforged", "--profile", "dev")
         assert code == 0
         data = json.loads(output)
-        assert data["mod"]["id"] == "reterraforged"
+        assert data["mod"]["id"] == "freeterraforged"
 
 
 class TestGametestSkip:

@@ -4,9 +4,9 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = [
-    "games/minecraft/investigations/reterraforged/probes/lithostitched-unknown-injector",
+    "games/minecraft/investigations/freeterraforged/probes/lithostitched-unknown-injector",
 ]
 companion_artifacts = [
     "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
@@ -24,7 +24,7 @@ startup = 600
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "lithostitched"]
+required_mods = ["minecraft", "freeterraforged", "lithostitched"]
 
 [[steps]]
 id = "confirm-server-boundary"

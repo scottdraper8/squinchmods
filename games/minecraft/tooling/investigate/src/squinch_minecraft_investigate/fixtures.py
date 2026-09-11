@@ -11,7 +11,7 @@ from typing import Any
 
 from .errors import InvestigationError
 
-RTF_PRESET_PATH = "data/reterraforged/reterraforged/worldgen/preset/preset.json"
+FTF_PRESET_PATH = "data/freeterraforged/freeterraforged/worldgen/preset/preset.json"
 CLASSIFICATIONS = {"reusable-control", "reusable-stress", "feature-specific"}
 
 
@@ -19,78 +19,11 @@ def _fixture_error(message: str) -> InvestigationError:
     return InvestigationError("invalid_fixture", message)
 
 
-def _sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
 def _is_sha256(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
-def _fixture_root(metadata_path: Path) -> Path:
-    for candidate in (metadata_path.parent, *metadata_path.parents):
-        if candidate.name == "fixtures":
-            return candidate.resolve()
-    raise _fixture_error(f"fixture metadata is not beneath a fixtures directory: {metadata_path}")
-
-
-def _source_path(metadata_path: Path, value: Any, field: str, root: Path) -> Path:
-    if not isinstance(value, str) or not value:
-        raise _fixture_error(f"{field} must be a nonempty relative path")
-    unresolved = Path(value)
-    if unresolved.is_absolute():
-        raise _fixture_error(f"{field} must be relative to fixture.toml")
-    path = (metadata_path.parent / unresolved).resolve()
-    if not path.is_relative_to(root) or path == root:
-        raise _fixture_error(f"{field} escapes the declared fixture root: {value}")
-    if path.is_symlink() or not path.is_dir():
-        raise _fixture_error(f"{field} is not a regular source directory: {path}")
-    return path
-
-
-def _read_source(root: Path) -> dict[str, bytes]:
-    result: dict[str, bytes] = {}
-    for path in sorted(root.rglob("*")):
-        if path.is_symlink():
-            raise _fixture_error(f"source-form fixture contains a symlink: {path}")
-        if path.is_dir():
-            continue
-        if not path.is_file():
-            raise _fixture_error(f"source-form fixture contains a non-file: {path}")
-        relative = path.relative_to(root).as_posix()
-        result[relative] = path.read_bytes()
-    return result
-
-
-def _content_sha256(files: dict[str, bytes]) -> str:
-    digest = hashlib.sha256()
-    for relative, content in sorted(files.items()):
-        digest.update(relative.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(content)
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
-def _write_archive(files: dict[str, bytes], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_path.is_symlink() or (output_path.exists() and not output_path.is_file()):
-        raise _fixture_error(f"output must be a regular file path: {output_path}")
-    temporary = output_path.parent / f".{output_path.name}.{uuid.uuid4().hex}.tmp"
-    try:
-        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_STORED) as archive:
-            for relative, content in sorted(files.items()):
-                info = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
-                info.compress_type = zipfile.ZIP_STORED
-                info.create_system = 3
-                info.external_attr = 0o100644 << 16
-                archive.writestr(info, content)
-        os.replace(temporary, output_path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def load_fixture(metadata: str | Path) -> tuple[dict[str, Any], dict[str, bytes]]:
+def load_fixture(metadata: str | Path) -> dict[str, Any]:
     metadata_path = Path(metadata).expanduser().resolve()
     if metadata_path.name != "fixture.toml" or not metadata_path.is_file():
         raise _fixture_error(f"fixture metadata does not exist: {metadata_path}")
@@ -106,29 +39,19 @@ def load_fixture(metadata: str | Path) -> tuple[dict[str, Any], dict[str, bytes]
         "applicable_questions",
         "known_limitations",
         "minecraft_version",
-        "rtf_version",
-        "base",
-        "resolved_preset_sha256",
+        "ftf_version",
+        "preset",
+        "preset_sha256",
     }
-    generated = {
-        "generator_run_id",
-        "generator_content_sha256",
-        "generator_canonical_preset_sha256",
-        "generator_resolved_preset_sha256",
-        "generator_file_count",
-        "patch_sha256",
-        "source_content_sha256",
-    }
-    allowed = required | generated | {"historical_archive_sha256", "overlay"}
     missing = sorted(required - set(value))
-    unknown = sorted(set(value) - allowed)
+    unknown = sorted(set(value) - required)
     if missing or unknown:
         raise _fixture_error(
             f"fixture metadata keys invalid; missing={missing}, unknown={unknown}"
         )
-    if value["schema_version"] != 1:
-        raise _fixture_error("fixture schema_version must be 1")
-    for field in ("id", "purpose", "minecraft_version", "rtf_version"):
+    if value["schema_version"] != 2:
+        raise _fixture_error("fixture schema_version must be 2")
+    for field in ("id", "purpose", "minecraft_version", "ftf_version"):
         if not isinstance(value[field], str) or not value[field]:
             raise _fixture_error(f"{field} must be a nonempty string")
     if value["classification"] not in CLASSIFICATIONS:
@@ -138,97 +61,76 @@ def load_fixture(metadata: str | Path) -> tuple[dict[str, Any], dict[str, bytes]
             not isinstance(item, str) or not item for item in value[field]
         ):
             raise _fixture_error(f"{field} must be a nonempty array of strings")
-    is_generated = "generator_run_id" in value
-    if is_generated:
-        missing_generated = sorted(generated - set(value))
-        if missing_generated:
-            raise _fixture_error(
-                f"generated fixture metadata is missing: {', '.join(missing_generated)}"
-            )
-        if "historical_archive_sha256" in value:
-            raise _fixture_error("generated fixture must not claim a historical archive")
-        if not isinstance(value["generator_run_id"], str) or not value["generator_run_id"]:
-            raise _fixture_error("generator_run_id must be a nonempty string")
-        if (
-            isinstance(value["generator_file_count"], bool)
-            or not isinstance(value["generator_file_count"], int)
-            or value["generator_file_count"] <= 0
-        ):
-            raise _fixture_error("generator_file_count must be a positive integer")
-    elif "historical_archive_sha256" not in value:
-        raise _fixture_error("retained fixture metadata requires historical_archive_sha256")
-    hash_fields = {"resolved_preset_sha256"}
-    hash_fields.update(field for field in generated if field.endswith("sha256"))
-    if not is_generated:
-        hash_fields.add("historical_archive_sha256")
-    for field in sorted(hash_fields):
-        if field not in value:
-            continue
-        if not isinstance(value[field], str) or not _is_sha256(value[field]):
-            raise _fixture_error(f"{field} must be a lowercase SHA-256")
-
-    root = _fixture_root(metadata_path)
-    base = _source_path(metadata_path, value["base"], "base", root)
-    files = _read_source(base)
-    overlay = None
-    if "overlay" in value:
-        overlay = _source_path(metadata_path, value["overlay"], "overlay", root)
-        files.update(_read_source(overlay))
-    if "pack.mcmeta" not in files or RTF_PRESET_PATH not in files:
-        raise _fixture_error("materialized source lacks pack.mcmeta or the RTF preset registry entry")
-    preset_bytes = files[RTF_PRESET_PATH]
-    if _sha256_bytes(preset_bytes) != value["resolved_preset_sha256"]:
-        raise _fixture_error("resolved preset hash does not match fixture metadata")
-    source_content_sha256 = _content_sha256(files)
-    if is_generated:
-        if source_content_sha256 != value["source_content_sha256"]:
-            raise _fixture_error("source content hash does not match fixture metadata")
-        if len(files) != value["generator_file_count"]:
-            raise _fixture_error("source file count does not match generator provenance")
-        if value["generator_resolved_preset_sha256"] != value["resolved_preset_sha256"]:
-            raise _fixture_error("generator preset hash does not match resolved preset hash")
+    if value["preset"] != "preset.json":
+        raise _fixture_error("preset must be the fixture-local preset.json")
+    if not isinstance(value["preset_sha256"], str) or not _is_sha256(
+        value["preset_sha256"]
+    ):
+        raise _fixture_error("preset_sha256 must be a lowercase SHA-256")
+    preset_path = metadata_path.parent / value["preset"]
+    if preset_path.is_symlink() or not preset_path.is_file():
+        raise _fixture_error(f"preset is not a regular file: {preset_path}")
+    preset_bytes = preset_path.read_bytes()
+    preset_sha256 = hashlib.sha256(preset_bytes).hexdigest()
+    if preset_sha256 != value["preset_sha256"]:
+        raise _fixture_error("preset hash does not match fixture metadata")
     try:
         preset = json.loads(preset_bytes)
     except json.JSONDecodeError as exc:
-        raise _fixture_error(f"resolved preset is not valid JSON: {exc}") from exc
+        raise _fixture_error(f"preset is not valid JSON: {exc}") from exc
     if not isinstance(preset, dict):
-        raise _fixture_error("resolved preset must be a JSON object")
-
-    manifest = {
-        "schema_version": 1,
+        raise _fixture_error("preset must be a JSON object")
+    return {
+        "schema_version": 2,
         "id": value["id"],
         "classification": value["classification"],
         "purpose": value["purpose"],
         "applicable_questions": value["applicable_questions"],
         "known_limitations": value["known_limitations"],
         "minecraft_version": value["minecraft_version"],
-        "rtf_version": value["rtf_version"],
+        "ftf_version": value["ftf_version"],
         "metadata_path": str(metadata_path),
-        "base_path": str(base),
-        "overlay_path": str(overlay) if overlay else None,
-        "historical_archive_sha256": value.get("historical_archive_sha256"),
-        "resolved_preset_sha256": value["resolved_preset_sha256"],
+        "preset_path": str(preset_path),
+        "preset_sha256": preset_sha256,
+        "resolved_preset_sha256": preset_sha256,
         "resolved_preset": preset,
-        "source_file_count": len(files),
-        "source_content_sha256": source_content_sha256,
     }
-    if is_generated:
-        manifest["generator"] = {
-            "run_id": value["generator_run_id"],
-            "content_sha256": value["generator_content_sha256"],
-            "canonical_preset_sha256": value["generator_canonical_preset_sha256"],
-            "resolved_preset_sha256": value["generator_resolved_preset_sha256"],
-            "file_count": value["generator_file_count"],
-            "patch_sha256": value["patch_sha256"],
-        }
-    return manifest, files
 
 
-def materialize_fixture(metadata: str | Path, output: str | Path) -> dict[str, Any]:
-    manifest, files = load_fixture(metadata)
+def archive_generated_fixture(source: str | Path, output: str | Path) -> dict[str, Any]:
+    source_path = Path(source).expanduser().resolve()
     output_path = Path(output).expanduser().resolve()
-    _write_archive(files, output_path)
-    manifest["archive_path"] = str(output_path)
-    manifest["archive_sha256"] = hashlib.sha256(output_path.read_bytes()).hexdigest()
-    manifest["archive_size"] = output_path.stat().st_size
-    return manifest
+    if source_path.is_symlink() or not source_path.is_dir():
+        raise _fixture_error(f"generated fixture is not a regular directory: {source_path}")
+    files: list[tuple[str, bytes]] = []
+    for path in sorted(source_path.rglob("*")):
+        if path.is_symlink():
+            raise _fixture_error(f"generated fixture contains a symlink: {path}")
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise _fixture_error(f"generated fixture contains a non-file: {path}")
+        files.append((path.relative_to(source_path).as_posix(), path.read_bytes()))
+    if not files:
+        raise _fixture_error(f"generated fixture is empty: {source_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.is_symlink() or (output_path.exists() and not output_path.is_file()):
+        raise _fixture_error(f"output must be a regular file path: {output_path}")
+    temporary = output_path.parent / f".{output_path.name}.{uuid.uuid4().hex}.tmp"
+    try:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_STORED) as archive:
+            for relative, content in files:
+                info = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_STORED
+                info.create_system = 3
+                info.external_attr = 0o100644 << 16
+                archive.writestr(info, content)
+        os.replace(temporary, output_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {
+        "archive_path": str(output_path),
+        "archive_sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+        "archive_size": output_path.stat().st_size,
+        "file_count": len(files),
+    }

@@ -85,26 +85,26 @@ class TestLoadModConfig:
         assert "forge-1.21.4" in target_ids
 
     def test_happy_path_by_mod_id(self, fake_repo):
-        # ReTerraForged dir name is "ReTerraForged", mod.id is "reterraforged"
-        mod, _ = load_mod_config(fake_repo, "reterraforged")
-        assert mod.mod_id == "reterraforged"
-        assert mod.display_name == "ReTerraForged"
+        # FreeTerraForged dir name is "FreeTerraForged", mod.id is "freeterraforged"
+        mod, _ = load_mod_config(fake_repo, "freeterraforged")
+        assert mod.mod_id == "freeterraforged"
+        assert mod.display_name == "FreeTerraForged"
 
     def test_case_insensitive_filesystem_match(self, fake_repo):
-        # mod.id is "reterraforged" and the fixture directory is "ReTerraForged".
-        # Query with a casing that matches neither exactly ("RETERRAFORGED" !=
-        # "reterraforged" and != "ReTerraForged"), so this can only succeed via
+        # mod.id is "freeterraforged" and the fixture directory is "FreeTerraForged".
+        # Query with a casing that matches neither exactly ("FREETERRAFORGED" !=
+        # "freeterraforged" and != "FreeTerraForged"), so this can only succeed via
         # the directory-name case-insensitive clause, not the mod.id == mod_slug
         # clause (and not the exact-case filesystem glob in Branch 1).
-        mod, _ = load_mod_config(fake_repo, "RETERRAFORGED")
-        assert mod.mod_id == "reterraforged"
+        mod, _ = load_mod_config(fake_repo, "FREETERRAFORGED")
+        assert mod.mod_id == "freeterraforged"
 
     def test_unknown_mod_lists_available_ids(self, fake_repo):
         with pytest.raises(UnknownMod) as exc_info:
             load_mod_config(fake_repo, "no-such-mod")
         msg = str(exc_info.value)
         assert "no-such-mod" in msg
-        assert "redstone-backport" in msg or "reterraforged" in msg
+        assert "redstone-backport" in msg or "freeterraforged" in msg
 
     def test_missing_config_file(self, tmp_path):
         squinch = tmp_path / ".squinch"
@@ -127,25 +127,25 @@ class TestLoadModConfig:
         assert "Available mod ids: []" in msg
 
     def test_schema_invalid_mod(self, fake_repo):
-        # Overwrite ReTerraForged config with something schema-invalid
+        # Overwrite FreeTerraForged config with something schema-invalid
         mod_config_dir = (
-            fake_repo / ".squinch" / "games" / "minecraft" / "mods" / "ReTerraForged"
+            fake_repo / ".squinch" / "games" / "minecraft" / "mods" / "FreeTerraForged"
         )
         (mod_config_dir / "config.yml").write_text(
-            "schema: 1\nmod:\n  id: reterraforged\n"
+            "schema: 1\nmod:\n  id: freeterraforged\n"
             # missing required 'targets' key
         )
         with pytest.raises(ConfigError, match="Schema validation failed"):
-            load_mod_config(fake_repo, "reterraforged")
+            load_mod_config(fake_repo, "freeterraforged")
 
     def test_config_without_source_checkout_raises(self, fake_repo):
-        shutil.rmtree(fake_repo / "games" / "minecraft" / "mods" / "ReTerraForged")
+        shutil.rmtree(fake_repo / "games" / "minecraft" / "mods" / "FreeTerraForged")
         with pytest.raises(ConfigError, match="no source checkout"):
-            load_mod_config(fake_repo, "reterraforged")
+            load_mod_config(fake_repo, "freeterraforged")
 
     def test_returns_mod_source_dir_not_config_dir(self, fake_repo):
-        _, mod_dir = load_mod_config(fake_repo, "reterraforged")
-        assert mod_dir == fake_repo / "games" / "minecraft" / "mods" / "ReTerraForged"
+        _, mod_dir = load_mod_config(fake_repo, "freeterraforged")
+        assert mod_dir == fake_repo / "games" / "minecraft" / "mods" / "FreeTerraForged"
 
 
 class TestFindRepoRoot:

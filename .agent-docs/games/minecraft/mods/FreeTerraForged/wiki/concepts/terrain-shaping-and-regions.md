@@ -11,12 +11,12 @@ Source populators own distinct parts of terrain character before final density p
 - island settings own archipelago terrain.
 
 Private density-router bypasses create a second terrain path that datapacks and other mods cannot
-observe or modify consistently. RTF functions in the registered graph remain visible to all graph
+observe or modify consistently. FTF functions in the registered graph remain visible to all graph
 consumers.
 
 ## Region pipeline
 
-RTF assigns terrain populators through Voronoi-style regions. `RegionModule` supplies region
+FTF assigns terrain populators through Voronoi-style regions. `RegionModule` supplies region
 identity and `RegionSelector` maps that identity into a weighted populator array.
 `RegionLerper`/Blender then smooth transitions between neighboring terrain systems and continuous
 mountain overlays.

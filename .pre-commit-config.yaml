@@ -5,14 +5,11 @@ repos:
     -   id: check-added-large-files
         args: ['--maxkb=5120']
     -   id: trailing-whitespace
-        exclude: &rtf_fixture_bytes ^games/minecraft/investigations/reterraforged/fixtures/.*/(data/|pack\.mcmeta$)
     -   id: end-of-file-fixer
-        exclude: *rtf_fixture_bytes
     -   id: check-merge-conflict
     -   id: check-case-conflict
     -   id: mixed-line-ending
         args: ['--fix=lf']
-        exclude: *rtf_fixture_bytes
     -   id: check-yaml
     -   id: check-toml
     -   id: check-json
@@ -40,7 +37,7 @@ repos:
         pass_filenames: false
         always_run: true
     -   id: investigation-retention-index
-        name: require cited investigation runs in retention index
+        name: enforce investigation citation and retention discipline
         entry: tooling/check-investigation-retention
         language: system
         pass_filenames: false

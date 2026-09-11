@@ -6,9 +6,7 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from squinch_minecraft_investigate import cli
-from squinch_minecraft_investigate.cli import tile_chunks
-from squinch_minecraft_investigate import generation
+from squinch_minecraft_investigate import cli, generation
 from squinch_minecraft_investigate.output import _schema, envelope
 
 
@@ -23,7 +21,7 @@ def test_json_contract_rejects_missing_error_field() -> None:
 
 def test_chunk_tiling_has_independent_inclusive_boundaries() -> None:
     """Catches inclusive/exclusive mistakes and illegal tiles larger than 16x16 chunks."""
-    regions = tile_chunks((-17, -1, 16, 16), "block")
+    regions = generation.tile_chunks((-17, -1, 16, 16), "block")
 
     assert regions == [
         {
@@ -38,7 +36,7 @@ def test_chunk_tiling_has_independent_inclusive_boundaries() -> None:
         }
     ]
 
-    large = tile_chunks((0, 0, 32, 17), "chunk")
+    large = generation.tile_chunks((0, 0, 32, 17), "chunk")
     assert [(item["chunk_max_x"] - item["chunk_min_x"] + 1, item["chunk_max_z"] - item["chunk_min_z"] + 1) for item in large] == [
         (16, 16),
         (16, 2),

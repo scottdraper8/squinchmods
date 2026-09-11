@@ -27,7 +27,8 @@ transformer emits the loader implementation as a self-contained class in each pr
 - The complete preset generator produces 22 unique source fixtures used by 43 scenarios, and preset
   plus derived-registry agreement is recorded in
   `games/minecraft/investigation-state/analysis/preset-fixture-migration-20260903T050500Z/mapping.json`.
-  No `rtf_ephemeral` schema, parser, materializer, test, documentation, or patch remains.
+  No deprecated ephemeral-fixture schema, parser, materializer, test, documentation, or patch
+  remains.
 - The current source passes 281 Java tests, both loader checks and builds, access-widener
   validation, Architectury transformation, remapping, Mixin application, and production assembly.
 - The investigation suite passes 120 tests including slow lifecycle controls; QA passes 426.
@@ -39,7 +40,7 @@ transformer emits the loader implementation as a self-contained class in each pr
   Regions Unexplored, loader-appropriate Lithostitched, Biolith, TerraBlender, mixed stacks, unseen
   mechanism users, custom sources, owner-serial concurrency, reload, cancellation, unknown nodes,
   malformed providers, ordinary and extended height, structures, carvers, flow fields, ores, surface
-  rescue, underground behavior, and C2ME tall worlds.
+  rescue, underground behavior, and tall worlds.
 - Actual world-creation UI runs on both loaders cover shared preview, regeneration, cancellation,
   datapack and dimension changes, server creation, finished chunks, biome identity, generation,
   saving, and clean teardown. NeoForge resolves `nomansland:autumnal_forest`; Fabric resolves the
@@ -48,10 +49,9 @@ transformer emits the loader implementation as a self-contained class in each pr
   plan across replacement, isolated-safe selection may run concurrently, and the next operation
   observes the replacement.
 - Cross-loader placement census compiles the same eleven generic chunk-local contracts with no
-  failure. Fabric run `20260904T030131Z-18dbe984c4` and NeoForge run `20260904T025923Z-762620f633`
-  complete every cliff descendant and retain all resulting write attempts inside the owner chunk
-  while ordinary stone and unclassified snow controls preserve vanilla behavior. The analysis is
-  retained at
+  failure. Both loaders complete every cliff descendant and retain all resulting write attempts
+  inside the owner chunk while ordinary stone and unclassified snow controls preserve vanilla
+  behavior. The analysis is retained at
   `games/minecraft/investigation-state/analysis/natures-spirit-placement-20260904/analysis.md`.
 
 ## Performance and ownership
@@ -68,15 +68,10 @@ health and exact investigation ownership. Never read `/proc/<pid>/stack`.
 
 ## Production artifacts
 
-Both production JARs pass artifact inspection and packaged optional-absent starts on Fabric
-(`20260904T031438Z-10bbafb696`) and NeoForge (`20260904T031544Z-c5567169ee`). Production-remapped
-Regions Unexplored/Lithostitched starts pass on Fabric beta5 (`20260904T031644Z-e17eeaa52c`) and
-NeoForge beta4 (`20260904T031742Z-8b9d01ba9b`). They contain no probe, development sentinel, stale
-Mixin, deleted implementation, retained NeoForge override, bundled optional dependency, Architectury
-runtime dependency, or incorrect metadata.
-
-- `ftf-fabric.jar`: `4efd568e4c0cb1e1b843d5a84ab25877a4aa596aabc4d9198fc85cb50cabadb2`
-- `ftf-neoforge.jar`: `dec6573bc967d749d781e2dadfc717166f1484123a87825e5bf229e6c1a6438c`
+Both production JARs pass artifact inspection and packaged optional-absent starts on both loaders.
+Production-remapped Regions Unexplored/Lithostitched starts also pass on both loaders. They contain
+no probe, development sentinel, stale Mixin, deleted implementation, retained NeoForge override,
+bundled optional dependency, Architectury runtime dependency, or incorrect metadata.
 
 ## Current integration boundary
 

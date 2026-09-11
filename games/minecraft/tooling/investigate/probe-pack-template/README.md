@@ -47,5 +47,5 @@ Verification sequence:
 5. Stop and verify inactive state, no listeners/world/protocol directory, and complete cleanup.
 6. Run a normal production build and `inspect-artifact` before publishing anything.
 
-The RTF `heightmap-delta` pack is the first genuinely new probe created through this template. It
+The FTF `heightmap-delta` pack is the first genuinely new probe created through this template. It
 changed only its new pack directory plus scenario selection and uses the unchanged shared runtime.

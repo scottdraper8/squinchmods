@@ -4,8 +4,8 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "fabric"
 seed = 3216933670
 probe_packs = [
-    "games/minecraft/investigations/reterraforged/probes/flow-settings-acceptance",
-    "games/minecraft/investigations/reterraforged/probes/flow-storage-network",
+    "games/minecraft/investigations/freeterraforged/probes/flow-settings-acceptance",
+    "games/minecraft/investigations/freeterraforged/probes/flow-storage-network",
 ]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
@@ -13,7 +13,7 @@ companion_artifacts = [
 ]
 retention = "keep-on-failure"
 
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--flow-settings-disabled/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/vanilla-depth-maximum-ocean--flow-settings-disabled/fixture.toml"
 
 [server_properties]
 view-distance = 4
@@ -27,20 +27,20 @@ step = 1200
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender"]
+required_mods = ["minecraft", "freeterraforged", "terrablender"]
 
 [[probes]]
-id = "squinch:rtf-flow-settings-acceptance"
+id = "squinch:ftf-flow-settings-acceptance"
 version = "1"
 config = { expected_overworld_settings = 0 }
 
 [[probes]]
-id = "squinch:rtf-flow-storage-network-arm"
+id = "squinch:ftf-flow-storage-network-arm"
 version = "1"
 config = { windows = [[0, 0, 15, 15], [20, 0, 35, 15], [40, 0, 55, 15], [60, 0, 75, 15], [80, 0, 95, 15]] }
 
 [[probes]]
-id = "squinch:rtf-flow-storage-network-report"
+id = "squinch:ftf-flow-storage-network-report"
 version = "1"
 config = { windows = [[0, 0, 15, 15], [20, 0, 35, 15], [40, 0, 55, 15], [60, 0, 75, 15], [80, 0, 95, 15]] }
 
@@ -52,7 +52,7 @@ config = { max_wait_ticks = 2400 }
 [[steps]]
 id = "capture-level-ownership-before-reload"
 type = "probe"
-probe = "squinch:rtf-flow-settings-acceptance"
+probe = "squinch:ftf-flow-settings-acceptance"
 expect = { terminal_state = "pass" }
 
 [[steps]]
@@ -63,13 +63,13 @@ command = "reload"
 [[steps]]
 id = "verify-reload-player-and-dimension-sync"
 type = "probe"
-probe = "squinch:rtf-flow-settings-acceptance"
+probe = "squinch:ftf-flow-settings-acceptance"
 expect = { terminal_state = "pass" }
 
 [[steps]]
 id = "arm-serializer-capture"
 type = "probe"
-probe = "squinch:rtf-flow-storage-network-arm"
+probe = "squinch:ftf-flow-storage-network-arm"
 expect = { terminal_state = "pass" }
 
 [[steps]]
@@ -92,5 +92,5 @@ expect = { response_contains = "Saved the game" }
 [[steps]]
 id = "verify-flow-parity-and-persistence"
 type = "probe"
-probe = "squinch:rtf-flow-storage-network-report"
+probe = "squinch:ftf-flow-storage-network-report"
 expect = { terminal_state = "pass" }

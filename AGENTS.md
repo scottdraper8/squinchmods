@@ -84,5 +84,8 @@
 
 - Keep this file limited to durable rules and pointers. Put investigation conclusions in the
   canonical plan and raw observations in retained run artifacts or focused analysis outputs.
+- Do not put commit hashes, artifact hashes, investigation run IDs, ephemeral counts, or run
+  inventories in this file or routine routing notes unless an exact identifier is necessary to
+  disambiguate the live target. Link to the focused evidence record instead.
 - On context restoration, inspect current status and continue from completed artifacts rather than
   repeating finished work.

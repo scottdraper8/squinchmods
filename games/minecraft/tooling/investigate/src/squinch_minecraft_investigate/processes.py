@@ -8,8 +8,9 @@ import socket
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, IO
+from typing import IO
 
 from .errors import InvestigationError
 

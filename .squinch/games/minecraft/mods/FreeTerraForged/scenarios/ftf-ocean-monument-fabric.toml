@@ -3,8 +3,8 @@ name = "FTF ocean monument finished-piece execution — Fabric"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/ocean-monument-diagnostics"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/ocean-monument-diagnostics"]
 retention = "keep-on-failure"
 
 [server_properties]
@@ -18,10 +18,10 @@ step = 600
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[probes]]
-id = "squinch:rtf-ocean-monument-diagnostics"
+id = "squinch:ftf-ocean-monument-diagnostics"
 version = "1"
 config = { bounds = [-123, 554, -115, 562], unit = "chunk", max_wait_ticks = 6000, min_observations = 1 }
 
@@ -36,5 +36,5 @@ type = "generate"
 unit = "chunk"
 bounds = [-123, 554, -115, 562]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-ocean-monument-diagnostics"
+terminal_probe = "squinch:ftf-ocean-monument-diagnostics"
 expect = { terminal_state = "pass" }

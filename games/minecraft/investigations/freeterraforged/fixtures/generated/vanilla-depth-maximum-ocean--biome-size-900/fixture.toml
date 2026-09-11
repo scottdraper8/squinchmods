@@ -1,0 +1,17 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--biome-size-900"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-size-900."
+applicable_questions = [
+  "FTF + Oh The Biomes We've Gone spatial compatibility — biome size 900",
+  "FTF + Biomes O' Plenty spatial compatibility — biome size 900",
+  "FTF spatial compatibility control — biome size 900",
+  "FTF + Nature's Spirit spatial compatibility — biome size 900",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "4310e0877e54d6a4afc42cb2d5393cfa775fc76cfe793aabb68ad9160fe3a42f"

@@ -85,7 +85,7 @@ class TestRemoteDispatch:
         monkeypatch.setattr(_gh, "run_gh", fake_run_gh)
 
         dispatch_run(
-            mod="reterraforged",
+            mod="freeterraforged",
             run_id="1234567890-deadbeef",
             target="neoforge-1.21.1",
             profile="pre-pr",

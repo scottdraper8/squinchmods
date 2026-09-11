@@ -1,0 +1,16 @@
+schema_version = 2
+id = "biolith-sub-biome-boundary"
+classification = "reusable-control"
+purpose = "Exercise immutable Biolith built-in criterion normalization with only registered vanilla biome holders."
+applicable_questions = [
+  "Biolith sub-biome extraction completeness",
+  "preview and runtime selection parity",
+  "immutable value-criterion execution",
+]
+known_limitations = [
+  "The fixture exercises a built-in value criterion; nested, neighbor, alternate, ratio, and deviation forms are covered by focused tests",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "331bcd32bd629b4bba5161555f3f585431ae004da4288644e3cabf88962dc7b7"

@@ -20,13 +20,13 @@ from typing import Any
 
 from .catalog import ResolvedArtifact, resolve_artifacts
 from .errors import CleanupError, InvestigationError
+from .fixtures import archive_generated_fixture, load_fixture
 from .generation import generate_regions, release_regions
-from .fixtures import load_fixture, materialize_fixture
 from .output import timestamp
 from .paths import REPOSITORY_ROOT, STATE_ROOT
 from .probe_requests import submit_probe
-from .profiling import start_jfr, stop_jfr, verify_jfr_host_health
 from .processes import identity_matches
+from .profiling import start_jfr, stop_jfr, verify_jfr_host_health
 from .server import (
     persist_active,
     run_commands,
@@ -78,7 +78,7 @@ class Scenario:
     loader: str
     launch_task: str
     seed: str
-    rtf_fixture: Path | None
+    ftf_fixture: Path | None
     datapacks: tuple[Path, ...]
     runtime_files: tuple[tuple[Path, str], ...]
     runtime_absent_files: tuple[str, ...]
@@ -165,7 +165,7 @@ def load_scenario(path: str | Path) -> Scenario:
             "loader",
             "launch_task",
             "seed",
-            "rtf_fixture",
+            "ftf_fixture",
             "datapacks",
             "runtime_files",
             "runtime_absent_files",
@@ -204,9 +204,9 @@ def load_scenario(path: str | Path) -> Scenario:
     if not seed:
         raise _error("seed cannot be empty or random")
 
-    rtf_fixture = None
-    if "rtf_fixture" in raw:
-        rtf_fixture = _scenario_path(scenario_path, raw["rtf_fixture"], "rtf_fixture")
+    ftf_fixture = None
+    if "ftf_fixture" in raw:
+        ftf_fixture = _scenario_path(scenario_path, raw["ftf_fixture"], "ftf_fixture")
     datapack_values = raw.get("datapacks", [])
     if not isinstance(datapack_values, list):
         raise _error("datapacks must be an array of paths")
@@ -509,7 +509,7 @@ def load_scenario(path: str | Path) -> Scenario:
         loader,
         launch_task,
         seed,
-        rtf_fixture,
+        ftf_fixture,
         datapacks,
         tuple(runtime_files),
         tuple(runtime_absent_files),
@@ -538,10 +538,7 @@ def _sha256(path: Path) -> str:
 
 
 def _candidate_coordinates(path: Path, limit: int) -> list[dict[str, int]]:
-    try:
-        value = read_json(path)
-    except InvestigationError:
-        raise
+    value = read_json(path)
     scan = value.get("scan")
     if not isinstance(scan, dict):
         data = value.get("data")
@@ -682,8 +679,8 @@ def capture_provenance(
             "candidate_file_not_found", f"candidate file not found: {missing_candidates[0]}"
         )
     datapacks = []
-    resolved_rtf_presets = 0
-    rtf_preset_path = "data/reterraforged/reterraforged/worldgen/preset/preset.json"
+    resolved_ftf_presets = 0
+    ftf_preset_path = "data/freeterraforged/freeterraforged/worldgen/preset/preset.json"
     for path in scenario.datapacks:
         item: dict[str, Any] = {
             "path": str(path),
@@ -692,23 +689,23 @@ def capture_provenance(
         }
         try:
             with zipfile.ZipFile(path) as archive:
-                if rtf_preset_path in archive.namelist():
-                    raw_preset = archive.read(rtf_preset_path)
+                if ftf_preset_path in archive.namelist():
+                    raw_preset = archive.read(ftf_preset_path)
                     resolved = json.loads(raw_preset)
                     if not isinstance(resolved, dict):
                         raise ValueError("resolved preset is not an object")
-                    item["resolved_rtf_preset"] = resolved
-                    item["resolved_rtf_preset_sha256"] = hashlib.sha256(raw_preset).hexdigest()
-                    resolved_rtf_presets += 1
+                    item["resolved_ftf_preset"] = resolved
+                    item["resolved_ftf_preset_sha256"] = hashlib.sha256(raw_preset).hexdigest()
+                    resolved_ftf_presets += 1
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError, ValueError) as exc:
             raise InvestigationError(
                 "invalid_datapack", f"cannot inspect datapack {path}: {exc}"
             ) from exc
         datapacks.append(item)
-    if resolved_rtf_presets > 1:
+    if resolved_ftf_presets > 1:
         raise InvestigationError(
-            "ambiguous_rtf_preset",
-            "multiple datapacks define the authoritative RTF preset registry entry",
+            "ambiguous_ftf_preset",
+            "multiple datapacks define the authoritative FTF preset registry entry",
         )
     provenance = {
         "scenario": {
@@ -982,8 +979,8 @@ def _measurement_summary(observations: list[dict[str, Any]]) -> dict[str, Any]:
 def _seconds_between(started: str | None, finished: str | None) -> float | None:
     if not started or not finished:
         return None
-    start = datetime.fromisoformat(started.replace("Z", "+00:00"))
-    finish = datetime.fromisoformat(finished.replace("Z", "+00:00"))
+    start = datetime.fromisoformat(started)
+    finish = datetime.fromisoformat(finished)
     return (finish - start).total_seconds()
 
 
@@ -1107,18 +1104,32 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         return request, result
 
     try:
-        if scenario.rtf_fixture is not None:
-            fixture_manifest, _files = load_fixture(scenario.rtf_fixture)
+        if scenario.ftf_fixture is not None:
+            from .preset_fixture import generate_preset_fixture
+
+            fixture_manifest = load_fixture(scenario.ftf_fixture)
+            generated_fixture = generate_preset_fixture(
+                project_value=scenario.project,
+                preset=Path(fixture_manifest["preset_path"]),
+                timeout=scenario.startup_timeout,
+            )
             materialized_dir = STATE_ROOT / "materialized" / uuid.uuid4().hex
             materialized_dir.mkdir(parents=True, exist_ok=False)
             materialized_path = materialized_dir / f"{fixture_manifest['id']}.zip"
-            fixture_manifest = materialize_fixture(scenario.rtf_fixture, materialized_path)
+            fixture_manifest.update(
+                archive_generated_fixture(generated_fixture["output_path"], materialized_path)
+            )
+            fixture_manifest["generator_run_id"] = generated_fixture["run_id"]
+            fixture_manifest["generator_manifest_path"] = generated_fixture["manifest_path"]
+            fixture_manifest["generated_content_sha256"] = generated_fixture["manifest"][
+                "generated"
+            ]["content_sha256"]
             effective_scenario = replace(
                 scenario, datapacks=(materialized_path, *scenario.datapacks)
             )
         provenance, dirty_patch = capture_provenance(effective_scenario, environment)
         if fixture_manifest is not None:
-            provenance["rtf_fixture"] = fixture_manifest
+            provenance["ftf_fixture"] = fixture_manifest
         server_properties = dict(scenario.server_properties)
         if any(step.kind == "generate" for step in scenario.steps):
             # Deliberate bounded generation is controlled by the scenario step timeout and
@@ -1186,7 +1197,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                 if datapack["path"] == str(materialized_path):
                     datapack["materialization_path"] = datapack["path"]
                     datapack["path"] = str(fixture_artifact)
-                    datapack["fixture_metadata_path"] = str(scenario.rtf_fixture)
+                    datapack["fixture_metadata_path"] = str(scenario.ftf_fixture)
                     datapack["artifact_path"] = str(fixture_artifact)
             state["datapacks"] = [
                 str(fixture_artifact) if path == str(materialized_path) else path
@@ -1275,7 +1286,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                     tuple(bounds),
                     step.values["unit"],
                     remaining,
-                    progress=lambda value: record_event(
+                    progress=lambda value, index=index: record_event(
                         "generation-progress",
                         step_id=step.step_id,
                         observation=index,
@@ -1361,13 +1372,13 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             profile = None
             try:
                 result = execute_scenario_step(step)
-            except BaseException as exc:
+            except BaseException as exc:  # noqa: BLE001 - scenario cleanup covers signals
                 step_failure = exc
                 result = {}
             if recording is not None:
                 try:
                     profile = stop_jfr(recording, environment.get("JAVA_HOME"))
-                except BaseException as exc:
+                except BaseException as exc:  # noqa: BLE001 - preserve primary failure
                     if step_failure is None:
                         step_failure = exc
                     elif isinstance(step_failure, InvestigationError):
@@ -1481,7 +1492,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "steps": steps,
                         "provenance": provenance,
                         "world_identity": world_identity,
-                        "rtf_fixture": fixture_manifest,
+                        "ftf_fixture": fixture_manifest,
                         "scenario_summary": str(scenario_summary_path),
                         "scenario_progress": str(progress_path),
                         "cleanup_failed": {
@@ -1536,7 +1547,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         "steps": steps,
         "provenance": provenance,
         "world_identity": world_identity,
-        "rtf_fixture": fixture_manifest,
+        "ftf_fixture": fixture_manifest,
         "scenario_summary": str(scenario_summary_path),
         "scenario_progress": str(progress_path),
     }

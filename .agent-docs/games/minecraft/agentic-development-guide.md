@@ -9,30 +9,30 @@ under `mods/<mod>/plans/`; this doc is the reusable process, not any one investi
 If something about the tooling itself surprises you (not a mod-specific finding), record it in
 `agentic-development-findings.md` rather than expanding this file — see the last section.
 
-Worked examples throughout are RTF's Fabric/NeoForge dev environment, but the tool is not
-RTF-specific — the same pattern applies to any Fabric/NeoForge mod with a `runServer` Gradle task.
-RTF-specific pieces (`cell-scan`, fixtures, reusable probe packs) are called out explicitly.
+Worked examples throughout are FTF's Fabric/NeoForge dev environment, but the tool is not
+FTF-specific — the same pattern applies to any Fabric/NeoForge mod with a `runServer` Gradle task.
+FTF-specific pieces (`cell-scan`, fixtures, reusable probe packs) are called out explicitly.
 
 ## When to reach for this
 
 Once you have a _specific, real_ case to test (an exact seed, an exact preset/datapack, ideally
 already confirmed by a human on a real client) and need to measure or compare something precisely
-and repeatably. Do not start a dedicated server for open-ended coordinate discovery on RTF worlds —
+and repeatably. Do not start a dedicated server for open-ended coordinate discovery on FTF worlds —
 use the standalone `cell-scan` funnel below first, then reserve the server for bounded confirmation.
 
 ## The authority ladder
 
 Every command in this system labels its own authority. Passing a lower rung never proves a higher
-one — an RTF cell scan cannot prove final blocks, and a mocked/cold query cannot prove process
+one — an FTF cell scan cannot prove final blocks, and a mocked/cold query cannot prove process
 teardown or loader behavior. Reach for the cheapest rung that can genuinely answer the question,
 then cross the real boundary before calling an investigation finished:
 
 1. **Pure logic** — reading source, static analysis, parsing. No Minecraft process involved.
-2. **RTF prediction** — `cell-scan` preview/adaptive mode, RTF's exact `generateZoomed(..., false)`
+2. **FTF prediction** — `cell-scan` preview/adaptive mode, FTF's exact `generateZoomed(..., false)`
    path run in a standalone JVM. Fast, no server, but explicitly a prediction, never finished-world
    truth.
-3. **RTF tile** — `cell-scan --mode tile`, RTF's real horizontal cell/`TileGenerator` model. Still
-   standalone, still not final blocks; it is the RTF horizontal-cell-model authority, not more.
+3. **FTF tile** — `cell-scan --mode tile`, FTF's real horizontal cell/`TileGenerator` model. Still
+   standalone, still not final blocks; it is the FTF horizontal-cell-model authority, not more.
 4. **Generation hook** — a probe or Mixin observing an in-progress generation phase
    (`structure-start`, `generation`, `placement`). Real Minecraft, but the object graph
    mid-generation can differ from the finished result (see the `WorldGenRegion`/cold-scan hazards
@@ -45,12 +45,12 @@ then cross the real boundary before calling an investigation finished:
    initial discovery (see the findings doc).
 
 Every structured result (`probe`, `scenario`, `cell-scan`, `compare`) records which rung it's
-speaking from — `authority: "prediction"`, `"rtf-horizontal-cell-model"`, `"generation"`, or
+speaking from — `authority: "prediction"`, `"ftf-horizontal-cell-model"`, `"generation"`, or
 `"finished-chunk"` — so you never have to infer it from context.
 
-## 1. Fast discovery: the RTF coarse-to-finished-chunk funnel
+## 1. Fast discovery: the FTF coarse-to-finished-chunk funnel
 
-Do not start a server to search a large RTF coordinate space. Run `cell-scan` against an exact
+Do not start a server to search a large FTF coordinate space. Run `cell-scan` against an exact
 worktree, seed, and source fixture first — it uses the selected worktree's real compiled `Preset`,
 noise bootstrap, `GeneratorContext`, and `TileGenerator` classes in a small standalone JVM, and
 fails explicitly rather than silently falling back to a live server if that bootstrap boundary can't
@@ -59,20 +59,20 @@ be established:
 ```bash
 tooling/squinch mc-investigate cell-scan \
   --project games/minecraft/mods/FreeTerraForged \
-  --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
+  --preset games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
   --seed 12345 --mode adaptive --bounds -4096 -4096 4096 4096 \
   --sample-step 16 --predicate 'height:>=:0.15' \
   --field height,height_blocks,terrain,continent_edge \
   --refine-count 2 --refine-step 8 --exact-tile --json
 ```
 
-Preview/adaptive output has prediction authority; an exact tile has RTF-horizontal-model authority.
+Preview/adaptive output has prediction authority; an exact tile has FTF-horizontal-model authority.
 Neither is a generated chunk. The result artifact contains aggregate distributions and a bounded
 `scan.top_candidates` shortlist instead of a raw million-row dump; available fields span height,
 terrain/type, continent, river, temperature/moisture, erosion, weirdness, water table, and
-terrain/biome region. `--mode tile --tile-size 3` invokes RTF's actual runtime tile filter/border
+terrain/biome region. `--mode tile --tile-size 3` invokes FTF's actual runtime tile filter/border
 calculation instead of the preview path. Every scan artifact records the exact seed, resolved
-preset, target HEAD/dirty status, harness hashes, Minecraft/RTF/Java versions, a fingerprinted
+preset, target HEAD/dirty status, harness hashes, Minecraft/FTF/Java versions, a fingerprinted
 classpath, cold/warm/Gradle wall timings, and a deterministic result hash — repeated identical scans
 are deterministic.
 
@@ -83,13 +83,13 @@ about 18 seconds to start the comparable Fabric server before its first scenario
 recorded evidence for the search scale at hand rather than treating these machine-specific numbers
 as guarantees.
 
-To confirm the standalone RTF-tile model actually matches what the live server generates, run the
+To confirm the standalone FTF-tile model actually matches what the live server generates, run the
 canonical parity scenario, which selects the external `probes/cell-cache` pack and compares
-standalone factor-3 samples against RTF's live runtime tile cache at identical coordinates:
+standalone factor-3 samples against FTF's live runtime tile cache at identical coordinates:
 
 ```bash
 tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-cell-cache-cross-check.toml --json
+  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-cell-cache-cross-check.toml --json
 ```
 
 To turn discovery into finished-world evidence, point a scenario generation step at the scanner's
@@ -108,7 +108,7 @@ terminal_probe = "squinch:finished-chunks"
 
 The runner reads `scan.top_candidates`, floors negative coordinates correctly, deduplicates by
 chunk, force-generates each selected chunk, and runs the chosen terminal probe against every one.
-The funnel is: preview prediction → optional exact RTF tile → bounded real generation →
+The funnel is: preview prediction → optional exact FTF tile → bounded real generation →
 finished-chunk probe. Only the last stage is finished-world truth.
 
 ## 2. Running a real server and scenario
@@ -187,14 +187,14 @@ loader log. A crash, fatal server condition, timeout, assertion failure, missing
 probe terminal, incomplete scan, or cleanup failure makes the command nonzero — never a superficial
 success.
 
-An RTF scenario names one retained source-form fixture with `rtf_fixture = ".../fixture.toml"`. The
-runner deterministically materializes it, copies the generated ZIP into the run artifacts, and
-records the semantic metadata, complete resolved preset, logical source hash, and archive hash.
-Additional independent datapacks stay a repeatable `datapacks = [...]` array. Do not use partial
-preset overrides for runtime evidence. A valid variant must be generated completely through FTF's
-preset datapack generator and retained as a source-form fixture before a scenario uses it. See
-`games/minecraft/investigations/reterraforged/fixtures/` for fixtures named by their current
-condition rather than an incident or historical nickname.
+An FTF scenario names one compact preset fixture with `ftf_fixture = ".../fixture.toml"`. The runner
+generates the complete registry tree through the selected worktree's real FTF exporter, copies a
+deterministic ZIP into the run artifacts, and records the generator run ID, semantic metadata, input
+preset hash, generated-tree hash, and archive hash. Additional independent datapacks stay a
+repeatable `datapacks = [...]` array. Do not use partial preset overrides for runtime evidence. A
+valid variant is one complete tracked preset JSON; generated registry trees remain ignored run
+artifacts. See `games/minecraft/investigations/freeterraforged/fixtures/` for fixtures named by
+their current condition rather than an incident or historical nickname.
 
 ### Actual world-creation UI
 
@@ -235,7 +235,7 @@ own limit) — a region larger than 16x16 chunks errors with `Too many chunks in
 instead of silently truncating.
 
 **Multiple large `forceload` calls issued back-to-back can crash the server via the watchdog.**
-Eight ~200-chunk `forceload` commands sent in one invocation against an expensive preset (RTF's
+Eight ~200-chunk `forceload` commands sent in one invocation against an expensive preset (FTF's
 deep-world ocean stress condition, ~105ms/chunk thread time) blocked the main thread long enough
 that vanilla's `ServerWatchdog` killed the process outright — a real crash, not a timeout warning,
 with its own crash report. Not a mixin bug; it's the same watchdog that fires against unmodified
@@ -308,7 +308,7 @@ Built-in probes, registered in
   `squinch:isolation-control`, `squinch:stop-flush-control` are protocol negative/positive controls,
   not investigation probes.
 
-Reusable RTF investigation packs live under `games/minecraft/investigations/reterraforged/probes/`
+Reusable FTF investigation packs live under `games/minecraft/investigations/freeterraforged/probes/`
 (`biome-palette`, `placement-telemetry`, `cell-cache`, `heightmap-delta`) — see that directory's
 README for their historical disposition, and
 `games/minecraft/tooling/investigate/probe-pack-template/README.md` for authoring a new one. **Most
@@ -401,7 +401,7 @@ generated level chunks, not mid-generation ones.
 
 **Biome fixes need the same finished-chunk rule: read `LevelChunk.getNoiseBiome()`, not a standalone
 `BiomeSource` prediction.** A cold query and the real chunk generator can use different sampler
-objects even when both look internally consistent — RTF's dynamic banding once attached
+objects even when both look internally consistent — FTF's dynamic banding once attached
 configuration to `RandomState.sampler()`, while `NoiseBasedChunkGenerator.doCreateBiomes()` actually
 fills the chunk palette from `NoiseChunk.cachedClimateSampler()`, so cold queries showed the
 intended bands while finished chunks stayed unbanded. `squinch:finished-chunk-palette` implements
@@ -437,8 +437,8 @@ is exactly what the probe protocol's `phase` field encodes structurally instead 
 free-text log marker.
 
 **Registration:** add the mixin's package-relative name to the mod's `*.mixins.json` `"mixins"` list
-(check the existing file for the package/naming convention — RTF's is flat short-name-per-entry with
-dot-separated subpackages, e.g. `"qa.MixinFoo"` for `raccoonman.reterraforged.mixin.qa.MixinFoo`).
+(check the existing file for the package/naming convention — FTF's is flat short-name-per-entry with
+dot-separated subpackages, e.g. `"qa.MixinFoo"` for `etcodehome.freeterraforged.mixin.qa.MixinFoo`).
 
 **Two QA mixins targeting the same class with an identically-named-and-signatured field or method
 silently collide** — Sponge Mixin merges them into the target class with no warning, and only one
@@ -460,7 +460,7 @@ into it, check out an exact commit, build, and remember to clean it up. Run a co
 tooling/squinch mc-investigate compare \
   --project games/minecraft/mods/FreeTerraForged \
   --before <parent-sha> --after <fix-sha> \
-  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-biome-palette.toml \
   --expect different --json
 ```
 
@@ -517,7 +517,7 @@ Do not describe a timed `forceload`/generation window as server startup time —
 server first, wait for readiness, then time generation against a _previously ungenerated_ coordinate
 window. Seed, preset, loader, mod set, JVM arguments, window size, and machine load must match
 between runs; one wall-time result shows impact, repeated fresh windows establish a range. Use a
-profiler alongside wall time when attributing cause, not as a replacement for it — in the RTF
+profiler alongside wall time when attributing cause, not as a replacement for it — in the FTF
 TerraBlender case, identical 64-chunk windows showed a large wall-time reduction, while JFR
 independently showed the relevant biome-resolution hotspot falling from 38.8% to 1.24% of execution
 samples and a redundant namespaced surface dispatcher disappearing from sampled stacks. That
@@ -554,6 +554,13 @@ kept runs. Age cleanup preserves the exact evidence IDs in
 `.squinch/games/minecraft/investigation-retention.toml`; exact deletion of a protected run requires
 `--include-protected`. Cleanup rejects active runs, symlinks, foreign manifests, and paths outside
 the owned state root, and deletes directly after validation; there is no speculative trash layer.
+
+An exact run ID belongs only in a focused investigation analysis or an explicit acceptance reference
+when that run uniquely supports a current claim. Plans and `agent-resume.md` link to those records
+instead of duplicating run inventories. Do not cite reproducible smoke runs, intermediate
+fixture-generation runs, superseded controls, or operational attempts merely to preserve them. The
+retention index is the exact set of current justified citations, not an archive; pre-commit rejects
+both unprotected citations and protected IDs without a citation.
 
 If driving this from an agent session with background task tracking, background tasks and scheduled
 wakeups don't automatically clean themselves up just because the underlying process died — verify

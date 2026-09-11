@@ -317,7 +317,7 @@ displayName = "Squinch Investigation Probe"
                     def remapTask = project.tasks.named("remapJar").get()
                     java.nio.file.Files.copy(
                             remapTask.archiveFile.get().asFile.toPath(),
-                            new File(runMods, "reterraforged-production.jar").toPath(),
+                            new File(runMods, "freeterraforged-production.jar").toPath(),
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                     java.nio.file.Files.copy(
                             probeJar.get().archiveFile.get().asFile.toPath(),

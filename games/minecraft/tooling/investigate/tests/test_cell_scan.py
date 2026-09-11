@@ -18,7 +18,7 @@ from squinch_minecraft_investigate.errors import InvestigationError
 
 
 def test_tile_selection_uses_floor_coordinates_across_negative_origin() -> None:
-    """Catches truncation toward zero, which would silently omit negative RTF tiles."""
+    """Catches truncation toward zero, which would silently omit negative FTF tiles."""
     assert _tiles([-129, -129, 0, 0], 3) == [
         {"x": x, "z": z} for z in (-2, -1, 0) for x in (-2, -1, 0)
     ]

@@ -12,7 +12,6 @@ from .paths import lock_path
 from .server import load_active, persist_active
 from .state import atomic_write_json, project_lock
 
-
 TERMINAL_STATES = {"pass", "fail", "inconclusive", "error"}
 PROBE_PHASES = {
     "prediction",

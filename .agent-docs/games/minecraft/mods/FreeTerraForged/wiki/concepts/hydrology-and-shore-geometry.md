@@ -1,6 +1,6 @@
 # Hydrology and Shore Geometry
 
-RTF has several distinct water/coast concepts. Keeping them separate prevents a fix for one system
+FTF has several distinct water/coast concepts. Keeping them separate prevents a fix for one system
 from distorting another.
 
 ## Hydrology fields
@@ -41,7 +41,7 @@ blocks.
 
 ## Wetlands versus lakes
 
-RTF wetlands are mounded lowlands, not ordinary radial lakes. A distance-to-center shore signal is a
+FTF wetlands are mounded lowlands, not ordinary radial lakes. A distance-to-center shore signal is a
 proxy rather than exact physical shoreline distance. Wetland morphology and shore classification are
 separate stages with independent representations.
 

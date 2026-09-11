@@ -6,8 +6,9 @@ import shutil
 import signal
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, TypeVar, cast
+from typing import TypeVar, cast
 
 from .errors import CleanupError, InvestigationError
 from .output import timestamp
@@ -15,8 +16,8 @@ from .processes import (
     confirm_uninterruptible,
     identity_matches,
     launch_service,
-    process_kernel_diagnostics,
     proc_identity,
+    process_kernel_diagnostics,
     service_members,
     signal_recorded_process,
     signal_service,
@@ -260,7 +261,7 @@ def run_finite_service(
                 if launch_owned:
                     try:
                         failures.extend(terminate_owned_service(state, 15.0, label=operation))
-                    except BaseException as exc:
+                    except BaseException as exc:  # noqa: BLE001 - cleanup must survive signals
                         failures.append(f"{operation} launch cleanup failed: {exc}")
                     alive = bool(state.get("remaining_owned_processes"))
                 if alive:
@@ -343,7 +344,7 @@ def run_finite_service(
                 f"{operation} service remained active after launch exit",
             )
         validated = validate(state)
-    except BaseException as exc:
+    except BaseException as exc:  # noqa: BLE001 - finite services defer and clean up signals
         failure = exc
 
     with defer_termination_signals() as pending_signals:
@@ -351,7 +352,7 @@ def run_finite_service(
         if cleanup is not None:
             try:
                 cleanup_failures.extend(cleanup(state))
-            except BaseException as exc:
+            except BaseException as exc:  # noqa: BLE001 - cleanup must survive signals
                 cleanup_failures.append(f"{operation} cleanup callback failed: {exc}")
         if failure is None and pending_signals:
             failure = KeyboardInterrupt()
@@ -425,7 +426,7 @@ def recover_finite_service(
         if cleanup is not None:
             try:
                 failures.extend(cleanup(state))
-            except BaseException as exc:
+            except BaseException as exc:  # noqa: BLE001 - recovery must report every failure
                 failures.append(f"{state['operation']} cleanup callback failed: {exc}")
         state["finished_at"] = timestamp()
         state["cleanup"] = {"complete": not failures, "failures": failures}

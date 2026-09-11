@@ -3,9 +3,9 @@ name = "Upstream Nature's Spirit placement control"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
 probe_packs = [
-    "games/minecraft/investigations/reterraforged/probes/placement-telemetry",
+    "games/minecraft/investigations/freeterraforged/probes/placement-telemetry",
 ]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
@@ -25,10 +25,10 @@ step = 900
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "natures_spirit"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "natures_spirit"]
 
 [[probes]]
-id = "squinch:rtf-placement-telemetry"
+id = "squinch:ftf-placement-telemetry"
 version = "1"
 config = { feature_ids = ["natures_spirit:stone_cliff", "natures_spirit:stone_block_feature", "natures_spirit:snow_patch"], bounds = [-24, -120, -21, -117], unit = "chunk", max_wait_ticks = 6000, top_k = 30, bands = [{ id = "full_vertical_range", min_y = -1024, max_y = 1023 }] }
 
@@ -38,5 +38,5 @@ type = "generate"
 unit = "chunk"
 bounds = [-24, -120, -21, -117]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-placement-telemetry"
+terminal_probe = "squinch:ftf-placement-telemetry"
 expect = { terminal_state = "pass" }

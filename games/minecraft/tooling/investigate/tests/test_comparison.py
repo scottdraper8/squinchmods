@@ -44,7 +44,7 @@ def _scenario(path: Path, repo: Path) -> Scenario:
         loader="fabric",
         launch_task="runServer",
         seed="123",
-        rtf_fixture=None,
+        ftf_fixture=None,
         datapacks=(),
         runtime_files=(),
         runtime_absent_files=(),
@@ -121,7 +121,7 @@ def _runner(selected: Scenario) -> dict:
             },
         },
         "world_identity": {"actual_seed": 123, "world_dir": str(selected.project / "world")},
-        "rtf_fixture": None,
+        "ftf_fixture": None,
         "scenario_summary": f"/artifacts/{label}/scenario-summary.json",
         "scenario_progress": f"/artifacts/{label}/scenario-progress.jsonl",
     }

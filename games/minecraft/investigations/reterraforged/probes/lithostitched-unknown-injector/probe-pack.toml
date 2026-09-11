@@ -1,8 +1,0 @@
-schema_version = 1
-id = "ftf-lithostitched-unknown-injector"
-version = "1"
-target_adapter = "reterraforged-1.21.1"
-sources = ["src/main/java"]
-resources = ["src/main/resources"]
-mixins = ["squinch-lithostitched-unknown-injector.mixins.json"]
-capabilities = ["mechanism-registration", "unknown-type-boundary"]

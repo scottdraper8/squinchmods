@@ -1,9 +1,0 @@
-schema_version = 1
-id = "ftf-custom-source-contract"
-version = "1"
-target_adapter = "reterraforged-1.21.1"
-sources = ["src/main/java"]
-resources = ["src/main/resources"]
-mixins = []
-capabilities = ["server-thread", "custom-source-acquisition", "owner-serial-query"]
-required_source_paths = ["common/src/main/java/raccoonman/reterraforged/world/worldgen/runtime"]

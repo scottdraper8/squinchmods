@@ -6,7 +6,6 @@ from pathlib import Path
 
 from .errors import InvestigationError
 
-
 _ENTRY_MARKERS = (
     ("development-probe-sentinel", "META-INF/squinch-development-probe"),
     ("probe-mixin-config", "squinch-investigate.mixins.json"),

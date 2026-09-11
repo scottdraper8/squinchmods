@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from squinch_minecraft_investigate import client, cli, owned_operation, server
+from squinch_minecraft_investigate import cli, client, owned_operation, server
 from squinch_minecraft_investigate.errors import InvestigationError
 
 
@@ -35,17 +35,17 @@ def test_client_argument_maps_reject_unsafe_or_duplicate_environment_names() -> 
 
 
 def test_client_runtime_files_are_confined_to_config(tmp_path: Path) -> None:
-    source = tmp_path / "c2me.toml"
+    source = tmp_path / "runtime.toml"
     source.write_text("version = 3\n")
     assert cli._client_runtime_files([
-        f"{source}=config/c2me.toml"
-    ]) == ((source.resolve(), "config/c2me.toml"),)
+        f"{source}=config/runtime.toml"
+    ]) == ((source.resolve(), "config/runtime.toml"),)
     with pytest.raises(InvestigationError, match="SOURCE=config/TARGET"):
-        cli._client_runtime_files([f"{source}=../c2me.toml"])
+        cli._client_runtime_files([f"{source}=../runtime.toml"])
     with pytest.raises(InvestigationError, match="must be unique"):
         cli._client_runtime_files([
-            f"{source}=config/c2me.toml",
-            f"{source}=config/c2me.toml",
+            f"{source}=config/runtime.toml",
+            f"{source}=config/runtime.toml",
         ])
 
 
@@ -55,7 +55,7 @@ def test_owned_client_state_accepts_derived_headless_display_path(
     project = tmp_path / "project"
     project.mkdir()
     state_root = tmp_path / "state"
-    run_id = "20260907T043438Z-3ef12fc82e"
+    run_id = "20260101T010203Z-0123456789"
     artifact = state_root / "runs" / run_id
     active = state_root / "active.json"
     display_root = tmp_path / "runtime"
@@ -82,8 +82,8 @@ def test_owned_client_state_accepts_derived_headless_display_path(
         "display": {
             "backend": "headless",
             "runtime_root": str(display_root),
-            "runtime_dir": str(display_root / "squinch-3ef12fc82e"),
-            "wayland_display": "squinch-3ef12fc82e",
+            "runtime_dir": str(display_root / "squinch-0123456789"),
+            "wayland_display": "squinch-0123456789",
         },
     }
     active.parent.mkdir(parents=True)
@@ -104,7 +104,7 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     display_root = tmp_path / "runtime"
     display_root.mkdir()
     active = state_root / "active.json"
-    runtime_config = tmp_path / "c2me.toml"
+    runtime_config = tmp_path / "runtime.toml"
     runtime_config.write_text("version = 3\n")
     main = _identity(41)
     wrapper_identity = _identity(40)
@@ -119,7 +119,7 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     def launch(**kwargs):
         assert kwargs["environment"]["ALSOFT_DRIVERS"] == "null"
         assert kwargs["environment"]["SQUINCH_INVESTIGATE_RUN_ID"] == "test-run"
-        staged = state_root / "runs" / "test-run" / "client-run" / "config" / "c2me.toml"
+        staged = state_root / "runs" / "test-run" / "client-run" / "config" / "runtime.toml"
         assert staged.read_text() == runtime_config.read_text()
         for variable, value in kwargs["environment"].items():
             if variable == "SQUINCH_RESULT":
@@ -177,7 +177,7 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
         compile_artifacts=(),
         probe_environment={"SQUINCH_MODE": "ui"},
         result_files={"SQUINCH_RESULT": "result.json"},
-        runtime_files=((runtime_config, "config/c2me.toml"),),
+        runtime_files=((runtime_config, "config/runtime.toml"),),
         production=False,
         timeout=10,
     )

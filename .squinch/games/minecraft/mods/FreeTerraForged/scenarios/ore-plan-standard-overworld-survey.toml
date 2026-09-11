@@ -3,8 +3,8 @@ name = "Ore plan verification: standard Overworld placed-feature survey"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/placement-telemetry"]
 retention = "discard"
 
 [server_properties]
@@ -18,10 +18,10 @@ step = 600
 shutdown = 60
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[probes]]
-id = "squinch:rtf-placement-telemetry"
+id = "squinch:ftf-placement-telemetry"
 version = "1"
 config = { feature_ids = [
   "minecraft:ore_dirt", "minecraft:ore_gravel", "minecraft:ore_granite_upper", "minecraft:ore_granite_lower",
@@ -42,5 +42,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 7, 7]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-placement-telemetry"
+terminal_probe = "squinch:ftf-placement-telemetry"
 expect = { terminal_state = "pass" }

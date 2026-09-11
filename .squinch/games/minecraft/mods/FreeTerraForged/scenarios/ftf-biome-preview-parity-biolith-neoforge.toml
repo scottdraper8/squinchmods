@@ -4,8 +4,8 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "neoforge"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/biome-preview-parity"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-preview-parity"]
 companion_artifacts = ["mc1.21.1-neoforge-biolith-3.0.14"]
 retention = "keep-on-failure"
 
@@ -20,10 +20,10 @@ step = 600
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "biolith"]
+required_mods = ["minecraft", "freeterraforged", "biolith"]
 
 [[probes]]
-id = "squinch:rtf-biome-preview-parity"
+id = "squinch:ftf-biome-preview-parity"
 version = "1"
 config = { bounds = [64, 64, 67, 67], unit = "chunk", max_wait_ticks = 2400, horizontal_quart_step = 1, example_limit = 32, use_tile_authority = true }
 
@@ -33,5 +33,5 @@ type = "generate"
 unit = "chunk"
 bounds = [64, 64, 67, 67]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-biome-preview-parity"
+terminal_probe = "squinch:ftf-biome-preview-parity"
 expect = { terminal_state = "pass" }

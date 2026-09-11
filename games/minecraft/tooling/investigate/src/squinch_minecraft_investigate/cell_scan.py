@@ -32,7 +32,7 @@ from .server import (
 )
 from .state import atomic_write_json, read_json
 
-CELL_SCAN_ROOT = MINECRAFT_DIR / "investigations" / "reterraforged" / "cell-scan"
+CELL_SCAN_ROOT = MINECRAFT_DIR / "investigations" / "freeterraforged" / "cell-scan"
 CELL_SCAN_OVERLAY = CELL_SCAN_ROOT / "gradle" / "cell-scan.gradle"
 PREDICATE = re.compile(r"^([^:]+):(>=|<=|==|!=|>|<):(.+)$")
 CELL_FIELDS = {
@@ -74,8 +74,7 @@ def _directory_fingerprint(path: Path) -> tuple[str, int, int]:
 def _git(project: Path, *arguments: str) -> bytes:
     try:
         return subprocess.run(
-            ["git", *arguments], cwd=project, check=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, timeout=60,
+            ["git", *arguments], cwd=project, check=True, capture_output=True, timeout=60,
         ).stdout
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         raise InvestigationError("cell_scan_provenance_failed", f"git {' '.join(arguments)} failed: {exc}") from exc
@@ -108,7 +107,7 @@ def _predicate(value: str) -> dict[str, Any]:
 def _read_preset(path: Path) -> tuple[dict, dict]:
     resolved = path.expanduser().resolve()
     if resolved.name == "fixture.toml":
-        manifest, _files = load_fixture(resolved)
+        manifest = load_fixture(resolved)
         return manifest["resolved_preset"], manifest
     if resolved.is_symlink() or not resolved.is_file():
         raise InvestigationError("preset_not_found", f"preset is not a regular file: {resolved}")
@@ -153,7 +152,7 @@ def _validate_result(result: dict, request: dict) -> None:
     digest = result.get("deterministic_sha256")
     if (
         result.get("mode") != request["mode"]
-        or result.get("authority") not in {"prediction", "rtf-horizontal-cell-model"}
+        or result.get("authority") not in {"prediction", "ftf-horizontal-cell-model"}
         or result.get("cold_warm_equal") is not True
         or not isinstance(digest, str)
         or re.fullmatch(r"[0-9a-f]{64}", digest) is None
@@ -355,7 +354,7 @@ def run_cell_scan(args) -> dict:
         "ownership": OWNERSHIP,
         "run_id": run_id,
         "artifact_dir": str(artifact_dir),
-        "kind": "rtf-cell-scan",
+        "kind": "ftf-cell-scan",
         "project": str(project),
         "head": head,
         "dirty": bool(status_before),
@@ -377,13 +376,13 @@ def run_cell_scan(args) -> dict:
             "standalone_only": True,
             "minecraft": "SharedConstants.tryDetectVersion + Bootstrap.bootStrap",
             "registries": "RegistryAccess built-ins + RegistrySetBuilder",
-            "rtf_noises": "PresetNoiseData.bootstrap",
+            "ftf_noises": "PresetNoiseData.bootstrap",
             "preview_boundary": "GeneratorContext.makeUncached + generateZoomed(..., false)",
             "tile_boundary": "GeneratorContext.makeUncached + TileGenerator.generate",
         },
         "versions": {
             "minecraft": properties.get("minecraft_version"),
-            "rtf": properties.get("mod_version"),
+            "ftf": properties.get("mod_version"),
             "java_home": java_home,
             "java": result.get("java_version"),
             "java_vendor": result.get("java_vendor"),

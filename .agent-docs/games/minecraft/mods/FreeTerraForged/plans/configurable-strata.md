@@ -1,7 +1,8 @@
 # Configurable Strata
 
-Status: implemented on `feat/configurable-strata` at `ff1eed1`; both loaders compile and a real
-Fabric server boot passed. Product QA and the deepslate policy remain open.
+Status: implemented on the pre-rename `feat/configurable-strata` line, currently `b8da5683`. Earlier
+loader compilation and Fabric startup are regression evidence; current product QA begins after
+deliberate integration with `rename`. Product QA and the deepslate policy remain open.
 
 The reusable material-layer and surface-rule model is described in
 [`surface-rules-and-materials.md`](../wiki/concepts/surface-rules-and-materials.md). This plan keeps
@@ -20,7 +21,7 @@ the feature-specific open decisions and acceptance work.
 
 - Compare the same seed across at least two layer-count configurations and measure band thickness.
 - Compare material weights and measure generated stone/granite/andesite/diorite frequencies.
-- Inspect exported `overworld.json` and verify the actual `reterraforged:strata` rule contains the
+- Inspect exported `overworld.json` and verify the actual `freeterraforged:strata` rule contains the
   configured counts, depths, and weights.
 - Verify old presets without the nested strata object load with the chosen compatibility default.
 - Inspect shallow, default, and deep worlds for deepslate transition behavior.

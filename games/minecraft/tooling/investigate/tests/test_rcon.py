@@ -42,7 +42,7 @@ def _run_server(handler: Callable[[socket.socket], None]) -> tuple[int, threadin
             connection, _address = listener.accept()
             with connection:
                 handler(connection)
-        except BaseException as exc:
+        except Exception as exc:  # noqa: BLE001 - surface handler failures to the test thread
             failures.append(exc)
         finally:
             listener.close()

@@ -479,9 +479,9 @@ class TestRunCliDefaults:
             "run_plan",
             lambda *a, **k: pytest.fail("should not run mismatched plan"),
         )
-        plan_path = tmp_path / "rtf-plan.json"
+        plan_path = tmp_path / "ftf-plan.json"
         plan_path.write_bytes(
-            MINIMAL_PLAN_BYTES.replace(b'"test-mod"', b'"reterraforged"')
+            MINIMAL_PLAN_BYTES.replace(b'"test-mod"', b'"freeterraforged"')
         )
 
         code = cli_mod.main(

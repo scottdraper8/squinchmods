@@ -3,12 +3,12 @@ name = "FTF + Biomes O' Plenty spatial compatibility — biome size 225, TerraBl
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/spatial-compatibility"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/spatial-compatibility"]
 companion_artifacts = ["mc1.21.1-fabric-terrablender-4.1.0.8", "mc1.21.1-fabric-glitchcore-2.1.0.2", "mc1.21.1-fabric-biomes-o-plenty-21.1.0.14"]
 retention = "keep-on-failure"
 [[runtime_files]]
-source = "games/minecraft/investigations/reterraforged/fixtures/terrablender-region-size/region-4.toml"
+source = "games/minecraft/investigations/freeterraforged/fixtures/terrablender-region-size/region-4.toml"
 target = "config/terrablender.toml"
 [server_properties]
 view-distance = 4
@@ -19,9 +19,9 @@ startup = 360
 step = 1200
 shutdown = 120
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "biomesoplenty"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biomesoplenty"]
 [[probes]]
-id = "squinch:rtf-spatial-compatibility"
+id = "squinch:ftf-spatial-compatibility"
 version = "1"
 config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 24000, sample_min_block_x = -2048, sample_max_block_x = 2040, sample_min_block_z = -2048, sample_max_block_z = 2040, sample_step_blocks = 8 }
 [[steps]]
@@ -30,5 +30,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-spatial-compatibility"
+terminal_probe = "squinch:ftf-spatial-compatibility"
 expect = { terminal_state = "pass" }

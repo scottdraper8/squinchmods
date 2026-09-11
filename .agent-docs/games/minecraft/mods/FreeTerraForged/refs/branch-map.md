@@ -8,9 +8,9 @@ This file records durable branch roles and integration boundaries. Live Git is a
 
 | Branch                                | Role                                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------- |
+| `rename`                              | PR #225 namespace/branding qualification branch; tracks `upstream/rename`.      |
 | `1.21.1`                              | Local production baseline tracking the same-named origin and upstream branches. |
 | `feat/worldgen-compatibility-runtime` | Active compatibility worktree and integration branch.                           |
-| `fix/c2me-dfc-compatibility`          | Open C2ME DFC behavior and performance workstream.                              |
 | `feat/configurable-strata`            | Pushed feature branch awaiting product QA and upstream integration.             |
 | `feat/configurable-shorelines`        | Pushed feature branch awaiting visual/product QA and upstream integration.      |
 
@@ -19,12 +19,25 @@ The active compatibility worktree is
 current production-tip relationship belong in `agent-resume.md`, where they form one replaceable
 state snapshot instead of being duplicated here.
 
+The clean detached PR #225 qualification worktree is
+`games/minecraft/investigation-state/worktrees/ftf-rename-qa`. The NeoForge baseline smoke uses it
+because the nested source's ordinary NeoForge run directory contains intentionally retained,
+undeclared compatibility jars; investigation isolation must not delete or silently load them.
+
+The `rename` branch is currently the only listed branch using Java root `etcodehome.freeterraforged`
+and mod/resource ID `freeterraforged`. The feature workstreams still descend from the pre-rename
+`1.21.1` tree. Their current scenarios and runtime-specific probe packs are retained as branch-owned
+inputs, but they cannot produce post-rename evidence until each branch is deliberately integrated
+with `rename`. A detached merge trial on 2026-09-11 produced conflicts across the runtime, preview,
+Mixin, and loader layers, so this is a production integration task, not a tooling alias or
+package-compatibility problem. See `tooling-scenario-matrix.md`.
+
 ## Integration boundary
 
 The upstream archipelago redesign from PR #207 is integrated in the compatibility branch. The old
 local archipelago plan is retired; remaining island and broader biome/terrain work is an open
 reconciliation investigation recorded in
-`games/minecraft/investigations/reterraforged/analysis/archipelago-biome-surface-followup.md`.
+`games/minecraft/investigations/freeterraforged/analysis/archipelago-biome-surface-followup.md`.
 
 The upstream graph also contains compatibility approaches that the consolidated runtime supersedes:
 

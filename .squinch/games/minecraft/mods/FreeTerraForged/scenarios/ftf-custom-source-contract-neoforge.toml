@@ -4,8 +4,8 @@ project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibil
 loader = "neoforge"
 launch_task = "prodServer"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/custom-source-contract"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/custom-source-contract"]
 retention = "keep-on-failure"
 
 [server_properties]
@@ -19,7 +19,7 @@ step = 240
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged"]
+required_mods = ["minecraft", "freeterraforged"]
 
 [[probes]]
 id = "squinch:ftf-custom-source-contract"

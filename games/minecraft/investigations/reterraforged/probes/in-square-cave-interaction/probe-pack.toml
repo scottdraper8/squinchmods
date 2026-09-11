@@ -1,9 +1,0 @@
-schema_version = 1
-id = "rtf-in-square-cave-interaction"
-version = "1"
-target_adapter = "reterraforged-1.21.1"
-sources = ["src/main/java"]
-resources = ["src/main/resources"]
-mixins = ["squinch-rtf-in-square-cave-interaction.mixins.json"]
-configuration_schema = "probe-config-v1.json"
-capabilities = ["placement-hooks", "server-thread", "finished-chunk", "feature-graph-census", "surface-rescue"]

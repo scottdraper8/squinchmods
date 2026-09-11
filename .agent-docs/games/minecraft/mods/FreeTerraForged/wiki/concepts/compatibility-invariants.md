@@ -42,7 +42,7 @@ consumer are inert scaffolding that obscures compatibility.
 ## Loader and Minecraft version boundary
 
 Loader-neutral worldgen logic lives in `common`; Fabric and NeoForge differences sit behind the
-registration and biome-modifier abstractions. Minecraft-version API differences and internal RTF
+registration and biome-modifier abstractions. Minecraft-version API differences and internal FTF
 fork divergence are separate porting dimensions, and internal divergence is often the larger one.
 
 ## Compatibility runtime ownership
@@ -211,14 +211,14 @@ the public executable graph, and does not reconstruct named-mod behavior.
 
 ## External worldgen wrappers
 
-Registered density and surface functions expose one graph to RTF, datapacks, and integration mods.
+Registered density and surface functions expose one graph to FTF, datapacks, and integration mods.
 Private bypasses create a second graph, which can hide wrapper defects and omit valid external
 modifications.
 
 Fast-path equivalence depends on exact preconditions such as region count, namespace set, and
 registry ownership. Absence of observed modded content does not establish those preconditions.
 
-A terrain cutoff can originate outside RTF's terrain model. In particular, worldgen modifiers loaded
+A terrain cutoff can originate outside FTF's terrain model. In particular, worldgen modifiers loaded
 through Lithostitched can wrap `minecraft:overworld/offset` with vanilla-height assumptions; Hybrid
 Aquatic has produced this failure mode. The registered density graph and active wrappers therefore
 explain some vanilla-derived cutoffs even when `terrainModelHeight()` and source terrain remain

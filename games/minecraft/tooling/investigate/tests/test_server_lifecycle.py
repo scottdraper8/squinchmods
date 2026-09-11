@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import io
+import json
 import os
 import signal
 import subprocess
@@ -12,9 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from squinch_minecraft_investigate import server
+from squinch_minecraft_investigate import processes, server
 from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
-from squinch_minecraft_investigate import processes
 from squinch_minecraft_investigate.processes import port_is_free
 
 
@@ -525,7 +524,7 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
     monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
     monkeypatch.setattr(server, "proc_identity", lambda _pid: launcher)
     monkeypatch.setattr(server, "git_status", lambda _project: "clean")
-    monkeypatch.setattr(server, "sourced_environment", lambda: {})
+    monkeypatch.setattr(server, "sourced_environment", dict)
     def launch(**kwargs):
         process = Process()
         service = {

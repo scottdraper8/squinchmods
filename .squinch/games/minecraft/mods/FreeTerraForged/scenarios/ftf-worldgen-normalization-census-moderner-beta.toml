@@ -3,7 +3,7 @@ name = "FTF worldgen normalization census — Moderner Beta custom generator"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/worldgen-normalization-census"]
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/worldgen-normalization-census"]
 companion_artifacts = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-moderner-beta-5.0.0-alpha.3"]
 probe_compile_artifacts = [
     { id = "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", loader = "fabric", mapping = "loader" },
@@ -22,15 +22,15 @@ step = 360
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "moderner_beta"]
+required_mods = ["minecraft", "freeterraforged", "moderner_beta"]
 
 [[probes]]
-id = "squinch:rtf-worldgen-normalization-census"
+id = "squinch:ftf-worldgen-normalization-census"
 version = "1"
 config = {}
 
 [[steps]]
 id = "census-normalizable-worldgen-graph"
 type = "probe"
-probe = "squinch:rtf-worldgen-normalization-census"
+probe = "squinch:ftf-worldgen-normalization-census"
 expect = { terminal_state = "pass" }

@@ -1,9 +1,0 @@
-{
-  "type": "reterraforged:replace",
-  "biomes": "minecraft:windswept_savanna",
-  "replacements": {
-    "minecraft:trees_badlands": "reterraforged:badlands_trees",
-    "minecraft:trees_windswept_savanna": "reterraforged:badlands_trees"
-  },
-  "step": "vegetal_decoration"
-}

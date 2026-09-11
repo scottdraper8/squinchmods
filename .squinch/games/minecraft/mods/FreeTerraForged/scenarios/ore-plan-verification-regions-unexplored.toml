@@ -3,8 +3,8 @@ name = "Ore plan verification: Regions Unexplored custom placement"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/placement-telemetry"]
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/placement-telemetry"]
 companion_artifacts = [
   "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
   "mc1.21.1-fabric-lithostitched-1.8.0-beta5",
@@ -23,10 +23,10 @@ step = 600
 shutdown = 60
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "regions_unexplored", "lithostitched"]
+required_mods = ["minecraft", "freeterraforged", "regions_unexplored", "lithostitched"]
 
 [[probes]]
-id = "squinch:rtf-placement-telemetry"
+id = "squinch:ftf-placement-telemetry"
 version = "1"
 config = { feature_ids = ["minecraft:ore_redstone", "regions_unexplored:special/ore_redstone_large"], bounds = [0, 0, 7, 7], unit = "chunk", max_wait_ticks = 1200, top_k = 20, bands = [
   { id = "vanilla_range", min_y = -64, max_y = 319 },
@@ -38,5 +38,5 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 7, 7]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-placement-telemetry"
+terminal_probe = "squinch:ftf-placement-telemetry"
 expect = { terminal_state = "pass" }

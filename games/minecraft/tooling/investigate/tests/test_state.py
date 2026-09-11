@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from squinch_minecraft_investigate.state import atomic_write_json
 from squinch_minecraft_investigate.server import _remove_protocol_files
+from squinch_minecraft_investigate.state import atomic_write_json
 
 
 def test_failed_atomic_replace_preserves_previous_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

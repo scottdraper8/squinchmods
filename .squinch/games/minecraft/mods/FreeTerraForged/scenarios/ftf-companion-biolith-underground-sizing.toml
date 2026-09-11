@@ -3,7 +3,7 @@ name = "FTF + Biolith/Terrestria underground-sizing composition audit"
 project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
 loader = "fabric"
 seed = 3216933670
-probe_packs = ["games/minecraft/investigations/reterraforged/probes/reachability-census"]
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/reachability-census"]
 companion_artifacts = [
     "mc1.21.1-fabric-terrablender-4.1.0.8",
     "mc1.21.1-fabric-biolith-3.0.14",
@@ -11,7 +11,7 @@ companion_artifacts = [
 ]
 retention = "keep-on-failure"
 
-rtf_fixture = "games/minecraft/investigations/reterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
 
 [server_properties]
 view-distance = 4
@@ -24,10 +24,10 @@ step = 900
 shutdown = 120
 
 [expectations]
-required_mods = ["minecraft", "reterraforged", "terrablender", "biolith", "terrestria"]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biolith", "terrestria"]
 
 [[probes]]
-id = "squinch:rtf-composition-audit"
+id = "squinch:ftf-composition-audit"
 version = "1"
 config = { bounds = [-30, -30, 30, 30], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 2, surface_threshold_y = 62 }
 
@@ -37,5 +37,5 @@ type = "generate"
 unit = "chunk"
 bounds = [-30, -30, 30, 30]
 authority = "finished-chunk"
-terminal_probe = "squinch:rtf-composition-audit"
+terminal_probe = "squinch:ftf-composition-audit"
 expect = { terminal_state = "pass" }

@@ -213,7 +213,7 @@ exact-version artifacts under catalog policy:
 - deterministic extraction, ordering, owner isolation, reload, cancellation, and narrow failures;
 - preview/server separation and actual Fabric/NeoForge world-creation UI behavior;
 - custom sources, installed-unused mechanisms, unknown nodes, provider failures, mixed stacks,
-  datapack/dimension changes, independent dimensions, C2ME tall worlds, and finished chunks;
+  datapack/dimension changes, independent dimensions, tall worlds, and finished chunks;
 - full-height and extended-height parity, including placement and structure behavior;
 - bounded result/queue/active/pool memory and collectable retired owners after GC;
 - matched fresh-process current-versus-control startup, acquisition, compilation, tile generation,

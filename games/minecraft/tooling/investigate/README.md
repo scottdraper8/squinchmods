@@ -59,7 +59,7 @@ profile or the project's ordinary run directory:
 tooling/squinch mc-investigate client \
   --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
   --loader fabric \
-  --probe-pack games/minecraft/investigations/reterraforged/probes/pre-server-preview \
+  --probe-pack games/minecraft/investigations/freeterraforged/probes/pre-server-preview \
   --artifact lithostitched-fabric \
   --runtime-file games/minecraft/investigations/example.toml=config/example.toml \
   --probe-env SQUINCH_PREVIEW_CASE=regeneration \
@@ -102,11 +102,11 @@ nonempty, hashed `.jfr` is stored under that run's `profiles/` directory and ref
 scenario result and manifest. Lifecycle timing separately records startup, verified world-open,
 save, shutdown, and cleanup rather than folding those costs into generation.
 
-The retained RTF benchmark is
-`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml`. Use it
-directly with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a
-global lock and run the two sides sequentially, preventing before/after benchmark overlap by
-default. Timing and profile metadata remain evidence but are excluded from behavioral equality.
+The retained FTF benchmark is
+`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-biome-palette.toml`. Use it directly
+with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a global lock
+and run the two sides sequentially, preventing before/after benchmark overlap by default. Timing and
+profile metadata remain evidence but are excluded from behavioral equality.
 
 Run an exact before/after comparison with full 40-character commit SHAs and one scenario:
 
@@ -115,7 +115,7 @@ tooling/squinch mc-investigate compare \
   --project games/minecraft/mods/FreeTerraForged \
   --before 9099214b0a92e702bd2de9e1d9e61c5d645fb5b0 \
   --after a05560848cf7bec7ad56ba5832d247d08a1c7da0 \
-  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-biome-palette-benchmark.toml \
+  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-biome-palette.toml \
   --expect different --json
 ```
 
@@ -128,10 +128,12 @@ input, probe, and timing fingerprints. Clean temporary worktrees are removed in 
 side or an unexpectedly modified worktree is preserved and reported rather than force-removed.
 Existing result files can still be compared with `compare --left FILE --right FILE`.
 
-An RTF scenario names one retained source-form fixture with `rtf_fixture = ".../fixture.toml"`. The
-runner deterministically materializes it, copies the generated ZIP into the run artifacts, and
-records the semantic metadata, complete resolved preset, logical source hash, and archive hash.
-Additional independent datapacks remain a repeatable `datapacks = [...]` array.
+An FTF scenario names one compact preset fixture with `ftf_fixture = ".../fixture.toml"`. Before
+server startup, the runner invokes the selected worktree's real preset exporter, validates the
+complete generated registry tree, writes a deterministic ZIP, and copies it into the scenario run.
+The generator run ID, semantic metadata, input preset hash, generated-tree hash, and archive hash
+are retained together. Additional independent datapacks remain a repeatable `datapacks = [...]`
+array.
 
 Generate a complete source tree through the selected FTF worktree from either an existing fixture or
 a complete resolved preset JSON:
@@ -139,30 +141,30 @@ a complete resolved preset JSON:
 ```bash
 tooling/squinch mc-investigate preset-fixture \
   --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
-  --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
+  --preset games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
   --json
 ```
 
 The command decodes the resolved preset in a standalone FTF data-generation process, invokes the
 real complete preset exporter, and verifies the generated preset, dimension type, noise settings,
-density functions, source-tree fingerprint, worktree immutability, and process cleanup. Review and
-promote its artifact-owned `generated-fixture/` directory as a retained source-form fixture before
-referencing it from a scenario.
+density functions, source-tree fingerprint, worktree immutability, and process cleanup. Generated
+trees remain run artifacts; only complete preset JSON and its compact semantic metadata belong in
+the tracked fixture catalog.
 
-## Standalone RTF cell discovery
+## Standalone FTF cell discovery
 
-`cell-scan` executes the selected RTF worktree's real compiled `Preset`, noise bootstrap,
+`cell-scan` executes the selected FTF worktree's real compiled `Preset`, noise bootstrap,
 `GeneratorContext`, and `TileGenerator` classes in a small standalone JVM. It does not start a
 dedicated server, create a world, or generate Minecraft chunks, and it fails instead of falling back
 to a live probe if the standalone registry boundary cannot be established.
 
-Use preview mode for inexpensive discovery. This calls RTF's exact
+Use preview mode for inexpensive discovery. This calls FTF's exact
 `generateZoomed(centerX, centerZ, zoom, false)` path and labels the result `prediction`:
 
 ```bash
 tooling/squinch mc-investigate cell-scan \
   --project games/minecraft/mods/FreeTerraForged \
-  --preset games/minecraft/investigations/reterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
+  --preset games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
   --seed 12345 --mode adaptive --bounds -4096 -4096 4096 4096 \
   --sample-step 16 --predicate 'height:>=:0.15' \
   --field height,height_blocks,terrain,continent_edge \
@@ -176,22 +178,22 @@ Available data spans height, terrain/type, continent, river, temperature/moistur
 weirdness, water table, and terrain/biome region fields. Aggregates are the default; grids are only
 retained when explicitly requested.
 
-Use `--mode tile --tile-size 3` for RTF's filtered horizontal cell model. Tile mode invokes
-`TileGenerator.generate(tileX, tileZ)`, uses RTF's runtime filter-border calculation, closes every
-tile, caps one request at 64 tiles, and labels its authority `rtf-horizontal-cell-model` rather than
+Use `--mode tile --tile-size 3` for FTF's filtered horizontal cell model. Tile mode invokes
+`TileGenerator.generate(tileX, tileZ)`, uses FTF's runtime filter-border calculation, closes every
+tile, caps one request at 64 tiles, and labels its authority `ftf-horizontal-cell-model` rather than
 final block truth. Every scan artifact records the exact seed, resolved preset, target HEAD/dirty
-status, harness hashes, standalone bootstrap boundary, Minecraft/RTF/Java versions, fully
+status, harness hashes, standalone bootstrap boundary, Minecraft/FTF/Java versions, fully
 fingerprinted classpath, cold/warm/Gradle wall timings, and a deterministic result hash.
 
 The canonical live parity gate is
-`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/rtf-cell-cache-cross-check.toml`. It
+`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-cell-cache-cross-check.toml`. It
 selects the external `probes/cell-cache` pack, loads the same seed and preset, and compares
-standalone factor-3 samples with RTF's live runtime tile cache at exact block coordinates. Direct
+standalone factor-3 samples with FTF's live runtime tile cache at exact block coordinates. Direct
 development starts can select reusable packs with repeatable `--probe-pack PATH`; scenarios use a
 top-level `probe_packs = [PATH, ...]` array. Pack manifests, source/resource roots, capabilities,
 mixins, and hashes are recorded in the run manifest.
 
-Reusable RTF packs live under `games/minecraft/investigations/reterraforged/probes/`. The
+Reusable FTF packs live under `games/minecraft/investigations/freeterraforged/probes/`. The
 `biome-palette` and `placement-telemetry` packs use the same runtime, scenario trigger, result
 model, and finished-chunk selector while retaining their distinct measurements. `heightmap-delta` is
 the first new probe authored through the external pack template; `placement-telemetry` is the only
@@ -215,7 +217,7 @@ terminal_probe = "squinch:finished-chunks"
 The runner reads `scan.top_candidates`, floors negative coordinates correctly, deduplicates them by
 chunk, fingerprints the shortlist artifact, force-generates each selected chunk, and runs the chosen
 terminal probe for every chunk. The evidence funnel is therefore: preview prediction → optional
-exact RTF tile → bounded real generation → finished-chunk probe. Only the final stage may be
+exact FTF tile → bounded real generation → finished-chunk probe. Only the final stage may be
 described as finished-world truth.
 
 The probe runtime is injected into development runs by an external Gradle init overlay. It adds no
@@ -233,7 +235,7 @@ configuration, or generated loader-metadata references to that configuration:
 
 ```bash
 tooling/squinch mc-investigate inspect-artifact \
-  games/minecraft/mods/FreeTerraForged/fabric/build/libs/reterraforged-fabric-*.jar \
+  games/minecraft/mods/FreeTerraForged/fabric/build/libs/freeterraforged-fabric-*.jar \
   --json
 ```
 
@@ -351,7 +353,7 @@ the test.
 ### Where live scenarios are more honest
 
 Use real, targeted Minecraft runs rather than elaborate automated simulations for: loader startup
-and Mixin application; datapack and registry bootstrap; RTF `GeneratorContext` acquisition;
+and Mixin application; datapack and registry bootstrap; FTF `GeneratorContext` acquisition;
 `WorldGenRegion` availability rules; finished `LevelChunk` promotion; stored biome palettes;
 structures, Beardifier, aquifers, surface rules, and placed features; Fabric/NeoForge differences;
 interactions with TerraBlender, Biomes O' Plenty, Regions Unexplored, or other mods; and whether a
@@ -381,9 +383,9 @@ declaring integration complete:
 
 1. **Pure deterministic test:** parsing, tiling, aggregation, state transitions.
 2. **Real local boundary test:** filesystem, socket, subprocess, Git worktree, jar.
-3. **Fast mod-model probe:** RTF preview/cell/tile prediction.
+3. **Fast mod-model probe:** FTF preview/cell/tile prediction.
 4. **Real Minecraft scenario:** loader, registries, chunks, blocks, structures, features.
 5. **Human/client confirmation:** visual and player-facing behavior.
 
-Passing a lower layer never proves a higher one. In particular, an RTF cell scan cannot prove final
+Passing a lower layer never proves a higher one. In particular, an FTF cell scan cannot prove final
 blocks, and a mocked server cannot prove process teardown or loader behavior.

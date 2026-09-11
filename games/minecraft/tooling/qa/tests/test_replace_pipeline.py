@@ -357,33 +357,33 @@ class TestPromoteRun:
                 }
             ],
         )
-        rtf_run = qa_run_factory(
+        ftf_run = qa_run_factory(
             run_id="run-2",
-            mod_id="reterraforged",
+            mod_id="freeterraforged",
             jobs=[
                 {
                     "target_id": "forge-1.20.1",
                     "test_id": "pregen",
                     "status": "pass",
-                    "world_src": _world_src(tmp_path / "rtf", b"rtf"),
+                    "world_src": _world_src(tmp_path / "ftf", b"ftf"),
                 }
             ],
         )
 
         recover_pending(qa_root)
         redstone_result = promote_run(qa_root, redstone_run)
-        rtf_result = promote_run(qa_root, rtf_run)
+        ftf_result = promote_run(qa_root, ftf_run)
 
         assert redstone_result[0].promoted is True
-        assert rtf_result[0].promoted is True
+        assert ftf_result[0].promoted is True
         redstone_cur = current_job_dir(
             qa_root, "redstone-backport", "forge-1.20.1", "pregen"
         )
-        rtf_cur = current_job_dir(qa_root, "reterraforged", "forge-1.20.1", "pregen")
+        ftf_cur = current_job_dir(qa_root, "freeterraforged", "forge-1.20.1", "pregen")
         assert (
             redstone_cur / "world" / "region" / "r.0.0.mca"
         ).read_bytes() == b"redstone"
-        assert (rtf_cur / "world" / "region" / "r.0.0.mca").read_bytes() == b"rtf"
+        assert (ftf_cur / "world" / "region" / "r.0.0.mca").read_bytes() == b"ftf"
 
     def test_promotes_run_emitted_by_real_manifest_writer(self, tmp_path: Path) -> None:
         qa_root = tmp_path / "repo"

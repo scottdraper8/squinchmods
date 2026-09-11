@@ -53,7 +53,7 @@ unknown graphs, and non-FTF generators retain their original placement behavior.
 
 ## Rescued underground surface features
 
-RTF can rescue a narrow family of conventional surface-search feature pipelines when their original
+FTF can rescue a narrow family of conventional surface-search feature pipelines when their original
 environment scan finds no target in an extended-height band. The original attempt keeps priority. A
 rescue searches the same X/Z column, then repeats the target, block-predicate, and biome checks at
 the proposed position. Unknown placement shapes and unsafe modifier orders remain unchanged.
@@ -65,10 +65,10 @@ column-search count and must never be reported as “search attempts.” Viabili
 failed entries, budget skips, scheduled searches, physical scans, cache reuse, predicate checks,
 discovered surfaces, and successful rescues separate.
 
-A rescued origin must also lie behind the stable RTF terrain envelope. The guard samples a 9-by-9
+A rescued origin must also lie behind the stable FTF terrain envelope. The guard samples a 9-by-9
 neighborhood around the origin and requires at least four complete blocks between that origin and
 the lowest sampled surface. Surface samples and per-column cutoffs are cached for the active run.
-When the active generator does not expose the RTF terrain context, rescue is disabled rather than
+When the active generator does not expose the FTF terrain context, rescue is disabled rather than
 guessing from a mutable heightmap.
 
 This proves only that the placement origin is locally protected. Minecraft's generic placed-feature

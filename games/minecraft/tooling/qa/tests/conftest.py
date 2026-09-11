@@ -66,12 +66,12 @@ def _build_fake_repo(
 
 @pytest.fixture
 def fake_repo(tmp_path: Path) -> Path:
-    """Fake repo with redstone-backport and ReTerraForged fixture configs."""
+    """Fake repo with redstone-backport and FreeTerraForged fixture configs."""
     return _build_fake_repo(
         tmp_path,
         mod_configs={
             "redstone-backport": FIXTURES / "redstone-backport-mod.yml",
-            "ReTerraForged": FIXTURES / "reterraforged-mod.yml",
+            "FreeTerraForged": FIXTURES / "freeterraforged-mod.yml",
         },
     )
 
@@ -205,18 +205,18 @@ def _make_stub_gradlew(mod_dir: Path) -> None:
 def runner_repo(tmp_path: Path) -> Path:
     """
     Fake repo extended with dummy subproject trees and a stub gradlew.
-    redstone-backport uses loader 'forge'; ReTerraForged uses 'neoforge' and 'fabric'.
+    redstone-backport uses loader 'forge'; FreeTerraForged uses 'neoforge' and 'fabric'.
     """
     repo = _build_fake_repo(
         tmp_path,
         mod_configs={
             "redstone-backport": FIXTURES / "redstone-backport-mod.yml",
-            "ReTerraForged": FIXTURES / "reterraforged-mod.yml",
+            "FreeTerraForged": FIXTURES / "freeterraforged-mod.yml",
         },
     )
     for mod_name, loaders in [
         ("redstone-backport", ["forge"]),
-        ("ReTerraForged", ["neoforge", "fabric"]),
+        ("FreeTerraForged", ["neoforge", "fabric"]),
     ]:
         mod_dir = repo / "games" / "minecraft" / "mods" / mod_name
         for loader in loaders:
