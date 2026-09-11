@@ -272,6 +272,15 @@ version-specific rebuild product: start from the exact current vanilla object, p
 current fields and controls, and revalidate navigation, focus, input mode, resolution, UI scale, and
 localization after every affected update.
 
+The bar above those pages is a different ownership boundary. Current 7.01 extraction identifies
+`UI/COMPONENTS/PAGESELECTBAR.MBIN` as a generic seven-slot `cGcNGuiLayerData` layout, while current
+executable strings and generated page-hint types identify concrete Inventory, Discovery, Journey,
+Wiki/Catalogue, Mission Log, Expedition, and Options routes. The layout can draw another control but
+does not define a new frontend route or page controller. A genuinely new peer tab therefore is not
+realistic through ordinary EXML/MBIN data modding: it requires a version-qualified executable hook
+with a proven route, controller, focus/input, lifecycle, and Proton injection contract. No such
+supported Proton seam is currently established.[^2][^9][^15][^16]
+
 ## Load order and conflicts
 
 Loading has two global stages:
@@ -429,6 +438,10 @@ Recommended validation order:
 6. Add conflicting/cooperating mods and test both priority orders.
 7. Repeat after every affected NMS update; record the Steam build ID and compiler commit/release.
 
+The repository automates the static and deterministic portions through
+[`tooling/squinch nms-investigate`](../../../games/no-mans-sky/tooling/investigate/README.md). Use
+its versioned run envelopes and committed scenarios rather than ad hoc extraction directories.
+
 ## Runtime-hook mods
 
 Data files can alter objects and behaviors the engine already knows how to deserialize. They cannot
@@ -476,12 +489,12 @@ also obsolete.
 | Host/runtime                      | Loose data works through Proton; Win32 injectors are a separate support claim         |
 | Persistence boundary              | Some changes affect only presentation; others alter saves or generated worlds/content |
 
-For future repository tooling, model NMS as extraction and overlay validation rather than as a
-Gradle/build-target analogue to Minecraft. A useful first target would include NMS semantic version,
-Steam build ID, branch, HGPAKtool revision, MBINCompiler revision, mod representation, and affected
-paths. Static and deterministic gates can prove archive readability, path validity, XML structure,
-MBIN round trips, overlap/conflict surfaces, and expected merged metadata. Visual/gameplay behavior
-still requires a controlled Proton launch and backed-up save fixture.
+Repository tooling models NMS as extraction and overlay validation rather than as a Gradle/build
+target analogue to Minecraft. It records the Steam build ID, archive/asset hashes, HGPAKtool and
+MBINCompiler identities, mod representation, and affected paths; proves archive readability, path
+validity, XML structure, MBIN round trips, overlap/conflict surfaces, and intended merged metadata;
+and retains those outputs below an ignored run boundary. Visual/gameplay behavior still requires a
+controlled Proton launch and backed-up disposable save fixture.
 
 ## Durable rules
 

@@ -18,3 +18,17 @@ archives live in the external squinchmods cache. Unpacked third-party trees mirr
 the ignored `games/no-mans-sky/reference/sources/<claimed-version>/mods/<mod>/` namespace; they are
 reference source, not maintained workspace mods. See the
 [third-party tool README](third-party/README.md) for the exact ownership model and workflow.
+
+## Investigation runner
+
+[`investigate/`](investigate/) provides pinned HGPAK/MBIN tooling, current-game asset inventory and
+extraction, semantic MBIN round trips, EXML/mod analysis, conflict detection, merged-export checks,
+executable string probes, declarative scenarios, and transaction-safe staging:
+
+```bash
+tooling/squinch nms-investigate --help
+```
+
+Runs live below the ignored `games/no-mans-sky/investigation-state/` boundary. See the
+[investigation runner README](investigate/README.md) and the
+[NMS agentic development guide](../../../.agent-docs/games/no-mans-sky/agentic-development-guide.md).

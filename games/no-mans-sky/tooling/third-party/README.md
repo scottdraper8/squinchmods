@@ -53,6 +53,15 @@ tooling/squinch third-party no-mans-sky metadata \
   --artifact-id nms-nexus-3368-47562-lush-finder-full
 ```
 
+Check the release-channel gate independently. `freshness` compares the pin with the newest visible,
+non-deleted Nexus `MAIN` file; optional and archived files do not silently replace the main-file
+policy:
+
+```bash
+tooling/squinch third-party no-mans-sky freshness \
+  --artifact-id nms-nexus-3368-47562-lush-finder-full
+```
+
 For a Premium account, or after exporting the short-lived free-account download values:
 
 ```bash

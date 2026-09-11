@@ -5,7 +5,9 @@ bad=()
 while IFS= read -r path; do
     case "/$path/" in
         */.gradle/* | */build/* | */run/* | */games/minecraft/qa-state/* | \
-            */games/minecraft/investigation-state/* | */games/minecraft/reference/*)
+            */games/minecraft/investigation-state/* | \
+            */games/no-mans-sky/investigation-state/* | */games/minecraft/reference/* | \
+            */games/no-mans-sky/reference/*)
             bad+=("$path")
             continue
             ;;

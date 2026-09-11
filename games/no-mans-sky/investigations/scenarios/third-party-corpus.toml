@@ -1,0 +1,32 @@
+schema_version = 1
+id = "third-party-corpus"
+fail_fast = true
+
+# The ignored reference trees must first be acquired and validated through the committed catalog.
+[[steps]]
+id = "ship-parts-catalogue"
+operation = "analyze-mod"
+mod_root = "../../reference/sources/6.16/mods/ship-parts-catalogue/44949/FF_ShipPartsCatalogue_616"
+expect = "succeeded"
+
+[[steps]]
+id = "expedition-catalogue"
+operation = "analyze-mod"
+mod_root = "../../reference/sources/6.40/mods/expedition-catalogue-improved/47075/FF_ExpeditionCatalogueImproved_640"
+expect = "failed"
+
+[[steps]]
+id = "lush-finder"
+operation = "analyze-mod"
+mod_root = "../../reference/sources/6.45/mods/lush-finder/47562/Lush Finder V3.3.6.45 (Full Mission)"
+expect = "failed"
+
+[[steps]]
+id = "cross-mod-conflicts"
+operation = "conflicts"
+mod_roots = [
+  "../../reference/sources/6.16/mods/ship-parts-catalogue/44949/FF_ShipPartsCatalogue_616",
+  "../../reference/sources/6.40/mods/expedition-catalogue-improved/47075/FF_ExpeditionCatalogueImproved_640",
+  "../../reference/sources/6.45/mods/lush-finder/47562/Lush Finder V3.3.6.45 (Full Mission)",
+]
+expect = "succeeded"

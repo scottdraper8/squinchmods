@@ -18,6 +18,7 @@ games/minecraft/reference/
 games/no-mans-sky/reference/
 games/minecraft/qa-state/
 games/minecraft/investigation-state/
+games/no-mans-sky/investigation-state/
 .qa-runs/
 .qa-incoming/
 .qa-staging/

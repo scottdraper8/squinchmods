@@ -9,7 +9,13 @@ from pathlib import Path
 from .archive import inspect_archive
 from .catalog import artifact_from_catalog, validate_catalog
 from .errors import AcquisitionError
-from .nexus import acquire, artifact_metadata, cache_root, import_archive
+from .nexus import (
+    acquire,
+    artifact_freshness,
+    artifact_metadata,
+    cache_root,
+    import_archive,
+)
 
 DEFAULT_CATALOG = Path(".squinch/games/no-mans-sky/third-party/artifacts.toml")
 DEFAULT_REFERENCE_ROOT = Path("games/no-mans-sky/reference/sources")
@@ -24,6 +30,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     metadata.add_argument("--artifact-id", required=True)
     metadata.add_argument("--catalog", type=Path)
+
+    freshness = subparsers.add_parser(
+        "freshness", help="Compare a catalog pin with the newest visible MAIN file"
+    )
+    freshness.add_argument("--artifact-id", required=True)
+    freshness.add_argument("--catalog", type=Path)
 
     acquire_parser = subparsers.add_parser(
         "acquire", help="Download a catalog file through Nexus"
@@ -147,6 +159,8 @@ def main(argv: list[str] | None = None) -> None:
             artifact = artifact_from_catalog(catalog_path, args.artifact_id)
             if args.command == "metadata":
                 result = artifact_metadata(artifact)
+            elif args.command == "freshness":
+                result = artifact_freshness(artifact)
             elif args.command == "acquire":
                 if artifact.status == "retired":
                     raise AcquisitionError(

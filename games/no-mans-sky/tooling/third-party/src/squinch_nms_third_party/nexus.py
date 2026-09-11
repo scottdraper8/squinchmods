@@ -116,6 +116,49 @@ def artifact_metadata(artifact: CatalogArtifact) -> dict[str, Any]:
     return {"mod": mod_metadata(artifact), "file": selected_metadata(artifact)}
 
 
+def artifact_freshness(artifact: CatalogArtifact) -> dict[str, Any]:
+    """Compare the catalog pin with the newest visible MAIN-channel Nexus file."""
+    files = files_metadata(artifact)
+    selected = next(
+        (value for value in files if value.get("file_id") == artifact.file_id),
+        None,
+    )
+    if selected is None:
+        raise AcquisitionError(
+            f"Nexus Mods file {artifact.file_id} is not visible on mod {artifact.mod_id}"
+        )
+    eligible = [
+        value
+        for value in files
+        if str(value.get("category_name", "")).casefold() == "main"
+        and not value.get("is_deleted", False)
+    ]
+    if not eligible:
+        raise AcquisitionError(
+            f"Nexus Mods exposes no MAIN-channel files for mod {artifact.mod_id}"
+        )
+
+    def order(value: dict[str, Any]) -> tuple[int, int]:
+        uploaded = value.get("uploaded_timestamp")
+        return (
+            uploaded if isinstance(uploaded, int) else 0,
+            value.get("file_id") if isinstance(value.get("file_id"), int) else 0,
+        )
+
+    latest = max(eligible, key=order)
+    return {
+        "artifact_id": artifact.id,
+        "release_channel_policy": "newest visible non-deleted MAIN file",
+        "catalog_file_id": artifact.file_id,
+        "catalog_file_version": artifact.file_version,
+        "catalog_nms_version": artifact.nms_version,
+        "selected": selected,
+        "latest_eligible": latest,
+        "fresh": latest.get("file_id") == artifact.file_id,
+        "eligible_file_count": len(eligible),
+    }
+
+
 def _download_links(artifact: CatalogArtifact) -> list[dict[str, Any]]:
     parameters: dict[str, str] = {}
     download_key = os.environ.get("NEXUSMODS_DOWNLOAD_KEY", "")

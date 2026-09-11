@@ -5,10 +5,16 @@ import zipfile
 from pathlib import Path
 
 import pytest
+
+from squinch_nms_third_party import nexus
 from squinch_nms_third_party.archive import inspect_archive
 from squinch_nms_third_party.catalog import CatalogArtifact
 from squinch_nms_third_party.errors import AcquisitionError
-from squinch_nms_third_party.nexus import _public_url, import_archive
+from squinch_nms_third_party.nexus import (
+    _public_url,
+    artifact_freshness,
+    import_archive,
+)
 
 
 def artifact() -> CatalogArtifact:
@@ -74,7 +80,9 @@ def test_inspection_rejects_parent_traversal(tmp_path: Path) -> None:
     with zipfile.ZipFile(source, "w") as archive:
         archive.writestr("../escape.EXML", "bad")
     with pytest.raises(AcquisitionError, match="unsafe path"):
-        inspect_archive(artifact(), source, reference_root=tmp_path / "reference/sources")
+        inspect_archive(
+            artifact(), source, reference_root=tmp_path / "reference/sources"
+        )
 
 
 def test_archive_root_is_the_deployment_root_when_metadata_is_top_level(
@@ -83,7 +91,9 @@ def test_archive_root_is_the_deployment_root_when_metadata_is_top_level(
     source = tmp_path / "root-layout.zip"
     with zipfile.ZipFile(source, "w") as archive:
         archive.writestr("METADATA/REALITY/TABLE.EXML", "<Data />")
-    report = inspect_archive(artifact(), source, reference_root=tmp_path / "reference/sources")
+    report = inspect_archive(
+        artifact(), source, reference_root=tmp_path / "reference/sources"
+    )
     assert report["candidate_deployment_roots"] == ["."]
 
 
@@ -92,3 +102,57 @@ def test_short_lived_download_parameters_are_redacted() -> None:
         _public_url("https://api.nexusmods.com/path?key=secret&expires=123")
         == "https://api.nexusmods.com/path"
     )
+
+
+def test_freshness_uses_newest_visible_main_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        nexus,
+        "files_metadata",
+        lambda _artifact: [
+            {
+                "file_id": 99,
+                "category_name": "MAIN",
+                "uploaded_timestamp": 100,
+            },
+            {
+                "file_id": 100,
+                "category_name": "OPTIONAL",
+                "uploaded_timestamp": 300,
+            },
+            {
+                "file_id": 101,
+                "category_name": "MAIN",
+                "uploaded_timestamp": 200,
+            },
+        ],
+    )
+    result = artifact_freshness(artifact())
+    assert not result["fresh"]
+    assert result["latest_eligible"]["file_id"] == 101
+    assert result["release_channel_policy"] == "newest visible non-deleted MAIN file"
+
+
+def test_freshness_rejects_missing_catalog_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        nexus,
+        "files_metadata",
+        lambda _artifact: [{"file_id": 101, "category_name": "MAIN"}],
+    )
+    with pytest.raises(AcquisitionError, match="is not visible"):
+        artifact_freshness(artifact())
+
+
+def test_freshness_requires_a_main_release_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        nexus,
+        "files_metadata",
+        lambda _artifact: [{"file_id": 99, "category_name": "OPTIONAL"}],
+    )
+    with pytest.raises(AcquisitionError, match="no MAIN-channel"):
+        artifact_freshness(artifact())
