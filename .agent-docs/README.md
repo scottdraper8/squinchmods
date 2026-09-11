@@ -13,10 +13,10 @@ anything that only makes sense for one game belongs under that game's own direct
 root. As more games get added, the root should stay small.
 
 Mods are git submodules under `games/<game>/mods/<mod>/`. `.squinch/` is the other repo-wide
-directory with the same rationale as this one: it holds QA config (parent defaults plus per-mod
-config) centrally, rather than inside each mod's own repo, so upstream-facing fork submodules never
-need squinchmods-specific files on a branch that might get PR'd upstream. See
-`.agent-docs/games/minecraft/README.md` (below) for how the QA system actually uses it.
+directory with the same rationale as this one: it holds centrally owned configuration, including QA
+config and game-specific third-party artifact catalogs, rather than placing squinchmods state in an
+upstream-facing mod submodule. See `.agent-docs/games/minecraft/README.md` (below) for how the QA
+system actually uses it.
 
 `.squinch/`'s config _mechanism_ is game-agnostic (profiles are just named test-id lists), but its
 current _content_ is not: the global default profile's test list and the mod-config schema's
@@ -76,10 +76,12 @@ This is the structural relationship only; the QA plan/run/promote pipeline itsel
     <game>/
       README.md                 architecture/conceptual docs for that game's tooling
       mods/
-        <mod>/
+        <maintained-mod>/
           README.md
           plans/                durable investigation/design docs for that mod
           refs/                 durable reference notes (branch maps, decisions) for that mod
+      refs/
+        third-party/            durable findings about externally maintained mods
   runs/                         optional summarized run reports worth keeping long-term
   tmp/                          disposable scratch, gitignored, safe to delete anytime
   .cache/                       disposable generated cache, gitignored
@@ -92,6 +94,12 @@ architecture. The executable investigation and third-party tooling live under
 `games/minecraft/investigations/`; generated state is kept in the ignored sibling
 `games/minecraft/investigation-state/`; and mod-specific scenario definitions live under
 `.squinch/games/minecraft/mods/<mod>/scenarios/`.
+
+`.agent-docs/games/no-mans-sky/README.md` is the current technical reference for No Man's Sky's
+post-5.50 loose-file mod loader, authoring formats, runtime-hook boundary, and Bazzite/Proton paths.
+Its game-owned executable tooling lives under `games/no-mans-sky/tooling/` and is reached through
+the repo-wide `tooling/squinch` dispatcher. Its `mods/` documentation namespace is reserved for mods
+maintained in this workspace; third-party inspections belong under `refs/third-party/`.
 
 ## Maintenance
 

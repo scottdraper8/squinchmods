@@ -8,7 +8,7 @@
 # Tools:
 #   qa    QA planner (uv-managed Python package)
 #   mc-investigate  Minecraft development investigation runner
-#   third-party  Minecraft third-party source and Modrinth acquisition
+#   third-party  Game-specific third-party acquisition and inspection
 #
 set -euo pipefail
 
@@ -20,7 +20,7 @@ if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     echo "Tools:"
     echo "  qa    QA planner — run 'squinch qa --help' for details"
     echo "  mc-investigate  Minecraft investigation tooling"
-    echo "  third-party  Minecraft third-party source and Modrinth acquisition"
+    echo "  third-party  Game-specific third-party acquisition and inspection"
     exit 0
 fi
 

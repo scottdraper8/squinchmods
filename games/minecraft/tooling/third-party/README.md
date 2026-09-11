@@ -16,16 +16,17 @@ project, Minecraft version, loader, published version, filename, and SHA-256. Ac
 the tool resolves that exact release and writes an acquisition manifest beside the cached JAR:
 
 ```bash
-tooling/squinch third-party acquire \
+tooling/squinch third-party minecraft acquire \
   --artifact-id mc1.21.1-fabric-immersive-ores-1.1.8
 
-tooling/squinch third-party acquire \
+tooling/squinch third-party minecraft acquire \
   --artifact-id mc1.21.1-neoforge-mekanism-10.7.19.85
 ```
 
-Validate the entire active catalog and cache with `tooling/squinch third-party validate`. The cache
-is under `${SQINCHMODS_CACHE_HOME}/third-party/modrinth/<minecraft>/<loader>/<project>/<version>/`.
-The command prints the exact local JAR path, version ID, version number, and SHA-256.
+Validate the entire active catalog and cache with `tooling/squinch third-party minecraft validate`.
+The cache is under
+`${SQINCHMODS_CACHE_HOME}/third-party/modrinth/<minecraft>/<loader>/<project>/<version>/`. The
+command prints the exact local JAR path, version ID, version number, and SHA-256.
 
 Required Modrinth dependencies are reported in the command output. Acquisition does not silently
 download them into an investigation because the runtime may already provide them, and adding them
@@ -43,7 +44,7 @@ one commit deep, blob-filtered, and records the requested ref plus resolved comm
 `source-acquisition.json`:
 
 ```bash
-tooling/squinch third-party source \
+tooling/squinch third-party minecraft source \
   --repository https://github.com/Creators-of-Create/Create.git \
   --destination games/minecraft/reference/sources/1.21.1/mods/create \
   --ref mc1.21.1/dev \
@@ -65,7 +66,7 @@ and prints what it would remove. Add `--apply` to remove the exact cached versio
 supplied, the exact source checkout:
 
 ```bash
-tooling/squinch third-party remove \
+tooling/squinch third-party minecraft remove \
   --artifact-id mc1.21.1-fabric-immersive-ores-1.1.8 \
   --apply
 ```

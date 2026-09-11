@@ -2,12 +2,40 @@
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-tool_dir="${repo_root}/games/minecraft/tooling/third-party"
-source "${repo_root}/games/minecraft/tooling/env.sh"
 
 if ! command -v uv &>/dev/null; then
     echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
     exit 127
 fi
 
-exec uv run --project "${tool_dir}" python -m squinch_minecraft_third_party "$@"
+if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: squinch third-party <game> [args...]"
+    echo ""
+    echo "Games:"
+    echo "  minecraft      Modrinth releases and source checkouts"
+    echo "  no-mans-sky    Nexus Mods acquisition and archive inspection"
+    exit 0
+fi
+
+game="$1"
+shift
+
+case "${game}" in
+    minecraft|mc)
+        source "${repo_root}/games/minecraft/tooling/env.sh"
+        exec uv run --project "${repo_root}/games/minecraft/tooling/third-party" \
+            python -m squinch_minecraft_third_party "$@"
+        ;;
+    no-mans-sky|nms)
+        export SQINCHMODS_CACHE_HOME="${SQINCHMODS_CACHE_HOME:-${XDG_CACHE_HOME:-${HOME}/.cache}/squinchmods}"
+        export UV_CACHE_DIR="${SQINCHMODS_CACHE_HOME}/uv"
+        cd -- "${repo_root}"
+        exec uv run --project "${repo_root}/games/no-mans-sky/tooling/third-party" \
+            python -m squinch_nms_third_party "$@"
+        ;;
+    *)
+        echo "error: unsupported game '${game}'" >&2
+        echo "Run 'squinch third-party --help' for supported games." >&2
+        exit 2
+        ;;
+esac

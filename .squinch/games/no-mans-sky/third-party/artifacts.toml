@@ -1,0 +1,62 @@
+schema_version = 1
+catalog_version = 1
+
+[[artifacts]]
+id = "nms-nexus-3368-47562-lush-finder-full"
+game_domain = "nomanssky"
+mod_id = 3368
+mod_name = "Lush Finder"
+mod_slug = "lush-finder"
+file_id = 47562
+file_display_name = "Lush Finder (Full Mission Mode)"
+file_name = "Lush Finder (Full Mission Mode) 3368 3.3.6.45 2026-07-23T16-43Z 8gT07OStD.zip"
+file_version = "3.3.6.45"
+nms_version = "6.45"
+uploaded_at = "2026-07-23T16:43:00Z"
+category = "MAIN"
+sha256 = "9775f897f85a20fd59074ddca7aeba2de4c48b3fe0fafff358ff8f2dc521c9d9"
+status = "diagnostic-only"
+reason = "Static Cosmos 7.01 boundary: packaged TkSceneNodeData is binary-schema-stale"
+distribution = "nexus-only-no-redistribution"
+source_url = "https://www.nexusmods.com/nomanssky/mods/3368?tab=files&file_id=47562"
+compatibility_claim = "Packaged 6.45 custom SCENE MBIN is rejected by MBINCompiler 7.01.0-pre1; not approved for Cosmos 7.01"
+
+[[artifacts]]
+id = "nms-nexus-3013-44949-ship-parts-catalogue"
+game_domain = "nomanssky"
+mod_id = 3013
+mod_name = "Ship Parts Catalogue"
+mod_slug = "ship-parts-catalogue"
+file_id = 44949
+file_display_name = "Ship Parts Catalogue - ZIP"
+file_name = "Ship Parts Catalogue - ZIP-3013-6-16-1763222072.zip"
+file_version = "6.16"
+nms_version = "6.16"
+uploaded_at = "2025-11-15T15:54:32Z"
+category = "MAIN"
+sha256 = "5e94eadbefcaf993c603b14b180dab79ec536b85c5c4377c7212c11b77612365"
+status = "diagnostic-only"
+reason = "Static Cosmos 7.01 review passes the EXML structure and all 418 old references, but the fixed list omits current Corvette content"
+distribution = "nexus-only-no-redistribution"
+source_url = "https://www.nexusmods.com/nomanssky/mods/3013?tab=files&file_id=44949"
+compatibility_claim = "Likely loadable on Cosmos 7.01, but incomplete: all 418 listed IDs resolve while current Corvette module B_TUR_F is absent"
+
+[[artifacts]]
+id = "nms-nexus-3064-47075-expedition-catalogue-improved"
+game_domain = "nomanssky"
+mod_id = 3064
+mod_name = "Expedition Catalogue Improved"
+mod_slug = "expedition-catalogue-improved"
+file_id = 47075
+file_display_name = "Expedition Catalogue Improved - ZIP"
+file_name = "Expedition Catalogue Improved - ZIP-3064-6-40-1780246096.zip"
+file_version = "6.40"
+nms_version = "6.40"
+uploaded_at = "2026-05-31T16:48:16Z"
+category = "MAIN"
+sha256 = "d6d990e85e8a96ad8a534da6b00b3fcf3c8932b60d6ff7c7958ea3ab5fe01be0"
+status = "diagnostic-only"
+reason = "Static Cosmos 7.01 boundary: stale 6.40 UI schemas and removal of the now-released PATCH23"
+distribution = "nexus-only-no-redistribution"
+source_url = "https://www.nexusmods.com/nomanssky/mods/3064?tab=files&file_id=47075"
+compatibility_claim = "Stale 6.40 UI MBIN layouts plus omission of current Expedition 23; not approved for Cosmos 7.01"

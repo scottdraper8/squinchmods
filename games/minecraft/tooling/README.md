@@ -42,10 +42,10 @@ common artifacts, reducing disk usage and build times:
 - **`mc-source [version]`**: Downloads and decompiles the specified Minecraft version into
   `games/minecraft/reference/sources/<version>/official/`, alongside a `manifest.json` describing
   the extraction.
-- **`tooling/squinch third-party`**: Acquires pinned Minecraft third-party release JARs from
-  Modrinth, constrained by Minecraft version and loader; creates shallow/sparse source checkouts
-  with resolved-commit manifests; and removes exact, manifest-backed acquisitions through a
-  dry-run-first cleanup command. See `third-party/README.md` for the operational workflow.
+- **`tooling/squinch third-party minecraft`**: Acquires pinned Minecraft third-party release JARs
+  from Modrinth, constrained by Minecraft version and loader; creates shallow/sparse source
+  checkouts with resolved-commit manifests; and removes exact, manifest-backed acquisitions through
+  a dry-run-first cleanup command. See `third-party/README.md` for the operational workflow.
 
 **Note:** These tools automatically source `env.sh`. Functionality is maintained even if `direnv` or
 manual shell initialization has not been performed.

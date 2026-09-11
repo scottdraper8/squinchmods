@@ -175,8 +175,8 @@ against); extracted sources are never committed.
 
 `sources/<version>/mods/<mod-name>/` is the same idea extended to third-party mods: a working-tree
 checkout of that mod's own public repository, at whichever branch/tag targets the Minecraft version
-in that path segment. Use `tooling/squinch third-party source` so the checkout is shallow, sparse,
-and records its resolved commit in `source-acquisition.json`:
+in that path segment. Use `tooling/squinch third-party minecraft source` so the checkout is shallow,
+sparse, and records its resolved commit in `source-acquisition.json`:
 
 ```bash
 git clone --depth 1 --branch <branch> --filter=blob:none --no-checkout <repo-url> <mod-name>
@@ -195,7 +195,7 @@ For runtime companion mods, use the same dispatcher to acquire a release from Mo
 placing an untracked JAR by hand:
 
 ```bash
-tooling/squinch third-party acquire \
+tooling/squinch third-party minecraft acquire \
   --artifact-id <catalog-artifact-id>
 ```
 
@@ -205,9 +205,9 @@ local
 `${SQINCHMODS_CACHE_HOME:-$XDG_CACHE_HOME/squinchmods}/third-party/modrinth/<version>/<loader>/`
 cache. Investigation scenarios reference catalog IDs; the runner resolves and verifies the cache
 manifest before materialization. Acquisition does not install companion mods globally or silently
-acquire required dependencies. Use `tooling/squinch third-party remove` to dry-run and then remove a
-specific cached release and any explicit source checkout when a candidate is no longer part of the
-matrix. The complete command contract is in
+acquire required dependencies. Use `tooling/squinch third-party minecraft remove` to dry-run and
+then remove a specific cached release and any explicit source checkout when a candidate is no longer
+part of the matrix. The complete command contract is in
 [`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md).
 
 `--depth 1` matters here specifically: a full (non-shallow) `--filter=blob:none` clone still fetches

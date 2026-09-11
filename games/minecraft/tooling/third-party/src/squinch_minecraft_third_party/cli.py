@@ -13,7 +13,7 @@ from .source import checkout_source
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="squinch third-party")
+    parser = argparse.ArgumentParser(prog="squinch third-party minecraft")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     acquire = subparsers.add_parser("acquire", help="Acquire a Modrinth release JAR")

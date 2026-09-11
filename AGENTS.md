@@ -33,8 +33,8 @@
   the host is healthy and that no prior investigation-owned JVM remains in uninterruptible teardown.
   Treat measurements from a degraded host as invalid, retain them only as labeled failure artifacts,
   and rerun the affected comparison after host recovery.
-- Acquire and validate third-party jars and sources through `tooling/squinch third-party`; the
-  catalog is `.squinch/games/minecraft/third-party/artifacts.toml`.
+- Acquire and validate third-party jars and sources through `tooling/squinch third-party minecraft`;
+  the catalog is `.squinch/games/minecraft/third-party/artifacts.toml`.
 - Before drawing a primary compatibility conclusion, verify against the live latest release that
   supports the scenario's exact Minecraft version and loader under the acquisition pipeline's
   release-channel policy. If that release changes, reacquire it through the catalog and rerun every
