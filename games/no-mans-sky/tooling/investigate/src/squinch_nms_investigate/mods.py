@@ -27,6 +27,15 @@ RUNTIME_SUFFIXES = {".exml", ".mbin", ".mxml", ".dds", ".wem", ".bnk", ".ttf", "
 RESOURCE_SUFFIXES = (".mbin", ".dds", ".wem", ".bnk", ".ttf", ".otf", ".png")
 
 
+def _compiler_versions_equal(left: str, right: str) -> bool:
+    try:
+        return tuple(int(part) for part in left.split(".")) == tuple(
+            int(part) for part in right.split(".")
+        )
+    except ValueError:
+        return left == right
+
+
 def analysis_summary(result: dict) -> dict:
     return {
         "requested_root": result["requested_root"],
@@ -307,8 +316,10 @@ def analyze_mod(
                     )
             elif (
                 inspection["version"].get("version")
-                and inspection["version"]["version"]
-                != toolchain_config()["mbincompiler"]["reported_version"]
+                and not _compiler_versions_equal(
+                    inspection["version"]["version"],
+                    toolchain_config()["mbincompiler"]["reported_version"],
+                )
             ):
                 findings.append(
                     {

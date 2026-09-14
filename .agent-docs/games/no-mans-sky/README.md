@@ -35,13 +35,13 @@ change in any game update.
 
 Do not conflate data mods with runtime hooks.
 
-| System                    | What it changes                     | What the game receives                                               | Current status on Bazzite                                                      |
-| ------------------------- | ----------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Loose data mod            | Serialized game data and assets     | `.EXML`, `.MBIN`, and resources under `GAMEDATA/MODS/<mod>/`         | Current and works through Proton because the Windows game reads ordinary files |
-| Runtime-hook mod          | Live functions and memory           | Injected Python/native code through NMS.py/pyMHF or another injector | Windows-only upstream; not established on Proton                               |
-| Build recipe              | Generates a data mod                | AMUMSS consumes `.lua`, then emits accepted game files               | Out of scope here; the game never executes the Lua                             |
-| Save editor               | Persistent player/save values       | Rewrites `.hg` save data outside the game                            | A tool, not a loaded mod                                                       |
-| Generic graphics injector | Post-processing or API interception | Usually DLL/config/shader files beside the executable                | Separate from the NMS data loader and tool-specific                            |
+| System                    | What it changes                     | What the game receives                                               | Current status on Bazzite                                                             |
+| ------------------------- | ----------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Loose data mod            | Serialized game data and assets     | `.EXML`, `.MBIN`, and resources under `GAMEDATA/MODS/<mod>/`         | Current and works through Proton because the Windows game reads ordinary files        |
+| Runtime-hook mod          | Live functions and memory           | Injected Python/native code through NMS.py/pyMHF or another injector | One exact-build System Search path is proven through Proton; no general support claim |
+| Build recipe              | Generates a data mod                | AMUMSS consumes `.lua`, then emits accepted game files               | Out of scope here; the game never executes the Lua                                    |
+| Save editor               | Persistent player/save values       | Rewrites `.hg` save data outside the game                            | A tool, not a loaded mod                                                              |
+| Generic graphics injector | Post-processing or API interception | Usually DLL/config/shader files beside the executable                | Separate from the NMS data loader and tool-specific                                   |
 
 The rest of the document uses “mod” to mean a loose data mod unless it explicitly says “runtime-hook
 mod.”
@@ -253,6 +253,7 @@ UI object that lays it out:
 | Desired change                                                 | Typical seam                                                                                                                  | Compatibility character                                                      |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Add a Catalogue category backed by existing items              | Append `GcWikiCategory` objects through a narrow EXML patch                                                                   | Usually composable when identifiers and the current template still resolve   |
+| Add a Guide topic that launches an existing/custom mission     | Append a `GcWikiTopic` with `Mission` and `MissionButtonText`, plus the corresponding mission data                            | Reuses the vanilla Guide controller; no UI layout replacement                |
 | Add or repurpose a quick-menu action                           | Patch/append the relevant data table such as `EMOTEMENU`, then connect existing action, reward, mission, or animation systems | Data-driven, but every shared target and referenced behavior must be checked |
 | Change an existing tab's label or icon                         | Narrow EXML write to its current category selector plus existing/custom localization and icon resources                       | Narrow when the selector is stable                                           |
 | Rearrange controls, grids, focus behavior, or element geometry | Full `cGcNGuiLayerData` MBIN below `UI`                                                                                       | Whole-file replacement; schema- and update-sensitive                         |
@@ -267,6 +268,11 @@ boundary: changing the Journey tab icon is a small EXML operation, while fitting
 patches per row replaces two complete UI MBINs and becomes invalid when their nested GUI schema
 changes.
 
+The live [system-search investigation](working/system-search-investigation.md) applies those seams
+to a planet finder and owns the current architecture decision. Current vanilla Guide topics already
+launch Wiki missions containing scan events, making that a substantially smaller launcher than a
+quick-menu/player-animation chain.
+
 Prefer the data seam when it fully expresses the feature. When it does not, treat a UI MBIN as a
 version-specific rebuild product: start from the exact current vanilla object, preserve unrelated
 current fields and controls, and revalidate navigation, focus, input mode, resolution, UI scale, and
@@ -278,8 +284,9 @@ executable strings and generated page-hint types identify concrete Inventory, Di
 Wiki/Catalogue, Mission Log, Expedition, and Options routes. The layout can draw another control but
 does not define a new frontend route or page controller. A genuinely new peer tab therefore is not
 realistic through ordinary EXML/MBIN data modding: it requires a version-qualified executable hook
-with a proven route, controller, focus/input, lifecycle, and Proton injection contract. No such
-supported Proton seam is currently established.[^2][^9][^15][^16]
+with a proven route, controller, focus/input, and lifecycle contract. The current System Search
+proves a narrower Proton injection and owned-window seam; it does not implement or justify taking
+ownership of a native peer tab.[^2][^9][^15][^16]
 
 ## Load order and conflicts
 
@@ -358,8 +365,12 @@ current inspection corpus includes:
   scene-schema failure;
 - [Ship Parts Catalogue](refs/third-party/ship-parts-catalogue.md), a narrow append-style Catalogue
   EXML whose 418 references were checked against current data; and
-- [Expedition Catalogue Improved](refs/third-party/expedition-catalogue-improved.md), whose complete
-  6.40 UI replacements cross a demonstrated 7.01 GUI-schema boundary.
+- [Expedition Catalogue Improved](refs/third-party/expedition-catalogue-improved.md), whose pinned
+  6.40 file is now a historical failure-boundary control because a 7.00 main file is available; and
+- [BG Dark UI and Fonts](refs/third-party/bg-dark-ui-fonts.md), a current main-file path-overlap
+  reference whose 6.45.1 full button layout is stale on 7.01; and
+- [Weather Indicator Short](refs/third-party/weather-indicator.md), a localization-only weather-key
+  taxonomy whose 305 keys still exist in 7.01, but which contains no runtime classifier.
 
 ### 1. Acquire the current vanilla input
 
@@ -463,11 +474,15 @@ This is a separate loader and risk model:
 - Upstream instructions assume Windows Python and a Windows process. Running the Linux Python
   package directly on Bazzite cannot inject into NMS under Proton.
 
-No reproducible, supported NMS.py-on-Proton procedure was found. It might be experimentally possible
-to install and run the entire Windows injector stack inside the same Proton/Wine prefix, but that is
-an unverified research task, not current operating guidance. Do not classify runtime-hook support as
-available on Bazzite until process discovery, injection, graphics/UI behavior, teardown, update
-compatibility, and save isolation are demonstrated.
+The repository now has a reproducible, current-build-pinned NMS.py/pyMHF attach path on this Bazzite
+host. A hash-locked Windows runtime executes inside the live Proton mount namespace. Because MinHook
+cannot reserve its near relay on the observed layout, the System Search bridge owns one
+instruction-relocating absolute hook, validates exact executable prefixes, restores that hook before
+injection shutdown, and verifies target-process survival. This proves the documented System Search
+path on the current executable; it is not a claim that arbitrary pyMHF mods, another NMS build, VR,
+or every overlay configuration work on Proton. See the
+[current search record](working/system-search-investigation.md) and
+[runtime instructions](../../../games/no-mans-sky/tooling/runtime/README.md).
 
 The Reloaded-II `NoMansSky.Api` repository is useful historical evidence for C# memory-hook modding,
 but its last source change was June 2023 and its instructions involve an old executable-patching
@@ -509,7 +524,8 @@ controlled Proton launch and backed-up disposable save fixture.
 - Treat load order as a conflict resolver, not a substitute for compatibility testing.
 - Keep authoring sources and ignored `.lua`/notes out of the runtime contract.
 - Back up saves and reproduce failures with all mods disabled before blaming the game.
-- Treat runtime injection as unsupported on Bazzite until separately proven.
+- Treat runtime injection as unsupported on Bazzite except for an exact-build path with its own
+  attachment, hook, lifecycle, and teardown evidence.
 
 ## Sources
 

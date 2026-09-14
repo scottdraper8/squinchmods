@@ -21,8 +21,15 @@ from .mods import (
 )
 from .output import emit, envelope, timestamp
 from .paths import STAGES_ROOT, resolve_game_root
+from .patterns import inspect_pattern_catalog
+from .pe_functions import inspect_functions, parse_address
 from .runs import create_run, resolve_run, write_json
 from .scenario import run_scenario
+from .search_probe import (
+    build_native_search_probe,
+    verify_probe_patch_compile,
+)
+from .source import snapshot_source
 from .staging import collect_evidence, stage, stage_status, unstage
 from .toolchain import (
     assert_supported_build,
@@ -118,6 +125,91 @@ def parser() -> argparse.ArgumentParser:
         "--allow-missing-patterns",
         action="store_true",
         help="Do not fail when one or more requested patterns have no match",
+    )
+
+    source = sub.add_parser(
+        "source-snapshot",
+        help="Retain selected files and symbol matches from a clean Git source tree",
+    )
+    _common(source)
+    source.add_argument("--repository", required=True, type=Path)
+    source.add_argument("--file", action="append", required=True, dest="files")
+    source.add_argument("--pattern", action="append", default=[])
+    source.add_argument("--limit", type=int, default=500)
+    source.add_argument("--expect-revision")
+    source.add_argument("--expect-origin")
+    source.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Capture a dirty source tree as diagnostic evidence instead of rejecting it",
+    )
+    source.add_argument(
+        "--allow-missing-patterns",
+        action="store_true",
+        help="Do not fail when one or more requested patterns have no match",
+    )
+
+    patterns = sub.add_parser(
+        "exe-patterns", help="Verify named byte signatures from a JSON catalog against NMS.exe"
+    )
+    _common(patterns, game=True)
+    patterns.add_argument("--catalog", required=True, type=Path)
+    patterns.add_argument("--name", action="append", required=True, dest="names")
+    patterns.add_argument("--match-limit", type=int, default=20)
+    patterns.add_argument(
+        "--disassemble-bytes",
+        type=int,
+        default=0,
+        help="Retain this many bytes of bounded disassembly from every unique match",
+    )
+    patterns.add_argument(
+        "--allow-nonunique",
+        action="store_true",
+        help="Require every signature to match, but do not require exactly one match each",
+    )
+
+    functions = sub.add_parser(
+        "exe-functions",
+        help="Retain PE function boundaries, direct calls, and optional vtable evidence",
+    )
+    _common(functions, game=True)
+    functions.add_argument("--address", action="append", default=[], type=parse_address)
+    functions.add_argument(
+        "--reference-address",
+        action="append",
+        default=[],
+        type=parse_address,
+        help="Find exact RIP-relative code and aligned qword data references to this address",
+    )
+    functions.add_argument(
+        "--include-callers",
+        action="store_true",
+        help="Scan .text for direct calls to the selected function starts",
+    )
+    functions.add_argument("--vtable", type=parse_address)
+    functions.add_argument("--vtable-count", type=int, default=0)
+    functions.add_argument(
+        "--memory-displacement",
+        action="append",
+        default=[],
+        type=parse_address,
+        help="Scan .text for base/index memory operands using this exact structure offset",
+    )
+
+    probe = sub.add_parser(
+        "native-search-probe",
+        help="Build and statically verify the current-derived Guide search probe",
+    )
+    _common(probe, game=True)
+    probe.add_argument(
+        "--probe-tag",
+        help="Unique 1-12 character trial tag appended to mission and scan-event IDs",
+    )
+    probe.add_argument(
+        "--guide-preset-slots",
+        type=int,
+        default=0,
+        help="Preload this many reachable Guide preset dispatch missions (maximum 9)",
     )
 
     scenario = sub.add_parser("scenario", help="Run one versioned TOML investigation scenario")
@@ -603,6 +695,130 @@ def main(argv: list[str] | None = None) -> None:
                 "exe-strings",
                 "succeeded" if passed else "failed",
                 data,
+                json_mode=json_mode,
+            )
+        elif args.command == "source-snapshot":
+            data = snapshot_source(
+                args.repository,
+                args.files,
+                run.path / "source-snapshot",
+                patterns=args.pattern,
+                limit=args.limit,
+                allow_dirty=args.allow_dirty,
+            )
+            revision_matches = (
+                args.expect_revision is None or data["revision"] == args.expect_revision
+            )
+            origin_matches = args.expect_origin is None or data["origin"] == args.expect_origin
+            patterns_match = data["all_patterns_matched"] or args.allow_missing_patterns
+            data["expectations"] = {
+                "revision": args.expect_revision,
+                "revision_matches": revision_matches,
+                "origin": args.expect_origin,
+                "origin_matches": origin_matches,
+                "require_each_pattern": not args.allow_missing_patterns,
+                "patterns_match": patterns_match,
+            }
+            passed = revision_matches and origin_matches and patterns_match
+            _finish(
+                run,
+                "source-snapshot",
+                "succeeded" if passed else "failed",
+                data,
+                json_mode=json_mode,
+            )
+        elif args.command == "exe-patterns":
+            game_root = resolve_game_root(args.game_root)
+            data = inspect_pattern_catalog(
+                game_root / "Binaries/NMS.exe",
+                args.catalog,
+                args.names,
+                run.path / "pattern-catalog",
+                match_limit=args.match_limit,
+                disassemble_bytes=args.disassemble_bytes,
+            )
+            data["game"] = _game_evidence(game_root)
+            data["require_unique"] = not args.allow_nonunique
+            passed = data["all_matched"] and (data["all_unique"] or args.allow_nonunique)
+            data["expectation_met"] = passed
+            _finish(
+                run,
+                "exe-patterns",
+                "succeeded" if passed else "failed",
+                data,
+                json_mode=json_mode,
+            )
+        elif args.command == "exe-functions":
+            game_root = resolve_game_root(args.game_root)
+            if (args.vtable is None) != (args.vtable_count == 0):
+                raise InvestigationError(
+                    "invalid_vtable",
+                    "--vtable and a positive --vtable-count must be supplied together",
+                )
+            data = inspect_functions(
+                game_root / "Binaries/NMS.exe",
+                args.address,
+                run.path / "pe-functions",
+                include_callers=args.include_callers,
+                vtable_address=args.vtable,
+                vtable_count=args.vtable_count,
+                memory_displacements=args.memory_displacement,
+                reference_addresses=args.reference_address,
+            )
+            data["game"] = _game_evidence(game_root)
+            _finish(run, "exe-functions", "succeeded", data, json_mode=json_mode)
+        elif args.command == "native-search-probe":
+            game_root = resolve_game_root(args.game_root)
+            assert_supported_build(game_root)
+            catalog, members = _inventory_context(game_root, run.path)
+            targets = [
+                "metadata/reality/wiki.mbin",
+                "metadata/simulation/missions/tables/wikimissiontable.mbin",
+                "metadata/simulation/missions/tables/npcmissiontable.mbin",
+            ]
+            vanilla, vanilla_inspections = _vanilla_xml(targets, catalog, run.path)
+            probe = build_native_search_probe(
+                vanilla[targets[0]],
+                vanilla[targets[1]],
+                vanilla[targets[2]],
+                run.path / "native-search-probe",
+                probe_tag=args.probe_tag,
+                guide_preset_slots=args.guide_preset_slots,
+            )
+            analysis = analyze_mod(
+                Path(probe["deployment_root"]),
+                run.path / "mod-analysis",
+                current_inventory=members,
+                vanilla_xml=vanilla,
+            )
+            report = run.path / "mod-analysis/report.json"
+            write_analysis_report(analysis, report)
+            deployment = Path(probe["deployment_root"])
+            patch_compile_checks = [
+                verify_probe_patch_compile(
+                    patch,
+                    run.path / "patch-compile-checks" / f"{index:02d}-{patch.stem.casefold()}",
+                )
+                for index, patch in enumerate(sorted(deployment.rglob("*.EXML")))
+            ]
+            analysis_data = analysis_summary(analysis)
+            passed = analysis_data["static_outcome"] == "succeeded" and all(
+                check["passed"] for check in patch_compile_checks
+            )
+            _finish(
+                run,
+                "native-search-probe",
+                "succeeded" if passed else "failed",
+                {
+                    "probe": probe,
+                    "analysis": analysis_data,
+                    "analysis_report": str(report),
+                    "patch_compile_checks": patch_compile_checks,
+                    "vanilla_target_inspections": vanilla_inspections,
+                    "game": _game_evidence(game_root),
+                    "toolchain": _toolchain_evidence(mbin=True),
+                    "runtime_compatibility_proven": False,
+                },
                 json_mode=json_mode,
             )
         elif args.command == "scenario":

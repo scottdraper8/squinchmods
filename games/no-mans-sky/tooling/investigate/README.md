@@ -108,6 +108,83 @@ This is static evidence, not a decompiler and not proof that a callable hook sea
 every requested pattern must match at least once; `--allow-missing-patterns` makes an absence
 exploratory instead of a failed assertion.
 
+Retain selected files and bounded symbol matches from an exact clean Git source checkout:
+
+```bash
+tooling/squinch nms-investigate source-snapshot \
+  --repository /exact/source/checkout \
+  --expect-revision <full-commit-id> \
+  --expect-origin https://github.com/example/project.git \
+  --file README.md --file src/relevant.py \
+  --pattern 'RelevantType|RelevantFunction'
+```
+
+The command is read-only. It requires the exact worktree root, rejects dirty trees by default,
+requires selected files to be tracked regular files, records Git identity, the local upstream ref
+and ahead/behind state when configured, and per-file hashes, and copies only those files into the
+ignored run. It does not fetch or acquire source, prove that a local remote-tracking ref is still
+current on the network, execute project code, or turn a mapped symbol into runtime evidence.
+
+Verify named NMS.py-style byte signatures against the exact installed executable:
+
+```bash
+tooling/squinch nms-investigate exe-patterns \
+  --catalog /exact/NMS.py/tools/data.json \
+  --name 'cGcSolarSystemQuery::Run' \
+  --name 'cGcScanEventManager::PassesPlanetInfoChecks' \
+  --disassemble-bytes 4096
+```
+
+The scanner accepts whole-byte hexadecimal tokens and `?`/`??` wildcards, records the executable and
+catalog hashes, retains the selected catalog, validates the PE headers, maps every match to its
+section, relative virtual address, and preferred virtual address, and requires exactly one match per
+selected signature. `--allow-nonunique` is available for exploratory evidence. A unique byte match
+supports function location for that executable; it does not prove the signature, calling convention,
+object layout, call safety, loaded address after relocation, or semantics. `--disassemble-bytes`
+additionally retains a bounded Intel-syntax `objdump` range from every unique preferred virtual
+address and records the disassembler identity. The requested byte range can cross a function
+boundary; function limits and call-target identities remain analysis conclusions rather than
+properties asserted by the tool.
+
+Retain function-level evidence once current-executable addresses have been established:
+
+```bash
+tooling/squinch nms-investigate exe-functions \
+  --address 0x140A27240 --address 0x1405AFDC0 \
+  --vtable 0x144A82F88 --vtable-count 36 \
+  --memory-displacement 0x3BF0
+```
+
+The command obtains x64 unwind-fragment bounds from the executable's `.pdata`, follows direct
+conditional and unconditional branches into other bounded fragments, and decodes the reachable chain
+with the pinned iced-x86 library. It retains disassembly, direct calls, RIP-relative memory
+references, the exact executable hash, and optional vtable entries. `--include-callers` performs the
+more expensive full-`.text` scan for direct calls to any retained fragment. This is a reproducible
+static control-flow view, not proof of C++ function ownership, a function's name or semantics,
+virtual dispatch, runtime reachability, or execution.
+
+Repeatable `--memory-displacement` values scan `.text` for base/index memory operands using an exact
+structure offset and retain the containing unwind-fragment bounds. This is useful for locating
+candidate readers and writers of a recovered field. It deliberately excludes RIP-relative globals,
+and an offset match alone does not prove that two base registers have the same concrete type.
+
+Build the disposable native-resolver vertical slice from the exact current Wiki mission table:
+
+```bash
+tooling/squinch nms-investigate native-search-probe
+```
+
+The command extracts the current Wiki, Wiki mission table, and NPC mission table. It clones the
+current `WIKI_TRADE5` mission into a uniquely named one-profile Guide probe and requires the current
+`SE_PHOTO_BIOME_LUSH` event to retain its `PlanetSearch`/`Any`/no-building contract. It separately
+requires at least one current mission to retain the bounded `Near`, `ForceWideRandom=false`, and
+`MustFindSystem=false` location policy before composing those current contracts into a nearby
+Lush-biome query. It emits the loose mod inside the ignored run, analyzes it against current assets,
+and compiles/decompiles the generated four-file adapter as a structural check. It does not stage or
+run the mod. The generated mission intentionally has no quick-warp stage; primary and fallback
+predicates are identical so a fallback cannot silently weaken the result. The new composition still
+requires merged-export and runtime proof.
+
 ## Declarative scenarios
 
 Run a committed TOML workflow:
@@ -156,9 +233,9 @@ tooling/squinch nms-investigate clean --run <run-id> --apply
 
 ## Deliberate runtime boundary
 
-The tool does not launch Steam/Proton, select a personal save, toggle game-owned settings, inject a
-Windows hook, or pronounce a visual result. A sound automated client gate needs a disposable Wine
-prefix, non-personal save fixture, deterministic navigation/input, screenshot or structured probe
-oracle, crash/log collection, and verified teardown. No supported NMS.py/pyMHF-on-Proton path has
-yet satisfied that contract. Until it does, stage an exact tree, use a backed-up disposable save,
-collect `FullLog.txt` and `MODS/EXPORTED`, and retain the human/visual observation beside the run.
+The investigation command does not launch Steam/Proton, select a personal save, toggle game-owned
+settings, inject a Windows hook, or pronounce a visual result. Runtime injection is a separately
+bounded product path under [`../runtime/`](../runtime/README.md), with its own executable identity,
+threading, lifecycle, and save-isolation gates. Static staging conclusions remain limited to the
+data path: use a backed-up save, collect `FullLog.txt` and `MODS/EXPORTED`, and retain any required
+human/visual observation beside the run.

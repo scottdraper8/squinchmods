@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import tomllib
 
 from .errors import AcquisitionError
 

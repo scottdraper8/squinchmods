@@ -1,0 +1,33 @@
+schema_version = 1
+id = "system-search-menu-seams"
+fail_fast = true
+
+[[steps]]
+id = "roundtrip-guide-search-data"
+operation = "roundtrip"
+paths = [
+  "METADATA/REALITY/WIKI.MBIN",
+  "METADATA/SIMULATION/MISSIONS/TABLES/WIKIMISSIONTABLE.MBIN",
+]
+
+[[steps]]
+id = "roundtrip-relevant-ui-layouts"
+operation = "roundtrip"
+paths = [
+  "UI/CATALOGUEPAGE.MBIN",
+  "UI/WIKIPAGE.MBIN",
+  "UI/INTERACTIONPAGE.MBIN",
+  "UI/INTERACTIONDIALOGPAGE.MBIN",
+  "UI/POPUP_WIKI.MBIN",
+]
+
+[[steps]]
+id = "find-controller-boundary-evidence"
+operation = "exe-strings"
+patterns = [
+  "cGcFrontendTextInput",
+  "cGcFrontendPageInteractions",
+  "GcWikiTopic",
+  "GcScanEventSolarSystemLookup",
+]
+limit = 250

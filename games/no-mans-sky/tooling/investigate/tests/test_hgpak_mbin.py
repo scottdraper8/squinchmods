@@ -7,6 +7,7 @@ import pytest
 
 from squinch_nms_investigate import hgpak, mbin
 from squinch_nms_investigate.errors import InvestigationError
+from squinch_nms_investigate.mbin import VERSION
 
 
 def test_archive_inventory_extract_and_missing_negative_control(
@@ -82,3 +83,7 @@ def test_mbin_roundtrip_reports_decompile_failure(
     result = mbin.roundtrip(source, tmp_path / "roundtrip-failed")
     assert not result["passed"]
     assert result["failure"] == "decompile-failed"
+
+
+def test_compiler_version_pattern_accepts_v_prefix() -> None:
+    assert VERSION.search("Compiled with MBINCompiler v7.1.0.1").group() == "7.1.0.1"

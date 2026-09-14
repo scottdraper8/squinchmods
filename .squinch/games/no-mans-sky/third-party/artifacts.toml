@@ -60,3 +60,43 @@ reason = "Static Cosmos 7.01 boundary: stale 6.40 UI schemas and removal of the 
 distribution = "nexus-only-no-redistribution"
 source_url = "https://www.nexusmods.com/nomanssky/mods/3064?tab=files&file_id=47075"
 compatibility_claim = "Stale 6.40 UI MBIN layouts plus omission of current Expedition 23; not approved for Cosmos 7.01"
+
+[[artifacts]]
+id = "nms-nexus-2335-47383-bg-dark-ui-fonts"
+game_domain = "nomanssky"
+mod_id = 2335
+mod_name = "BG Dark UI and Fonts"
+mod_slug = "bg-dark-ui-fonts"
+file_id = 47383
+file_display_name = "BG Dark UI Fonts"
+file_name = "BG Dark UI Fonts 2335 4.8 2026-06-23T09-32Z qTSCvocoG.zip"
+file_version = "4.8"
+nms_version = "6.45.1"
+uploaded_at = "2026-06-23T09:32:00Z"
+category = "MAIN"
+sha256 = "4a596f5e57d149df39e30728b2ccd87de2f00b83c639d700f0d146297b9ab005"
+status = "diagnostic-only"
+reason = "Static Cosmos 7.01 boundary: the packaged full TWOLINEBUTTON UI replacement carries stale layout values and non-finite drift"
+distribution = "nexus-only-no-redistribution"
+source_url = "https://www.nexusmods.com/nomanssky/mods/2335?tab=files&file_id=47383"
+compatibility_claim = "Author claims NMS 6.45.1; the full UI replacement is not approved for Cosmos 7.01, while its resource paths remain useful overlap evidence"
+
+[[artifacts]]
+id = "nms-nexus-3373-39729-weather-indicator-short"
+game_domain = "nomanssky"
+mod_id = 3373
+mod_name = "Weather Indicator"
+mod_slug = "weather-indicator"
+file_id = 39729
+file_display_name = "Weather Indicator Short"
+file_name = "Weather Indicator Short-3373-1-0-1-1740203995.zip"
+file_version = "1.0.1"
+nms_version = "5.57"
+uploaded_at = "2025-02-22T05:59:55Z"
+category = "MAIN"
+sha256 = "d96423fc2e66ea42bdac87cb09cea9478c1438c070c2bc6f346f2bd16d97af4c"
+status = "diagnostic-only"
+reason = "Localization-only evidence: maps 305 weather-description IDs to author-supplied storm-frequency labels but contains no runtime classifier"
+distribution = "nexus-only-no-redistribution"
+source_url = "https://www.nexusmods.com/nomanssky/mods/3373?tab=files&file_id=39729"
+compatibility_claim = "Authored for Worlds Part II 5.57; useful as a weather-key taxonomy, not proof of current Cosmos 7.01 runtime weather semantics"

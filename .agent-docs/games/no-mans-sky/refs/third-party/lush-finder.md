@@ -75,12 +75,16 @@ flowchart LR
 - `REWARDTABLE.EXML` adds 31 `GcRewardMission` entries. Each reward starts one named finder mission.
 - `NPCMISSIONTABLE.EXML` adds 31 search missions and 31 `R_` helper missions. A helper starts its
   paired search mission, waits, and has `RestartOnCompletion=true`; the search mission starts a scan
-  event, waits for locality/navigation conditions, performs `GcMissionSequenceQuickWarp`, marks the
-  target portal, ends the scan event, and reports completion.
+  event whose `EventEndType=None` keeps it alive, waits first for
+  `GcMissionConditionIsScanEventLocal`, performs `GcMissionSequenceQuickWarp`, marks the target
+  portal, waits on `GcMissionConditionIsScanEventOnCurrentPlanet` with `AllowInShip=true`, ends the
+  scan event, and reports completion. Current 7.01 vanilla missions retain both condition classes
+  and their field layouts.
 - The 31 query profiles cover 16 Lush variants, two Swamp variants, one Green variant, four Frozen
   variants, four Barren variants, one Scorched variant, two Waterworld variants, and one Gas Giant
   variant. In this file, every primary and fallback system lookup also requires an undiscovered
-  system and `NeedsWaterPlanet=true`, and excludes extreme weather and extreme sentinels.
+  system and `NeedsWaterPlanet=true`, and excludes extreme sentinels. Thirty also exclude extreme
+  weather; the Gas Giant profile does not.
 - The custom scene is the model attached to the `SYSTEM_SCAN` emote. Its locator attaches the custom
   entity, whose `SuperDoopaScanner` interaction plays the signal-scanner sound and fires the simple
   interaction.
@@ -90,6 +94,45 @@ flowchart LR
 This is all accepted game data: EXML merge patches, full MBIN objects, localization MXML, and DDS
 resources. AMUMSS generated some files, but neither the game nor this analysis executes a Lua
 script.
+
+### What its foliage-style names actually mean
+
+Lush Finder does not enumerate or classify spawned foliage assets. Its friendly preset names map
+directly to one `GcBiomeSubType` value in `GcScanEventSolarSystemLookup`:
+
+| Preset wording        | Actual subtype predicate  |
+| --------------------- | ------------------------- |
+| Bubble Lush           | `Bubble`                  |
+| Huge Tree Lush        | `HugeLush`                |
+| Jungle Lush           | `Worlds`                  |
+| Floating Flower Lush  | `HugePlant`               |
+| Floating Islands Lush | `HydroGarden`             |
+| Tentacled Lush        | `HugeToxic`               |
+| Lushroom A / B        | `Variant_A` / `Variant_B` |
+| Rocky Lush / Weird    | `Variant_C` / `Variant_D` |
+| Ruins Lush            | `Structure`               |
+| High Definition Lush  | `HighQuality`             |
+| Infested Lush         | `Infested`                |
+
+These names are author-facing interpretations of generated biome archetypes rather than a finite
+foliage enum. Current 7.01 `BIOMEFILENAMES` and object-list assets prove the corresponding
+subtype-to-asset-family mappings: the mapped families contain Lushroom, Huge Tree, Jungle, Floral,
+and Rocky/HydroGarden object sets. In particular, Lush + HydroGarden maps to the Rocky object list,
+which contains current island and waterfall scene records marked `IsFloatingIsland=true`. The preset
+is therefore an asset-family shortcut. It does not prove that a particular planet resolved one of
+those scenes.
+
+It remains distinct from floating-island terrain. `HydroGarden` does not test or define the
+`FloatingIslands`, `FloatingIslandsPrime`, or `FloatingIslandsPurple` terrain setting, and those
+terrain settings occur across other subtypes. A finder that wants both meanings must expose them as
+independent predicates.
+
+A complete current-runtime scan strengthened that boundary. The type-1 solar query decoded 71,730
+planets but left all six `GcPlanetData.SpawnData` collections empty in every deep-copy control.
+Object-backed floating-island searches, including Lush + HydroGarden, found no positive result,
+while exact floating-island terrain occurred on 7,145 planets. System Search can therefore offer the
+exact HydroGarden subtype and exact floating-island terrain independently, but cannot claim to
+inspect resolved foliage or island scene objects through this off-screen query path.
 
 ## Merge and conflict surface
 

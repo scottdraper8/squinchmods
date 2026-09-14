@@ -5,7 +5,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from squinch_nms_third_party import nexus
 from squinch_nms_third_party.archive import inspect_archive
 from squinch_nms_third_party.catalog import CatalogArtifact

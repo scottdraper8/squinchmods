@@ -22,11 +22,18 @@ mod_root = "../../reference/sources/6.45/mods/lush-finder/47562/Lush Finder V3.3
 expect = "failed"
 
 [[steps]]
+id = "bg-dark-ui-fonts"
+operation = "analyze-mod"
+mod_root = "../../reference/sources/6.45.1/mods/bg-dark-ui-fonts/47383/BgDarkerUIFonts.v4.8"
+expect = "failed"
+
+[[steps]]
 id = "cross-mod-conflicts"
 operation = "conflicts"
 mod_roots = [
   "../../reference/sources/6.16/mods/ship-parts-catalogue/44949/FF_ShipPartsCatalogue_616",
   "../../reference/sources/6.40/mods/expedition-catalogue-improved/47075/FF_ExpeditionCatalogueImproved_640",
   "../../reference/sources/6.45/mods/lush-finder/47562/Lush Finder V3.3.6.45 (Full Mission)",
+  "../../reference/sources/6.45.1/mods/bg-dark-ui-fonts/47383/BgDarkerUIFonts.v4.8",
 ]
 expect = "succeeded"

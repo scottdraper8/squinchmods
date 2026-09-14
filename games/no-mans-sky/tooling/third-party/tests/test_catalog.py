@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from squinch_nms_third_party.catalog import load_catalog, validate_catalog
 from squinch_nms_third_party.errors import AcquisitionError
 

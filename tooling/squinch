@@ -51,6 +51,7 @@ case "${tool}" in
             echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
             exit 127
         fi
+        PYTHONPATH="${script_dir}/../games/no-mans-sky/mods/search-probes/src${PYTHONPATH:+:${PYTHONPATH}}" \
         exec uv run --project "${script_dir}/../games/no-mans-sky/tooling/investigate" \
             python -m squinch_nms_investigate "$@"
         ;;

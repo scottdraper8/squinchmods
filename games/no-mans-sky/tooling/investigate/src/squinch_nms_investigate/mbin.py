@@ -9,7 +9,7 @@ from .paths import sha256_file
 from .toolchain import run_mbincompiler
 from .xmlmodel import compare_xml, xml_summary
 
-VERSION = re.compile(r"\b\d+\.\d+\.\d+\.\d+\b")
+VERSION = re.compile(r"(?<!\d)\d+\.\d+\.\d+\.\d+(?!\d)")
 
 
 def compiler_version(path: Path, *, work_dir: Path) -> dict:

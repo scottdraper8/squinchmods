@@ -8,11 +8,17 @@ import pytest
 from squinch_nms_investigate import staging
 from squinch_nms_investigate.errors import InvestigationError
 from squinch_nms_investigate.mods import (
+    _compiler_versions_equal,
     analyze_mod,
     conflict_report,
     resolve_deployment_root,
     write_analysis_report,
 )
+
+
+def test_compiler_version_comparison_normalizes_zero_padded_components() -> None:
+    assert _compiler_versions_equal("7.1.0.1", "7.01.0.1")
+    assert not _compiler_versions_equal("7.1.0.0", "7.01.0.1")
 
 
 def mod_tree(tmp_path: Path, name: str = "mod", value: str = "X") -> Path:

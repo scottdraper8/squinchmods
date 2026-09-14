@@ -2,14 +2,16 @@
 
 ## Decision
 
-Expedition Catalogue Improved `6.40` is acquired for UI investigation but is **not approved for No
-Man's Sky Cosmos 7.01**. Its small `JOURNEY.EXML` patch still targets the current Season History
-category correctly. The package as a whole is unsafe, however, because it also replaces two full UI
-MBINs serialized for the 6.40 GUI schema. The 7.01 schema inserts and shifts nested text-style
-fields; decoding the old bytes with the current schema produces `NaN` values and an impossible font
-index. It also removes `PATCH23`, which is no longer an empty future slot: Cosmos introduced the
-currently released Expedition 23. A successful file walk by MBINCompiler does not make those shifted
-values or stale page contents valid.
+Expedition Catalogue Improved `6.40` is retained as a historical UI failure-boundary control and is
+**not approved for No Man's Sky Cosmos 7.01**. Nexus now lists a newer 7.00 main file (`48187`),
+which has not been acquired into this corpus; the pinned 6.40 file must not stand in for it. The
+pinned file's small `JOURNEY.EXML` patch still targets the current Season History category
+correctly. The package as a whole is unsafe, however, because it also replaces two full UI MBINs
+serialized for the 6.40 GUI schema. The 7.01 schema inserts and shifts nested text-style fields;
+decoding the old bytes with the current schema produces `NaN` values and an impossible font index.
+It also removes `PATCH23`, which is no longer an empty future slot: Cosmos introduced the currently
+released Expedition 23. A successful file walk by MBINCompiler does not make those shifted values or
+stale page contents valid.
 
 No file was installed into the game, no save was opened, and no runtime compatibility is claimed.
 The author disallows redistribution and modification without permission, so neither a rebuilt
