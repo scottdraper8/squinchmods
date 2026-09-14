@@ -52,6 +52,8 @@ replace installed runtime files while `NMS.exe` is running.
 - Scoped acceptance: `games/no-mans-sky/investigations/analysis/search-probes-acceptance.md`
 - Lifecycle evidence:
   `games/no-mans-sky/investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json`
+- Completed-target reuse evidence:
+  `games/no-mans-sky/investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json`
 
 ### Ownership and lifecycle
 
@@ -64,7 +66,10 @@ Form navigation starts one disposable NPC mission through the native mission eng
 form-listener mission exists. The native start seam is verified from current reward and mission
 sequence callers, not the unrelated request path described in older artifacts. Active or pending
 targets are rejected before changing their destination. Completion acknowledgment waits for both an
-active mission and its exact planet-address route. Abandonment and arrival cleanup belong to NMS.
+active mission, its exact planet-address route, and verified native selection. Abandonment and
+arrival cleanup belong to NMS. Start with `GcSeed(value=0, valid=true)`, not an all-zero invalid
+seed: invalid identity matching creates duplicate instances after completion. Native restart also
+discards its selection flag, so selection is performed after the route is established.
 
 The scoped acceptance record covers repeated form-target start/abandon/restart, exact route
 ownership, duplicate rejection, save/reload, actual form interaction, first F7, positive/no-match

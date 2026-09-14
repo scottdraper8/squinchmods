@@ -318,6 +318,16 @@ travel/arrival test. Live comparison also proves that `GcPlanetData.PlanetIndex`
 `cGcUniverseAddressData.PlanetIndex` is one-based: generated index 3 was loaded planet address value
 4, while published value zero produced only a system destination.
 
+Completed-target reuse additionally requires a valid native zero seed:
+`GcSeed(value=0, valid=true)`. Native start compares value and validity, while the active query
+treats an invalid seed as a wildcard. Passing an invalid zero seed creates a duplicate after
+completion; native mission-context cleanup then removes the new route. The runtime uses the exact
+native default identity and explicitly selects the active instance after route publication, because
+the native restart queue ignores the initial selection flag. No artificial stage delay or marker
+republishing is involved. The player's naturally completed first target, failing second target,
+native hardware watch, corrected reuse control, and installed reload/repeat validation are retained
+in `games/no-mans-sky/investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json`.
+
 The same fresh-process Guide snapshot contains two runtime-owned topics, **Earthlike** bound to slot
 `P00` and the newly saved **Frozen Giant** bound to slot `P01`. This proves that preset saves are
 persistent and appear after the documented next-launch refresh boundary.
