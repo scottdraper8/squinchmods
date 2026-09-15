@@ -61,10 +61,12 @@ abandon that probe in the Log before retrying. Search details remain available i
 saved Guide destination is cleared before a new launch, and Guide data is refreshed on the next NMS
 launch rather than mutating an open native page. Search Probe does not use a quick-warp action.
 
-The form keeps target-planet predicates separate from system aggregates. Terrain-family floating
-islands and resolved object-backed floating islands are independent controls; required resource
-slots are a same-planet conjunction; system “contains” predicates may be satisfied by different
-planets. Generated hue families describe generated inputs, not final rendered pixels.
+The form keeps target-planet predicates separate from system aggregates. One floating-island control
+reads resolved native object flags, independently of terrain-family names; required resource slots
+are a same-planet conjunction; system “contains” predicates may be satisfied by different planets.
+Base vegetation palettes and native-selected sky/water colours describe generated inputs, not final
+rendered pixels. Weather type and a single Storms control replace overlapping severity controls.
+Retired form fields in saved presets remain visible additional constraints.
 
 ## Development tools
 

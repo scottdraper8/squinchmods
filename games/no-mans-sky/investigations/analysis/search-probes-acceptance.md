@@ -1,6 +1,6 @@
 # Search Probes acceptance
 
-The installed release supports the pinned No Man's Sky 7.01 executable on this Steam Proton host. It
+The installed package targets the pinned No Man's Sky 7.01 executable on this Steam Proton host. It
 starts with an ordinary Steam launch and needs no external injector or controller. F7 creates and
 shows the form on first use. Mod source lives in `mods/search-probes`; all build, installation,
 test, investigation, and desktop-control tooling lives in the parent repository.
@@ -10,17 +10,39 @@ Raw records are
 and
 [`completed-target reuse`](../../investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json).
 
-| Gate                     | Evidence                                                                                                                                                                                             |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Correct native ownership | Current reward/mission-sequence callers resolve the native mission start and manager; exact executable and byte prefixes are checked.                                                                |
-| Form lifecycle           | Repeated start/abandon/restart, duplicate rejection before target mutation, one exact planet route, and zero owned routes after abandonment.                                                         |
-| Completed-target reuse   | The player's naturally completed target is reused with a valid zero native seed; one mission instance and the exact next route remain active. Native selection is verified before acknowledgment.    |
-| Save/reload              | A saved active target survives a fresh process as one Log entry with the same exact destination; native abandonment still works.                                                                     |
-| Actual form interaction  | Search and Navigate exercised through the visible form; names populated; first F7 verified on the final installed source.                                                                            |
-| Guide lifecycle          | Actual Guide launch with a positive control produces one native mission-owned exact route; no-match control produces no target. Both abandon normally.                                               |
-| Search parity            | Final installed smoke matrix completed; exhaustive generated-field controls remain linked from the canonical plan and filter audit.                                                                  |
-| Packaging                | 1,726 immutable installed files and all 31 product Python modules match the package/source; 213 investigation tests, 10 acquisition tests, and lint pass.                                            |
-| Cleanup                  | Native abandonment leaves zero owned routes and preserves 14 unrelated routes. The requested Frozen Giant target is restored for handoff. No temporary runtime instrumentation survives the restart. |
+## Current colour/UI update gate
+
+The
+[reference capture](../../investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json)
+and
+[installed footprint](../../investigation-state/runs/20260915T030000Z-colour-island-reference/installation.json)
+cover selected sky/water inputs, native water parity across 19 records, read-only selected colours
+on six loaded planets, the captured island reference, and combined-filter negative controls. 270
+investigation tests, 10 acquisition tests, and lint pass. All 32 installed modules match source;
+1,728 immutable installed files match the manifest, and user presets are byte-identical.
+
+Fresh-process gameplay-callback and actual form validation of this update is **pending**. Host
+Python crashed during packaging; the archive tool subsequently entered an uninterruptible kernel
+memory-management wait, also blocking process-list readers. The unchanged, validated native mission
+adapter was reused to finish packaging under the project's Python. NMS is stopped for the user's
+requested PC restart. Do not promote captured-data/unit results to a fresh installed-runtime claim.
+After host recovery, verify a normal Steam launch, reference snapshot/candidate controls, bounded
+colour searches, island require/exclude controls, the simplified form, and exact saved-preset round
+trips. Do not fly, warp, or change the working mission lifecycle.
+
+## Mission/lifecycle baseline
+
+| Gate                     | Evidence                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Correct native ownership | Current reward/mission-sequence callers resolve the native mission start and manager; exact executable and byte prefixes are checked.                                                             |
+| Form lifecycle           | Repeated start/abandon/restart, duplicate rejection before target mutation, one exact planet route, and zero owned routes after abandonment.                                                      |
+| Completed-target reuse   | The player's naturally completed target is reused with a valid zero native seed; one mission instance and the exact next route remain active. Native selection is verified before acknowledgment. |
+| Save/reload              | A saved active target survives a fresh process as one Log entry with the same exact destination; native abandonment still works.                                                                  |
+| Actual form interaction  | Search and Navigate exercised through the visible form; names populated; first F7 verified on the final installed source.                                                                         |
+| Guide lifecycle          | Actual Guide launch with a positive control produces one native mission-owned exact route; no-match control produces no target. Both abandon normally.                                            |
+| Search parity            | Final installed smoke matrix completed; exhaustive generated-field controls remain linked from the canonical plan and filter audit.                                                               |
+| Packaging                | The lifecycle baseline's installed footprint is retained in its run; current update packaging and pending runtime gates are specified above.                                                      |
+| Cleanup                  | Baseline native abandonment leaves zero owned routes and preserves unrelated routes. The player confirms mission lifecycle/galaxy-map behavior works; this update does not modify it.             |
 
 The form uses a disposable native NPC mission, not a persistent Wiki listener. Guide slots retain
 their separate native ready handshake; an abandoned slot cannot publish a route. No-match Guide

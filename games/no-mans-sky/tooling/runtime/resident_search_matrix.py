@@ -321,7 +321,7 @@ def _ui_positive_controls(counts: Mapping[str, object]) -> dict[str, object]:
     }
 
     for category in (
-        "has_floating_islands",
+        "has_floating_island_terrain",
         "is_non_gas_giant",
         "has_rings",
         "has_moons",
@@ -565,7 +565,7 @@ def _run_smoke(client: ResidentClient, summary: dict[str, object]) -> dict[str, 
             {
                 "target_biome": "Lush",
                 "biome_subtype": "HydroGarden",
-                "floating_island_objects": "Require",
+                "floating_islands": "Require",
             },
             candidate_limit=64,
         ),
@@ -575,7 +575,7 @@ def _run_smoke(client: ResidentClient, summary: dict[str, object]) -> dict[str, 
             {
                 "target_biome": "Lush",
                 "biome_subtype": "Standard",
-                "floating_island_objects": "Exclude",
+                "floating_islands": "Exclude",
             },
             candidate_limit=64,
         ),
@@ -598,7 +598,7 @@ def _run_smoke(client: ResidentClient, summary: dict[str, object]) -> dict[str, 
         expected = label == "require"
         if (
             not isinstance(planet, Mapping)
-            or planet.get("has_floating_island_objects") is not expected
+            or planet.get("has_floating_islands") is not expected
         ):
             raise RuntimeError(
                 f"resolver-backed object-island {label} result lost its exact flag"
@@ -773,16 +773,11 @@ def _run_full(
         "paradise": {"paradise_planet": "Require"},
         "calm-lush": {"target_biome": "Lush", "storm_frequency": "None"},
         "waterworld": {"target_biome": "Waterworld"},
-        "floating-object": {"floating_island_objects": "Require"},
-        "floating-terrain": {"floating_islands": "Require"},
-        "lush-hydrogarden-floating-object": {
+        "floating-islands": {"floating_islands": "Require"},
+        "lush-hydrogarden-islands": {
             "target_biome": "Lush",
             "biome_subtype": "HydroGarden",
-            "floating_island_objects": "Require",
-        },
-        "floating-both": {
             "floating_islands": "Require",
-            "floating_island_objects": "Require",
         },
         "normal-planet": {"normal_planet": "Require"},
         "relic-target-planet": {"relic_planet": "Require"},

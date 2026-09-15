@@ -25,6 +25,16 @@ def test_full_graph_boundary_is_proven_for_diagnostics_and_the_form() -> None:
     assert protocol.MAX_PROVEN_UI_CANDIDATES == 20_000
 
 
+@pytest.mark.parametrize("conditions", ["Any", "None", "Non-extreme", "Extreme"])
+def test_storm_conditions_are_validated_and_request_weather_capture(conditions):
+    protocol = _protocol()
+    criteria = protocol.normalize_criteria({"weather_conditions": conditions})
+    assert criteria == {"weather_conditions": conditions}
+    assert protocol.uses_planet_weather(criteria) == (conditions != "Any")
+    with pytest.raises(ValueError, match="weather_conditions"):
+        protocol.normalize_criteria({"weather_conditions": "Calmish"})
+
+
 def test_navigation_address_targets_one_planet_without_changing_its_system() -> None:
     protocol = _protocol()
     system = 0x00009AFF278028A5
@@ -458,8 +468,26 @@ def test_fixed_planet_metadata_catalog_is_bounded_and_capture_is_sparse() -> Non
     assert protocol.uses_planet_metadata({"life_level": "Any"}) is False
     assert protocol.uses_planet_metadata({"life_level": "Full"}) is True
     assert protocol.uses_planet_spawn_flags({}) is False
-    assert protocol.uses_planet_spawn_flags({"floating_island_objects": "Any"}) is False
-    assert protocol.uses_planet_spawn_flags({"floating_island_objects": "Require"}) is True
+    assert protocol.uses_planet_spawn_flags({"floating_islands": "Any"}) is False
+    assert protocol.uses_planet_spawn_flags({"floating_islands": "Require"}) is True
+
+
+def test_legacy_island_and_water_colour_aliases_normalize_to_current_fields() -> None:
+    protocol = _protocol()
+    assert protocol.normalize_criteria({"floating_island_objects": "Require"}) == {
+        "floating_islands": "Require"
+    }
+    assert protocol.normalize_criteria({"near_water_primary_hue": "Cyan"}) == {
+        "water_primary_hue": "Cyan"
+    }
+    with pytest.raises(ValueError, match="conflicting floating_island_objects"):
+        protocol.normalize_criteria(
+            {"floating_island_objects": "Require", "floating_islands": "Exclude"}
+        )
+    with pytest.raises(ValueError, match="conflicting near_water_primary_hue"):
+        protocol.normalize_criteria(
+            {"near_water_primary_hue": "Cyan", "water_primary_hue": "Blue"}
+        )
 
 
 @pytest.mark.parametrize(

@@ -40,10 +40,8 @@ def test_build_criteria_omits_any_and_converts_minimum_planets() -> None:
             "planet_rings": "Exclude",
             "grass_primary_hue": "Green",
             "sky_primary_hue": "Blue",
-            "sky_night_primary_hue": "Orange",
             "resource": "LUSH1",
-            "storm_frequency": "None",
-            "weather_intensity": "Default",
+            "weather_conditions": "None",
             "weather_type": "Humid",
             "required_resources": ["LUSH1", "CAVE1", "Any"],
             "star_type": "Blue",
@@ -68,10 +66,8 @@ def test_build_criteria_omits_any_and_converts_minimum_planets() -> None:
         "planet_rings": "Exclude",
         "grass_primary_hue": "Green",
         "sky_primary_hue": "Blue",
-        "sky_night_primary_hue": "Orange",
         "resource": "LUSH1",
-        "storm_frequency": "None",
-        "weather_intensity": "Default",
+        "weather_conditions": "None",
         "weather_type": "Humid",
         "required_resources": ["LUSH1", "CAVE1"],
         "star_type": "Blue",
@@ -92,7 +88,7 @@ def test_build_criteria_all_any_is_empty() -> None:
 def test_form_exposes_all_proven_generated_planet_groups() -> None:
     _overlay_module()
     assert {
-        "floating_island_objects",
+        "floating_islands",
         "normal_planet",
         "relic_planet",
         "rgb_planet",
@@ -101,6 +97,27 @@ def test_form_exposes_all_proven_generated_planet_groups() -> None:
         "system_relic_planet",
         "system_rgb_planet",
     } <= set(form.FORM_CRITERIA_FIELDS)
+    assert sum(field == "floating_islands" for field in form.FORM_CRITERIA_FIELDS) == 1
+    assert "cloud_primary_hue" not in form.FORM_CRITERIA_FIELDS
+    assert "weather_intensity" not in form.FORM_CRITERIA_FIELDS
+
+    overlay_source = Path(
+        Path(__file__).parents[3]
+        / "mods/search-probes/src/search_probes/resident_search_overlay.py"
+    ).read_text(encoding="utf-8")
+    terrain_section = overlay_source.split('"Terrain family (exact)"', 1)[1].split(
+        '"Floating islands"', 1
+    )[0]
+    exclusion = terrain_section.split("not in {", 1)[1].split("}", 1)[0]
+    excluded_values = {
+        "FloatingIslands",
+        "FloatingIslandsPrime",
+        "FloatingIslandsPurple",
+    }
+    assert all(f'"{value}"' in exclusion for value in excluded_values)
+    assert not any(
+        f'"{value}"' in terrain_section.split("not in {", 1)[0] for value in excluded_values
+    )
 
 
 def test_earthlike_preset_resets_every_filter_and_remains_editable() -> None:
@@ -122,7 +139,7 @@ def test_earthlike_preset_resets_every_filter_and_remains_editable() -> None:
     assert earthlike["grass_primary_hue"] == "Green"
     assert earthlike["sky_primary_hue"] == "Blue"
     assert earthlike["planet_has_moons"] == "Require"
-    assert earthlike["storm_frequency"] == "Any"
+    assert earthlike["weather_conditions"] == "Any"
     assert earthlike["resource_label_1"] == "Any"
 
     try:
@@ -149,6 +166,29 @@ def test_stored_criteria_expand_to_resource_and_population_widgets() -> None:
     assert values["resource_label_2"] == "Salt"
     assert values["resource_label_3"] == "Any"
     assert values["planet_rings"] == "Require"
+
+
+def test_saved_criteria_split_and_merge_preserves_hidden_filters() -> None:
+    _overlay_module()
+    criteria = {
+        "target_biome": "Lush",
+        "required_resources": ["LUSH1"],
+        "cloud_primary_hue": "Neutral",
+        "storm_frequency": "None",
+        "weather_intensity": "Default",
+    }
+    values, extras = form.split_criteria(criteria, {"LUSH1": "Star Bulb"})
+    assert values["target_biome"] == "Lush"
+    assert values["resource_label_1"] == "Star Bulb"
+    assert extras == {
+        "cloud_primary_hue": "Neutral",
+        "storm_frequency": "None",
+        "weather_intensity": "Default",
+    }
+    values["required_resources"] = ["LUSH1"]
+    assert form.merge_criteria(values, extras) == criteria
+    values["minimum_planets"] = "Any"
+    assert "minimum_planets" not in form.merge_criteria(values, {"minimum_planets": 7})
 
 
 def test_ui_layout_scales_with_the_nms_window_and_stays_bounded() -> None:
@@ -220,8 +260,7 @@ def test_wait_for_open_exits_without_toggle_when_stopped() -> None:
     instance._ready = threading.Event()
     instance._stop.set()
     assert (
-        instance._wait_for_open(lambda _key: pytest.fail("stopped poll must not read F7"))
-        is False
+        instance._wait_for_open(lambda _key: pytest.fail("stopped poll must not read F7")) is False
     )
 
 
@@ -286,6 +325,7 @@ def test_candidate_limit_text_is_strictly_bounded() -> None:
 def test_result_reads_hold_the_probe_io_lock(tmp_path: Path) -> None:
     overlay = _overlay_module()
     from search_probes.overlay_client import OverlayClient
+
     path = tmp_path / "result.json"
     path.write_text('{"status":"completed"}\n', encoding="utf-8")
     events: list[str] = []
@@ -376,6 +416,9 @@ def test_result_formatting_uses_proven_summary_fields() -> None:
                     "Grass": "Green",
                     "Water": "Cyan",
                     "Sky": "Blue",
+                    "Clouds": "Neutral",
+                    "Sunset": "Orange",
+                    "Night": "Blue",
                 },
             },
         },
@@ -387,13 +430,19 @@ def test_result_formatting_uses_proven_summary_fields() -> None:
     assert "0x0003E90477777777" in details
     assert "Galaxy: #5" in details
     assert "Paraffinium, Cobalt" in details
+    assert "Survey resources: Paraffinium, Cobalt" in details
     assert "HighQuality" in details
     assert "FloatingIslandsPrime" in details
-    assert "floating-island terrain yes · floating-island objects yes" in details
+    assert "floating islands yes" in details
+    assert "floating-island terrain" not in details
+    assert "floating-island objects" not in details
     assert "System contains: giant yes, gas giant no" in details
     assert "Creature suitability: discovery yes" in details
     assert "Grass: Green" in details
     assert "Sky: Blue" in details
+    assert "Clouds: Neutral" not in details
+    assert "Sunset: Orange" not in details
+    assert "Night: Blue" not in details
     assert "Weather: Humid · storm frequency None · intensity Default" in details
     assert "generated name: Luyon" in details
     assert "Generated system name: Oteginu" in details

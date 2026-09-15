@@ -23,6 +23,34 @@ def _load_module():
 snapshot = _load_module()
 
 
+def test_water_colour_requires_actual_water_on_the_target():
+    decoded = snapshot.decode_query(_sample())
+    for planet in decoded["planets"]:
+        planet["primary_hues"] = {"Water": "Blue"}
+        planet["has_water"] = False
+    assert not snapshot.matches({"water_primary_hue": "Blue"}, decoded)[0]
+    decoded["planets"][0]["has_water"] = True
+    assert snapshot.matches({"water_primary_hue": "Blue"}, decoded)[0]
+
+
+@pytest.mark.parametrize("frequency", [0, 1, 2, 3, None, 99])
+@pytest.mark.parametrize("extreme", [False, True])
+def test_storm_conditions_distinguish_frequency_from_climate(frequency, extreme):
+    decoded = snapshot.decode_query(_sample())
+    for planet in decoded["planets"]:
+        planet["weather"] = {"storm_frequency": frequency, "weather_type": 2}
+        planet["has_extreme_weather"] = extreme
+    expected = (
+        None
+        if frequency not in range(4)
+        else ("None" if frequency == 0 else "Extreme" if extreme else "Non-extreme")
+    )
+    for condition in ("None", "Non-extreme", "Extreme"):
+        assert snapshot.matches({"weather_conditions": condition}, decoded)[0] == (
+            condition == expected
+        )
+
+
 def _put_id(raw: bytearray, offset: int, value: str) -> None:
     encoded = value.encode("ascii")
     raw[offset : offset + 0x10] = encoded.ljust(0x10, b"\0")
@@ -89,11 +117,14 @@ def test_decode_query_preserves_target_relationships_and_resources():
     assert result["planets"][0]["moon_indices"] == (1,)
     assert result["planets"][0]["resources"] == ("BLUE2", "LUSH1", "CAVE1")
     assert result["planets"][0]["terrain_setting"] == "FloatingIslandsPrime"
-    assert result["planets"][0]["has_floating_islands"] is True
+    assert result["planets"][0]["has_floating_island_terrain"] is True
+    assert "has_floating_islands" not in result["planets"][0]
 
 
 def test_matches_requires_all_target_predicates_on_one_planet():
     decoded = snapshot.decode_query(_sample())
+    decoded["planets"][0]["has_floating_islands"] = True
+    decoded["planets"][1]["has_floating_islands"] = False
     decoded["planets"][0]["weather"] = {
         "storm_frequency": snapshot.STORM_FREQUENCIES.index("None"),
         "weather_intensity": snapshot.WEATHER_INTENSITIES.index("Default"),
@@ -178,16 +209,22 @@ def test_exact_player_facing_paradise_predicate() -> None:
         "sentinel_level": 0,
     }
     assert snapshot.is_paradise_planet(**baseline) is True
-    assert snapshot.is_paradise_planet(
-        **{**baseline, "biome_subtype": snapshot.BIOME_SUBTYPES.index("HighQuality") + 1}
-    ) is True
+    assert (
+        snapshot.is_paradise_planet(
+            **{**baseline, "biome_subtype": snapshot.BIOME_SUBTYPES.index("HighQuality") + 1}
+        )
+        is True
+    )
     for excluded in ("Structure", "Infested", "Swamp"):
-        assert snapshot.is_paradise_planet(
-            **{
-                **baseline,
-                "biome_subtype": snapshot.BIOME_SUBTYPES.index(excluded) + 1,
-            }
-        ) is False
+        assert (
+            snapshot.is_paradise_planet(
+                **{
+                    **baseline,
+                    "biome_subtype": snapshot.BIOME_SUBTYPES.index(excluded) + 1,
+                }
+            )
+            is False
+        )
     for changed in (
         {"biome": snapshot.BIOMES.index("Frozen")},
         {"weather_intensity": snapshot.WEATHER_INTENSITIES.index("Extreme")},
@@ -199,21 +236,24 @@ def test_exact_player_facing_paradise_predicate() -> None:
 
 def test_matches_resolved_floating_island_objects_only_when_captured() -> None:
     decoded = snapshot.decode_query(_sample())
-    assert snapshot.matches({"floating_island_objects": "Require"}, decoded) == (False, None)
-    assert snapshot.matches({"floating_island_objects": "Exclude"}, decoded) == (False, None)
-    decoded["planets"][0]["has_floating_island_objects"] = True
-    decoded["planets"][1]["has_floating_island_objects"] = False
-    assert snapshot.matches({"floating_island_objects": "Require"}, decoded) == (True, 0)
-    assert snapshot.matches({"floating_island_objects": "Exclude"}, decoded) == (True, 1)
+    assert snapshot.matches({"floating_islands": "Require"}, decoded) == (False, None)
+    assert snapshot.matches({"floating_islands": "Exclude"}, decoded) == (False, None)
+    decoded["planets"][0]["has_floating_islands"] = False
+    decoded["planets"][1]["has_floating_islands"] = True
+    assert snapshot.matches({"floating_islands": "Require"}, decoded) == (True, 1)
+    assert snapshot.matches({"floating_islands": "Exclude"}, decoded) == (True, 0)
+
+
+def test_unknown_snapshot_filter_is_not_silently_ignored():
+    with pytest.raises(ValueError, match="unsupported snapshot criteria"):
+        snapshot.matches({"misspelled_filter": "Require"}, snapshot.decode_query(_sample()))
 
 
 def test_matching_planet_indices_retains_every_same_planet_candidate() -> None:
     decoded = snapshot.decode_query(_sample())
     assert snapshot.matching_planet_indices({}, decoded) == (0, 1)
     assert snapshot.matching_planet_indices({"target_biome": "Lush"}, decoded) == (0,)
-    assert snapshot.matching_planet_indices(
-        {"target_biome": "Toxic"}, decoded
-    ) == ()
+    assert snapshot.matching_planet_indices({"target_biome": "Toxic"}, decoded) == ()
 
 
 def test_primary_colour_hue_classification_is_deterministic() -> None:
@@ -345,7 +385,7 @@ def test_summarize_match_labels_only_decoded_fields():
         "biome_subtype": "HighQuality",
         "size": "Large",
         "terrain_setting": "FloatingIslandsPrime",
-        "has_floating_islands": True,
+        "has_floating_island_terrain": True,
         "has_rings": True,
         "moon_count": 1,
         "resources": ["BLUE2", "LUSH1", "CAVE1"],
@@ -375,8 +415,7 @@ def test_summary_uses_the_complete_current_alien_race_enum() -> None:
     raw = bytearray(_sample())
     struct.pack_into("<I", raw, snapshot.METADATA_OFFSET + 0x2534, 7)
     assert (
-        snapshot.summarize_match(snapshot.decode_query(bytes(raw)), 0)["system"]["race"]
-        == "None"
+        snapshot.summarize_match(snapshot.decode_query(bytes(raw)), 0)["system"]["race"] == "None"
     )
     struct.pack_into("<I", raw, snapshot.METADATA_OFFSET + 0x2534, 8)
     assert (
@@ -424,6 +463,7 @@ def test_system_extreme_storm_requires_extreme_flag_and_nonzero_frequency() -> N
 
 def test_protocol_and_snapshot_enum_contracts_stay_identical():
     from search_probes import resident_search_protocol as protocol
+
     for name in (
         "BIOMES",
         "STAR_TYPES",

@@ -54,6 +54,25 @@ replace installed runtime files while `NMS.exe` is running.
   `games/no-mans-sky/investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json`
 - Completed-target reuse evidence:
   `games/no-mans-sky/investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json`
+- Current colour/island reference and installed-update evidence:
+  `games/no-mans-sky/investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json`
+  and sibling `installation.json`.
+
+### Current continuation gate
+
+The colour/island/UI update is built and installed with presets preserved. The player requested
+closing NMS, installation, and a PC restart. A host interpreter crash and uninterruptible archive
+tool/kernel memory-management wait prevent accepting fresh runtime evidence before host recovery.
+Read the current acceptance record first: ordinary-launch gameplay-callback/form validation remains
+pending, not complete. Existing captured-data comparisons and unit tests are finished; do not repeat
+them instead of closing that runtime gate. The player explicitly confirms mission lifecycle and
+Galaxy Map behavior work; do not reopen that investigation or change its native identities.
+
+The single island criterion uses resolved object flags, not terrain-family naming. Sky and water use
+native-selected weather/optical records. Base grass is Green, leaves Purple, selected sky Blue, and
+water Cyan/turquoise on the captured Cape Oath/Mosworkin reference. Cloud/near-water/sunset/night
+controls are removed; weather type plus one Storms control remain. Retired form criteria in saved
+presets remain visible additional constraints and must round-trip without loss.
 
 ### Ownership and lifecycle
 

@@ -4,7 +4,7 @@ import types
 from pathlib import Path
 
 import pytest
-from search_probes import planet_data
+from search_probes import planet_data, search_engine
 from search_probes.navigation import Navigation
 from search_probes.search_engine import SearchEngine
 from search_probes.search_scheduler import SearchScheduler
@@ -12,8 +12,7 @@ from search_probes.search_scheduler import SearchScheduler
 
 def _guide_completion_method():
     source = (
-        Path(__file__).parents[3]
-        / "mods/search-probes/src/search_probes/resident_search_probe.py"
+        Path(__file__).parents[3] / "mods/search-probes/src/search_probes/resident_search_probe.py"
     )
     tree = ast.parse(source.read_text(encoding="utf-8"))
     resident = next(
@@ -188,6 +187,35 @@ def test_capture_planet_records_copy_failure_without_unwinding(monkeypatch):
 
     assert engine._captured_planet_details == []
     assert engine._planet_detail_capture_error == "ValueError: bad planet"
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_selected_colours_are_copied_inside_owned_callback(monkeypatch, failure):
+    engine = _engine()
+    engine._capture_enabled = True
+    engine._capture_planet_colours = True
+    engine.procedural_planet_generator = lambda: 0x9876
+    monkeypatch.setattr(
+        planet_data, "copy_planet_details", lambda *args, **kwargs: {"planet_index": 2}
+    )
+    selection = {"colours": {"Sky": [0.2, 0.4, 0.9, 1]}}
+
+    def capture(planet, generator):
+        assert (planet, generator) == (0x1234, 0x9876)
+        if failure:
+            raise ValueError("invalid selected colour")
+        return selection
+
+    monkeypatch.setattr(search_engine, "capture_selected_colours", capture)
+    engine.capture_planet(0x1234)
+    if failure:
+        assert engine._captured_planet_details == []
+        assert engine._planet_detail_capture_error == "ValueError: invalid selected colour"
+    else:
+        assert engine._captured_planet_details == [
+            {"planet_index": 2, "selected_colours": selection}
+        ]
+        assert engine._planet_detail_capture_error is None
 
 
 def test_capture_planet_resolves_only_selected_object_indices(monkeypatch):

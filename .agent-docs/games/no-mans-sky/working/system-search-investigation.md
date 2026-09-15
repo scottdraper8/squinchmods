@@ -71,11 +71,11 @@ without changing the full stored name.
 The sole shipped default is **Earthlike**. It requires a Lush planet satisfying the current
 executable's exact Paradise predicate, generated Green grass and Blue sky primary-hue families, and
 at least one moon. NMS currently exposes a proved has-moons relationship here, not an exact one-moon
-count. Generated hue families are procedural palette inputs rather than guarantees about final
-rendered pixels. The default is an ordinary record: users can overwrite or delete it, save up to
-eight additional presets, reach zero records, and restore the default without deleting custom
-records. Saving never launches a probe. Selecting a preset first resets every form field, then
-applies its criteria and limits, so stale values on hidden tabs cannot constrain it.
+count. Generated hue families are base vegetation palettes and selected sky/water inputs rather than
+guarantees about final rendered pixels. The default is an ordinary record: users can overwrite or
+delete it, save up to eight additional presets, reach zero records, and restore the default without
+deleting custom records. Saving never launches a probe. Selecting a preset first resets every form
+field, then applies its criteria and limits, so stale values on hidden tabs cannot constrain it.
 
 The whole library is schema-versioned and atomically replaced; the previous valid file is retained
 as a backup. Persistence is completed before the in-memory list changes. A failed write leaves the
@@ -203,11 +203,10 @@ field out entirely.
   The schema-only Test value is withheld.
 - Observed biome subtypes and 30 observed terrain archetypes.
 - Planet size: Large, Medium, Small, Moon, and Giant.
-- Exact FloatingIslands/FloatingIslandsPrime/FloatingIslandsPurple terrain family.
-- Object-backed floating islands through the resolver-selected native `IsFloatingIsland` flag,
-  independently of the terrain family.
+- One Floating islands control through the resolver-selected native `IsFloatingIsland` flag.
+  FloatingIslands terrain variants remain raw diagnostics, not alternative island controls.
 - Non-gas Giant, rings, one-or-more moons, water, and deep water.
-- Up to three generated resource IDs as a same-planet conjunction.
+- Up to three survey resource IDs as a same-planet conjunction, not a complete resource inventory.
 
 ### Environment and life
 
@@ -216,13 +215,17 @@ field out entirely.
   level. HighQuality is not required.
 - Generated life (Dead/Full), creature abundance (Dead/Low/Mid/Full), observed building-density
   values, and resource abundance (Low/High).
-- Storm frequency None/Low/High, weather intensity, and the 14 generated weather types observed in
-  the current graph.
-- Extreme-weather, hazard, sentinel, corrupt-sentinel, sentinel-presence, prime-generation,
-  infestation, ordinary-group, relic, RGB-biome-group, scrap, and creature-suitability flags.
-- Positively observed generated primary hue families for grass, plants, leaves, water, near-water,
-  clouds, sky, horizon, sky fog, height fog, sunset, and night sky. Each palette uses its own
-  observed-value choices.
+- Weather type and one Storms choice: None (frequency zero), Non-extreme (storms without the
+  extreme-weather flag), or Extreme (storms with that flag). Raw frequency and intensity remain
+  diagnostic/preset criteria, not separate form controls.
+- Hazard, sentinel, corrupt-sentinel, sentinel-presence, prime-generation, infestation,
+  ordinary-group, relic, RGB-biome-group, scrap, and creature-suitability flags.
+- Base hue families for grass, plants, leaves, water, daytime sky, horizon, fog, and height fog. Sky
+  uses selected biome/generic weather-colour records; water uses selected optical coefficients and
+  the native-equivalent reflectance calculation. Legacy sky/water palette entries are not those
+  selected inputs. Water-colour criteria also require actual water on the same planet. Cloud,
+  near-water, sunset, and night controls are omitted. Old saved filters remain visible as additional
+  constraints and are never silently discarded when a preset is loaded or saved.
 
 `StormFrequency=None` is the exact absence of normal generated storms. Excluding the extreme flag is
 weaker. Scripted missions, expeditions, seasons, or runtime overrides are not an off-screen
@@ -343,7 +346,8 @@ persistent and appear after the documented next-launch refresh boundary.
   object flags; subjective foliage labels require a reviewed asset taxonomy.
 - **Weather Indicator Short** is localization only: 305 English phrase substitutions grouped by its
   author, not 305 weather types or executable classifications. System Search keeps the smaller
-  direct generated model: storm frequency, intensity, and observed weather type. See
+  direct generated model: observed weather type and storm conditions, with raw frequency/intensity
+  retained for diagnostics and existing presets. See
   [the focused reference](../refs/third-party/weather-indicator.md).
 
 The synchronous object-list resolver is narrower than the loaded-planet streaming coordinator. It
@@ -377,9 +381,29 @@ Host acquisition, executable probes, adapter materialization, packaging, install
 menu controls, and raw evidence remain in squinchmods.
 
 The [filter audit](../../../../games/no-mans-sky/investigations/analysis/search-filter-audit.md)
-records control-by-control semantics. Terrain families and resolved floating-island objects remain
+records control-by-control semantics. Terrain diagnostics and resolved floating-island objects are
 distinct, required resources are conjunctive, and target-planet predicates cannot silently match
 different planets. Generated planet names are copied for basic searches as well as advanced ones.
+
+## Colour/island reference and current validation boundary
+
+The
+[reference capture](../../../../games/no-mans-sky/investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json)
+compares the player's Cape Oath (generated Mosworkin) against loaded and temporary planet data. It
+is Lush/HydroGarden with LilyPad terrain and ten resolved island objects. Base grass is olive Green,
+base leaves Purple, selected daytime sky Blue, and water reflectance Cyan/turquoise before sky
+reflections and grading. Pleasant/Abundant/Frequent labels and all three survey resource IDs agree
+with the player's planet panel. Yellow grass patches are not proof of a Yellow primary hue. All 19
+loaded water records match the native helper within 2.74e-7; selected colour reads were validated
+read-only across all six loaded planets. Combined reference criteria and seven negative controls
+pass against captured data.
+
+Fresh installed gameplay-callback and form validation remains required after host recovery. The host
+Python crashed while packaging, and a subsequent archive process entered uninterruptible kernel
+memory-management wait. Packaging can reuse the unchanged validated mission adapter, but fresh
+runtime evidence from this degraded host is not accepted. The user requested installation and a PC
+restart; retain this gate explicitly through that restart. Mission lifecycle is confirmed working by
+the player and is outside this colour/UI change.
 
 ## Remaining work
 
