@@ -57,16 +57,21 @@ replace installed runtime files while `NMS.exe` is running.
 - Current colour/island reference and installed-update evidence:
   `games/no-mans-sky/investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json`
   and sibling `installation.json`.
+- Managed-source deployment and fresh-runtime validation:
+  `games/no-mans-sky/investigation-state/runs/20260915T050700Z-colour-redeployment/analysis.json`
+  and sibling `installation.json`.
 
 ### Current continuation gate
 
-The colour/island/UI update is built and installed with presets preserved. The player requested
-closing NMS, installation, and a PC restart. A host interpreter crash and uninterruptible archive
-tool/kernel memory-management wait prevent accepting fresh runtime evidence before host recovery.
-Read the current acceptance record first: ordinary-launch gameplay-callback/form validation remains
-pending, not complete. Existing captured-data comparisons and unit tests are finished; do not repeat
-them instead of closing that runtime gate. The player explicitly confirms mission lifecycle and
-Galaxy Map behavior work; do not reopen that investigation or change its native identities.
+The colour/island/UI update is built and installed in both the game and Amethyst's owned deployment
+sources, with presets preserved. The host recovered after restart. Stale managed-source files had
+overwritten the prior direct installation; the installer now synchronizes and remembers those
+sources transactionally. Fresh gameplay-callback controls reject the player's Bujav L2 target for
+blue sky and blue water independently, match its loaded selected-colour records exactly, and pass
+positive colour/island searches with candidate rechecks. Read the current scoped acceptance record
+for the actual form and package gates. Generated colour inputs are not an exact rendered-pixel
+guarantee. The player confirms mission lifecycle and Galaxy Map behavior work; do not reopen that
+investigation or change its native identities.
 
 The single island criterion uses resolved object flags, not terrain-family naming. Sky and water use
 native-selected weather/optical records. Base grass is Green, leaves Purple, selected sky Blue, and

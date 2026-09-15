@@ -117,6 +117,28 @@ def _runtime(root: Path, build, proxy: bytes) -> Path:
     return root
 
 
+def _mirror_files(target: Path, source: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for path in source.rglob("*"):
+        relative = path.relative_to(source)
+        destination = target / relative
+        if path.is_dir():
+            destination.mkdir()
+        else:
+            destination.symlink_to(path)
+
+
+def _managed_source(game: Path, build, proxy: bytes) -> tuple[Path, Path]:
+    root = game / "Root_Folder"
+    runtime = _runtime(root / "Binaries/SearchProbes", build, proxy)
+    (root / "Binaries/winmm.dll").write_bytes(proxy)
+    adapter = _adapter(root / "GAMEDATA/MODS/SearchProbes")
+    _mirror_files(game / "Binaries/SearchProbes", runtime)
+    _mirror_files(game / "GAMEDATA/MODS/SearchProbes", adapter)
+    (game / "Binaries/winmm.dll").symlink_to(root / "Binaries/winmm.dll")
+    return runtime, adapter
+
+
 def test_adapter_validation_and_ownership_are_exact(tmp_path: Path) -> None:
     build = _build_module()
     adapter = _adapter(tmp_path / "adapter")
@@ -257,6 +279,176 @@ def test_install_refuses_running_nms_before_reading_package(
     monkeypatch.setattr(installer, "nms_running", lambda: True)
     with pytest.raises(build.BuildError, match="NMS must be stopped"):
         build.install_tree(tmp_path / "package", tmp_path / "game")
+
+
+def test_install_updates_mirrored_managed_source_and_preserves_game_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = _build_module()
+    game = tmp_path / "game"
+    package = tmp_path / "package"
+    (package / "Binaries").mkdir(parents=True)
+    (package / "GAMEDATA/MODS").mkdir(parents=True)
+    old_runtime, old_adapter = _managed_source(game, build, b"old proxy")
+    (old_runtime / "old.txt").write_text("old", encoding="utf-8")
+    (game / "Binaries/SearchProbes/SEARCH_PROBES_PRODUCT").unlink()
+    (game / "Binaries/SearchProbes/SEARCH_PROBES_PRODUCT").write_text(
+        build.PRODUCT_MARKER, encoding="utf-8"
+    )
+    (game / "Binaries/SearchProbes/app/.resident-search/presets.json").write_text(
+        '{"keep":true}\n', encoding="utf-8"
+    )
+    new_runtime = _runtime(package / "Binaries/SearchProbes", build, b"new proxy")
+    (new_runtime / "payload.txt").write_text("new", encoding="utf-8")
+    (package / "Binaries/winmm.dll").write_bytes(b"new proxy")
+    _adapter(package / "GAMEDATA/MODS/SearchProbes")
+    from nms_packaging import installer
+
+    monkeypatch.setattr(installer, "nms_running", lambda: False)
+    installer.install_tree(package, game)
+    record = json.loads(
+        (game / "Binaries/SearchProbes/DEPLOYMENT_SOURCES.json").read_text()
+    )
+    assert Path(record["runtime"]) == old_runtime
+    assert Path(record["adapter"]) == old_adapter
+    assert (old_runtime / "payload.txt").read_text() == "new"
+    assert (old_adapter / "LocTable.MXML").is_file()
+    assert (game / "Binaries/SearchProbes/app/.resident-search/presets.json").read_text() == (
+        '{"keep":true}\n'
+    )
+    assert not (old_runtime / "app/.resident-search/presets.json").exists()
+    assert not (old_runtime / "app/logs").exists()
+    assert not (old_runtime / "app/session.json").exists()
+
+
+def test_deployment_source_rejects_ambiguous_and_foreign_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = _build_module()
+    game = tmp_path / "game"
+    source_a = _runtime(tmp_path / "a/Binaries/SearchProbes", build, b"a")
+    source_b = _runtime(tmp_path / "b/Binaries/SearchProbes", build, b"b")
+    target = game / "Binaries/SearchProbes"
+    target.mkdir(parents=True)
+    (target / "SEARCH_PROBES_PRODUCT").symlink_to(source_a / "SEARCH_PROBES_PRODUCT")
+    (target / build.OWNED_PROXY_HASH).symlink_to(source_b / build.OWNED_PROXY_HASH)
+    from nms_packaging import installer
+
+    monkeypatch.setattr(installer, "nms_running", lambda: False)
+    with pytest.raises(build.BuildError, match="multiple deployment sources"):
+        build.install_tree(tmp_path / "missing-package", game)
+
+    dangling_game = tmp_path / "dangling-game"
+    dangling = dangling_game / "GAMEDATA/MODS/SearchProbes"
+    dangling.mkdir(parents=True)
+    (dangling / "LocTable.MXML").symlink_to(tmp_path / "missing")
+    with pytest.raises(build.BuildError, match="directory or dangling"):
+        build.install_tree(tmp_path / "missing-package", dangling_game)
+
+
+def test_second_install_uses_recorded_regular_managed_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = _build_module()
+    game = tmp_path / "game"
+    package = tmp_path / "package"
+    (package / "Binaries").mkdir(parents=True)
+    (package / "GAMEDATA/MODS").mkdir(parents=True)
+    source_runtime, source_adapter = _managed_source(game, build, b"old")
+    first_runtime = _runtime(package / "Binaries/SearchProbes", build, b"first")
+    (first_runtime / "version.txt").write_text("first", encoding="utf-8")
+    (package / "Binaries/winmm.dll").write_bytes(b"first")
+    _adapter(package / "GAMEDATA/MODS/SearchProbes")
+    from nms_packaging import installer
+
+    monkeypatch.setattr(installer, "nms_running", lambda: False)
+    installer.install_tree(package, game)
+    second_package = tmp_path / "second-package"
+    (second_package / "Binaries").mkdir(parents=True)
+    (second_package / "GAMEDATA/MODS").mkdir(parents=True)
+    second_runtime = _runtime(second_package / "Binaries/SearchProbes", build, b"second")
+    (second_runtime / "version.txt").write_text("second", encoding="utf-8")
+    (second_package / "Binaries/winmm.dll").write_bytes(b"second")
+    _adapter(second_package / "GAMEDATA/MODS/SearchProbes")
+    installer.install_tree(second_package, game)
+    assert (source_runtime / "version.txt").read_text() == "second"
+    assert (source_adapter / "LocTable.MXML").is_file()
+    record = json.loads(
+        (game / "Binaries/SearchProbes/DEPLOYMENT_SOURCES.json").read_text()
+    )
+    assert Path(record["runtime"]) == source_runtime
+    assert Path(record["adapter"]) == source_adapter
+
+
+def test_install_rollback_restores_managed_symlinks_and_game(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = _build_module()
+    game = tmp_path / "game"
+    package = tmp_path / "package"
+    (package / "Binaries").mkdir(parents=True)
+    (package / "GAMEDATA/MODS").mkdir(parents=True)
+    source_runtime, source_adapter = _managed_source(game, build, b"old")
+    (source_runtime / "old.txt").write_text("old", encoding="utf-8")
+    (game / "Binaries/SearchProbes/old.txt").symlink_to(source_runtime / "old.txt")
+    original_marker = (game / "Binaries/SearchProbes/SEARCH_PROBES_PRODUCT").readlink()
+    original_proxy = (game / "Binaries/winmm.dll").readlink()
+    new_runtime = _runtime(package / "Binaries/SearchProbes", build, b"new")
+    (new_runtime / "new.txt").write_text("new", encoding="utf-8")
+    (package / "Binaries/winmm.dll").write_bytes(b"new")
+    _adapter(package / "GAMEDATA/MODS/SearchProbes")
+    from nms_packaging import installer
+
+    monkeypatch.setattr(installer, "nms_running", lambda: False)
+    original_replace = Path.replace
+    raised = False
+
+    def fail_managed_adapter(self: Path, target: Path) -> Path:
+        nonlocal raised
+        if not raised and target == source_adapter:
+            raised = True
+            raise OSError("injected publish failure")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_managed_adapter)
+    with pytest.raises(OSError, match="injected publish failure"):
+        installer.install_tree(package, game)
+    assert (game / "Binaries/SearchProbes/SEARCH_PROBES_PRODUCT").readlink() == original_marker
+    assert (game / "Binaries/winmm.dll").readlink() == original_proxy
+    assert not (game / "Binaries/SearchProbes/new.txt").exists()
+    assert (source_runtime / "old.txt").read_text() == "old"
+    assert (game / "Binaries/SearchProbes/old.txt").read_text() == "old"
+    assert (game / "Binaries/SearchProbes/old.txt").is_symlink()
+
+
+def test_install_rejects_unrelated_and_foreign_managed_proxy_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = _build_module()
+    package = tmp_path / "package"
+    (package / "Binaries").mkdir(parents=True)
+    (package / "GAMEDATA/MODS").mkdir(parents=True)
+    _runtime(package / "Binaries/SearchProbes", build, b"new")
+    (package / "Binaries/winmm.dll").write_bytes(b"new")
+    _adapter(package / "GAMEDATA/MODS/SearchProbes")
+    from nms_packaging import installer
+
+    monkeypatch.setattr(installer, "nms_running", lambda: False)
+    unrelated_game = tmp_path / "unrelated-game"
+    _runtime(unrelated_game / "Binaries/SearchProbes", build, b"old")
+    unrelated = tmp_path / "unrelated.dll"
+    unrelated.write_bytes(b"foreign")
+    (unrelated_game / "Binaries/winmm.dll").symlink_to(unrelated)
+    with pytest.raises(build.BuildError, match="unrelated deployment source"):
+        installer.install_tree(package, unrelated_game)
+
+    foreign_game = tmp_path / "foreign-game"
+    source_runtime, _ = _managed_source(foreign_game, build, b"old")
+    (source_runtime.parent / "winmm.dll").write_bytes(b"foreign managed")
+    (foreign_game / "Binaries/winmm.dll").unlink()
+    (foreign_game / "Binaries/winmm.dll").write_bytes(b"old")
+    with pytest.raises(build.BuildError, match="foreign managed WINMM proxy"):
+        installer.install_tree(package, foreign_game)
 
 
 def test_copy_runtime_excludes_cache_and_tooling_files(tmp_path: Path) -> None:

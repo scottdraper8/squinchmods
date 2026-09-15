@@ -31,6 +31,15 @@ programs remain in this parent repository and are not shipped to players.
 The installer fails closed if NMS is running, paths are not recognizably owned by Search Probes, or
 another product already owns `Binaries/winmm.dll`. It does not guess at DLL chain-loading.
 
+When an existing installation mirrors files through symlinks, the installer discovers the managed
+SearchProbes source tree from those links. This supports layouts such as an Amethyst `Root_Folder`
+and overwrite tree. It updates the managed runtime, adapter, and proxy alongside the direct game
+files in one same-filesystem rollback transaction. The source paths are recorded in
+`Binaries/SearchProbes/DEPLOYMENT_SOURCES.json` so later installs continue updating the same managed
+trees even after the game-facing files have become regular files. Game presets are preserved during
+replacement; transient logs, sessions, and resident state are not seeded into a managed source tree.
+Ambiguous or dangling links, unrelated proxy sources, and foreign managed proxies are refused.
+
 ## In-game use
 
 Launch NMS normally from Steam. The application-local `winmm.dll` starts the bundled Python runtime

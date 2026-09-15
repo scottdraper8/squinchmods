@@ -64,7 +64,7 @@ def main() -> None:
             else:
                 stable = 0
                 for axis, error in ((e.REL_X, dx), (e.REL_Y, dy)):
-                    step = min(100, max(1, abs(error) // 4)) if error else 0
+                    step = min(100, max(2, abs(error) // 4)) if error else 0
                     pointer.write(e.EV_REL, axis, step if error >= 0 else -step)
                 pointer.syn()
             time.sleep(0.3)

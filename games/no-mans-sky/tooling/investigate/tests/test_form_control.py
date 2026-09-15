@@ -62,3 +62,44 @@ def test_pointer_refuses_click_after_focus_is_lost(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(form, "UInput", lambda *_args, **_kwargs: Pointer())
     with pytest.raises(RuntimeError, match="lost focus"):
         form.main()
+
+
+def test_pointer_converges_with_fractional_desktop_scaling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    form = _module()
+    position = [293, 300]
+    clicks = []
+
+    def query(*args):
+        if args[0] == "getwindowgeometry":
+            return "X=100\nY=200\nWIDTH=500\nHEIGHT=400"
+        if args[0] == "getmouselocation":
+            return f"X={position[0]}\nY={position[1]}"
+        return "42"
+
+    class Pointer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def write(self, kind, axis, value):
+            if kind == form.e.EV_REL:
+                index = 0 if axis == form.e.REL_X else 1
+                position[index] += int(value * 0.5)
+            else:
+                clicks.append(value)
+
+        def syn(self):
+            pass
+
+    monkeypatch.setattr(form, "query", query)
+    monkeypatch.setattr(form, "ensure_uinput_access", lambda: None)
+    monkeypatch.setattr(form.time, "sleep", lambda *_args: None)
+    monkeypatch.setattr(form, "UInput", lambda *_args, **_kwargs: Pointer())
+    monkeypatch.setattr(sys, "argv", ["form-control.py", "click", "300", "300"])
+    form.main()
+    assert abs(position[0] - 300) <= 6
+    assert clicks == [1, 0]

@@ -10,25 +10,37 @@ Raw records are
 and
 [`completed-target reuse`](../../investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json).
 
-## Current colour/UI update gate
+## Colour/UI and managed deployment
 
 The
 [reference capture](../../investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json)
 and
 [installed footprint](../../investigation-state/runs/20260915T030000Z-colour-island-reference/installation.json)
 cover selected sky/water inputs, native water parity across 19 records, read-only selected colours
-on six loaded planets, the captured island reference, and combined-filter negative controls. 270
-investigation tests, 10 acquisition tests, and lint pass. All 32 installed modules match source;
-1,728 immutable installed files match the manifest, and user presets are byte-identical.
+on six loaded planets, the captured island reference, and combined-filter negative controls.
 
-Fresh-process gameplay-callback and actual form validation of this update is **pending**. Host
-Python crashed during packaging; the archive tool subsequently entered an uninterruptible kernel
-memory-management wait, also blocking process-list readers. The unchanged, validated native mission
-adapter was reused to finish packaging under the project's Python. NMS is stopped for the user's
-requested PC restart. Do not promote captured-data/unit results to a fresh installed-runtime claim.
-After host recovery, verify a normal Steam launch, reference snapshot/candidate controls, bounded
-colour searches, island require/exclude controls, the simplified form, and exact saved-preset round
-trips. Do not fly, warp, or change the working mission lifecycle.
+The
+[fresh installed run](../../investigation-state/runs/20260915T050700Z-colour-redeployment/analysis.json)
+and its
+[footprint](../../investigation-state/runs/20260915T050700Z-colour-redeployment/installation.json)
+close the host-recovery gameplay-callback gate. Amethyst's mirrored source had redeployed eight
+stale modules; both the game and managed sources now match the corrected package. The installer
+updates all owned copies transactionally and remembers managed paths even after game files become
+regular files. It rejects ambiguous/foreign sources and preserves user presets without shipping old
+sessions and logs into managed sources. Failure-injection tests cover rollback after partial
+publication.
+
+The fresh runtime reproduces the loaded selected colours of the player's Bujav L2 exactly. Blue sky
+and blue water each reject that target; non-colour criteria and its actual selected-colour controls
+accept it. Bounded positive blue sky/water and island require/exclude searches return matches whose
+exact criteria also pass independent candidate rechecks. The first F7 opens the simplified form;
+saved legacy constraints remain explicit and are included unchanged in submitted searches.
+
+276 investigation tests, 10 acquisition tests, and lint pass. All 32 product modules and 1,727
+immutable payload files agree with source/manifest in both deployment destinations; user presets
+remain byte-identical. Selected sky/water values are generated inputs, not promises about final
+pixels after atmosphere, time of day, reflections, or screen grading. No flight, warp, or mission
+lifecycle change was performed.
 
 ## Mission/lifecycle baseline
 
@@ -41,7 +53,7 @@ trips. Do not fly, warp, or change the working mission lifecycle.
 | Actual form interaction  | Search and Navigate exercised through the visible form; names populated; first F7 verified on the final installed source.                                                                         |
 | Guide lifecycle          | Actual Guide launch with a positive control produces one native mission-owned exact route; no-match control produces no target. Both abandon normally.                                            |
 | Search parity            | Final installed smoke matrix completed; exhaustive generated-field controls remain linked from the canonical plan and filter audit.                                                               |
-| Packaging                | The lifecycle baseline's installed footprint is retained in its run; current update packaging and pending runtime gates are specified above.                                                      |
+| Packaging                | Both game and managed-source payloads match the package; fresh gameplay-callback and form controls are specified above.                                                                           |
 | Cleanup                  | Baseline native abandonment leaves zero owned routes and preserves unrelated routes. The player confirms mission lifecycle/galaxy-map behavior works; this update does not modify it.             |
 
 The form uses a disposable native NPC mission, not a persistent Wiki listener. Guide slots retain

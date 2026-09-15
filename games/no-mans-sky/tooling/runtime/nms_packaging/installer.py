@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -15,6 +16,7 @@ from .common import (
     nms_running,
     run,
 )
+from .deployment import DEPLOYMENT_RECORD, deployment_targets
 
 
 def install_tree(package: Path, game_root: Path) -> None:
@@ -26,6 +28,25 @@ def install_tree(package: Path, game_root: Path) -> None:
     target_runtime = game_root / "Binaries/SearchProbes"
     target_proxy = game_root / "Binaries/winmm.dll"
     target_mod = game_root / "GAMEDATA/MODS/SearchProbes"
+    runtimes, adapters, proxies = deployment_targets(game_root)
+    if target_runtime.exists() and (
+        not (target_runtime / "SEARCH_PROBES_PRODUCT").is_file()
+        or (target_runtime / "SEARCH_PROBES_PRODUCT").read_text() != PRODUCT_MARKER
+    ):
+        raise BuildError(
+            f"refusing to replace an unowned product path: {target_runtime}"
+        )
+    for target in adapters:
+        if target.exists() and not is_owned_installed_adapter(target):
+            raise BuildError(f"refusing to replace an unowned product path: {target}")
+    for target in [*runtimes, *adapters, *proxies]:
+        parent = target.parent
+        while not parent.exists():
+            parent = parent.parent
+        if parent.stat().st_dev != game_root.stat().st_dev:
+            raise BuildError(
+                f"deployment source must share the installation filesystem: {target}"
+            )
     if target_proxy.exists():
         target_proxy_hash = file_hash(target_proxy)
         source_proxy_hash = file_hash(source_proxy)
@@ -42,6 +63,14 @@ def install_tree(package: Path, game_root: Path) -> None:
             raise BuildError(
                 f"refusing to overwrite a foreign WINMM proxy: {target_proxy}; "
                 "chain-loader compatibility is not established"
+            )
+    for proxy in proxies[1:]:
+        allowed_hashes = {file_hash(source_proxy)}
+        if target_proxy.exists():
+            allowed_hashes.add(file_hash(target_proxy))
+        if proxy.exists() and file_hash(proxy) not in allowed_hashes:
+            raise BuildError(
+                f"refusing to overwrite a foreign managed WINMM proxy: {proxy}"
             )
     preserve: dict[str, bytes] = {}
     old_state = target_runtime / "app/.resident-search"
@@ -62,39 +91,52 @@ def install_tree(package: Path, game_root: Path) -> None:
         state = staging / "runtime/app/.resident-search"
         for name, content in preserve.items():
             (state / name).write_bytes(content)
+        replacements = [
+            (staging / "runtime", target_runtime),
+            (staging / "mod", target_mod),
+            (staging / "winmm.dll", target_proxy),
+        ]
+        for index, target in enumerate(runtimes[1:]):
+            prepared = staging / f"managed-runtime-{index}"
+            shutil.copytree(source_runtime, prepared)
+            replacements.append((prepared, target))
+        for index, target in enumerate(adapters[1:]):
+            prepared = staging / f"managed-adapter-{index}"
+            shutil.copytree(source_mod, prepared)
+            replacements.append((prepared, target))
+        for index, target in enumerate(proxies[1:]):
+            prepared = staging / f"managed-proxy-{index}"
+            shutil.copy2(source_proxy, prepared)
+            replacements.append((prepared, target))
+        if len(runtimes) > 1 or len(adapters) > 1:
+            deployment_record = (
+                json.dumps(
+                    {
+                        "schema": 1,
+                        "runtime": str(runtimes[1]) if len(runtimes) > 1 else None,
+                        "adapter": str(adapters[1]) if len(adapters) > 1 else None,
+                    },
+                    indent=2,
+                )
+                + "\n"
+            )
+            for prepared, target in replacements:
+                if target in runtimes:
+                    (prepared / DEPLOYMENT_RECORD).write_text(deployment_record)
         backups: list[tuple[Path, Path]] = []
         installed_targets: list[Path] = []
+        if nms_running():
+            raise BuildError("NMS started while preparing installation; no files replaced")
         try:
-            for role, target in (("runtime", target_runtime), ("mod", target_mod)):
-                if target.exists():
-                    owned = (
-                        (target / "SEARCH_PROBES_PRODUCT").is_file()
-                        and (target / "SEARCH_PROBES_PRODUCT").read_text(
-                            encoding="utf-8"
-                        )
-                        == PRODUCT_MARKER
-                        if target == target_runtime
-                        else is_owned_installed_adapter(target)
-                    )
-                    if not owned:
-                        raise BuildError(
-                            f"refusing to replace an unowned product path: {target}"
-                        )
-                    backup = staging / f"backup-{role}"
+            for index, (_prepared, target) in enumerate(replacements):
+                if target.exists() or target.is_symlink():
+                    backup = staging / f"backup-{index}"
                     target.replace(backup)
                     backups.append((target, backup))
-            if target_proxy.exists():
-                backup = staging / "backup-winmm.dll"
-                target_proxy.replace(backup)
-                backups.append((target_proxy, backup))
-            target_runtime.parent.mkdir(parents=True, exist_ok=True)
-            target_mod.parent.mkdir(parents=True, exist_ok=True)
-            (staging / "runtime").replace(target_runtime)
-            installed_targets.append(target_runtime)
-            (staging / "mod").replace(target_mod)
-            installed_targets.append(target_mod)
-            os.replace(staging / "winmm.dll", target_proxy)
-            installed_targets.append(target_proxy)
+            for prepared, target in replacements:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                prepared.replace(target)
+                installed_targets.append(target)
         except BaseException:
             for target in reversed(installed_targets):
                 if target.exists():

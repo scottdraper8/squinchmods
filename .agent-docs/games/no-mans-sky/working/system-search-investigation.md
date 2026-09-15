@@ -398,12 +398,20 @@ loaded water records match the native helper within 2.74e-7; selected colour rea
 read-only across all six loaded planets. Combined reference criteria and seven negative controls
 pass against captured data.
 
-Fresh installed gameplay-callback and form validation remains required after host recovery. The host
-Python crashed while packaging, and a subsequent archive process entered uninterruptible kernel
-memory-management wait. Packaging can reuse the unchanged validated mission adapter, but fresh
-runtime evidence from this degraded host is not accepted. The user requested installation and a PC
-restart; retain this gate explicitly through that restart. Mission lifecycle is confirmed working by
-the player and is outside this colour/UI change.
+The
+[installed-runtime controls](../../../../games/no-mans-sky/investigation-state/runs/20260915T050700Z-colour-redeployment/analysis.json)
+cover a healthy fresh Steam process after host recovery. Amethyst's mirrored deployment source had
+retained eight stale modules and overwritten the direct installation. Installation now updates both
+owned game and managed-source trees transactionally, remembers source roots for subsequent updates,
+and excludes transient runtime state from managed payloads. User presets are preserved.
+
+The player's Bujav L2 negative control has selected yellow-green daytime sky and purple base water
+reflectance before its screen filter; neither is Blue. Its fresh temporary snapshot exactly matches
+the loaded colour selection captured before restart. Blue-sky and blue-water predicates reject it
+independently; non-colour and selected-colour controls accept it. Bounded blue sky/water and island
+require/exclude searches each return an independently rechecked match. These prove generated-input
+selection, not exact rendered pixels under time, atmosphere, reflections, and grading. Mission
+lifecycle is confirmed working by the player and is unchanged.
 
 ## Remaining work
 
