@@ -7,8 +7,8 @@ data-mod system introduced in Worlds Part II, how that system behaves on this Ba
 and the separate runtime-hook ecosystem. It does not cover AMUMSS Lua authoring: a Lua file is a
 build recipe consumed by AMUMSS, not a file the game executes.
 
-The reference was validated on September 11, 2026 against the current public PC release, Cosmos
-7.01, and Steam build `25233815`. Hello Games shipped 7.01 on September 10, 2026.[^1] The installed
+The reference was validated on September 15, 2026 against the current public PC release, Cosmos
+7.01, and Steam build `25320008`. Hello Games shipped 7.01 on September 10, 2026.[^1] The installed
 game, its generated settings, representative deployed mods, current community tool source, and a
 real HGPAK extraction were inspected locally.[^2]
 
@@ -534,7 +534,7 @@ controlled Proton launch and backed-up disposable save fixture.
     10, 2026.
 
 [^2]:
-    Local evidence snapshot, September 11, 2026: Steam app manifest `275850` build `25233815`;
+    Local evidence snapshot, September 15, 2026: Steam app manifest `275850` build `25320008`;
     `NMS.exe` and `GAMEDATA` installation; generated `GCMODSETTINGS.MXML` and `FullLog.txt`;
     deployed mod tree; HGPAKtool `2ea9b0351f93b72e4fa3d199bf4ac54149f748f8` successfully listed the
     installed `NMSARC.globals.pak`; source checkouts recorded at their cited commits. Private

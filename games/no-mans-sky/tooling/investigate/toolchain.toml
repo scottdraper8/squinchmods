@@ -3,7 +3,7 @@ schema_version = 1
 [target]
 nms_version = "7.01"
 branch = "public"
-steam_build_ids = ["25233815"]
+steam_build_ids = ["25320008"]
 
 [hgpaktool]
 package = "hgpaktool"

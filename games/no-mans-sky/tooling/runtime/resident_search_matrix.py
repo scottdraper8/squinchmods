@@ -814,7 +814,7 @@ def _run_full(
             f"search-{label}",
             criteria,
             candidate_limit=candidate_limit,
-            result_limit=3 if label in {"paradise", "floating-object"} else 1,
+            result_limit=3 if label in {"paradise", "floating-islands"} else 1,
         )
 
     for anomaly in protocol.ANOMALIES:
@@ -832,9 +832,8 @@ def _run_full(
             "paradise",
             "calm-lush",
             "waterworld",
-            "floating-terrain",
-            "floating-object",
-            "lush-hydrogarden-floating-object",
+            "floating-islands",
+            "lush-hydrogarden-islands",
             "normal-planet",
             "relic-target-planet",
             "rgb-planet",

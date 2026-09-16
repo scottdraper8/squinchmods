@@ -73,6 +73,14 @@ for the actual form and package gates. Generated colour inputs are not an exact 
 guarantee. The player confirms mission lifecycle and Galaxy Map behavior work; do not reopen that
 investigation or change its native identities.
 
+The current public executable is Steam build `25320008` with SHA-256
+`78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4`. Search Probes has been rebased
+to its current native function/global addresses, its executable allowlist and runtime documentation
+are updated, and the production package was freshly installed. The current live hook control passes,
+F7 visibly opens the form, and the complete production matrix passes in
+`games/no-mans-sky/investigation-state/runs/20260915T153000Z-production-7.01-update/`. Keep that run
+as the current runtime evidence; the matrix label correction is parent tooling only.
+
 The single island criterion uses resolved object flags, not terrain-family naming. Sky and water use
 native-selected weather/optical records. Base grass is Green, leaves Purple, selected sky Blue, and
 water Cyan/turquoise on the captured Cape Oath/Mosworkin reference. Cloud/near-water/sunset/night

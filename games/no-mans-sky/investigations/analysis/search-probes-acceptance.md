@@ -10,6 +10,25 @@ Raw records are
 and
 [`completed-target reuse`](../../investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json).
 
+## Current 7.01 production state
+
+The current public Steam executable is build `25320008`, SHA-256
+`78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4`. The minor game update recompiled
+the native functions and moved their absolute virtual addresses and RIP-relative global references.
+The old exact-build hash gate therefore stopped Search Probes before its hook could install; this
+was a native compatibility failure, not an Amethyst priority or UI layout issue.
+
+The product now uses the current function/global addresses, the current allocator instruction guard,
+and the current executable allowlist. Hook installation also handles the updated client's
+thread-snapshot race by retrying transient suspend failures and recognizing threads that exit
+between enumeration and suspension while still failing closed for a live inaccessible thread.
+
+The final production package was installed through the normal Steam launch path and through the
+Amethyst managed source layout. Its current hook control passed (`42 → 43 → 42`), F7 opened the
+rendered Search Probes form, and the full live matrix passed exhaustive survey, colour survey,
+advertised filters, anomaly controls, and positive searches. The retained raw run is
+[`20260915T153000Z-production-7.01-update`](../../investigation-state/runs/20260915T153000Z-production-7.01-update/manifest.json).
+
 ## Colour/UI and managed deployment
 
 The
