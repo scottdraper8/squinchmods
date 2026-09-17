@@ -35,6 +35,55 @@ def test_require_search_matches_accepts_only_nonempty_positive_results(monkeypat
     }
 
 
+def test_advertised_field_search_controls_cover_every_visible_value(monkeypatch) -> None:
+    matrix = _matrix_module(monkeypatch)
+    controls = matrix._advertised_field_search_controls()
+    fields = {label.split("=", 1)[0] for label in controls}
+    visible_form_fields = {
+        field
+        for field in matrix.overlay_form.FORM_CRITERIA_FIELDS
+        if field != "resource"
+    } | {"required_resources", "minimum_planets"}
+
+    assert fields == visible_form_fields == set(matrix.ADVERTISED_FIELDS)
+    assert len(fields) == 62
+    assert len(controls) == 304
+    assert controls["target_biome=GasGiant"] == {"target_biome": "GasGiant"}
+    assert controls["required_resources=WATERWORLD1"] == {
+        "required_resources": ["WATERWORLD1"]
+    }
+    assert controls["sentinels=Require"] == {"sentinels": "Require"}
+    assert controls["sentinels=Exclude"] == {"sentinels": "Exclude"}
+    assert controls["system_corrupt_sentinel_planet=Require"] == {
+        "system_corrupt_sentinel_planet": "Require"
+    }
+    assert controls["sky_height_fog_primary_hue=Neutral"] == {
+        "sky_height_fog_primary_hue": "Neutral"
+    }
+    assert "terrain_setting=FloatingIslands" not in controls
+    assert "cloud_primary_hue=Blue" not in controls
+
+
+def test_exact_advertised_search_result_requires_a_returned_match(monkeypatch) -> None:
+    matrix = _matrix_module(monkeypatch)
+    match = {"address": "0x1"}
+    assert matrix._require_exact_search_result(
+        "sentinels=Require",
+        {"sentinels": "Require"},
+        {"matched": True, "candidates_checked": 4, "matches": [match]},
+    ) == {
+        "criteria": {"sentinels": "Require"},
+        "candidates_checked": 4,
+        "match": match,
+    }
+    with pytest.raises(RuntimeError, match="sentinels=Require"):
+        matrix._require_exact_search_result(
+            "sentinels=Require",
+            {"sentinels": "Require"},
+            {"matched": False, "matches": []},
+        )
+
+
 def test_first_object_source_control_uses_exact_planet_sample(monkeypatch) -> None:
     matrix = _matrix_module(monkeypatch)
     assert matrix._first_object_source_control(

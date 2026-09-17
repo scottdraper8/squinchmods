@@ -270,21 +270,24 @@ player-facing cases:
   false.
 
 The installed
-[full 7.03.1 matrix](../../../../games/no-mans-sky/investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/analysis.json)
-completed over 15,097 remote systems and 71,673 planets. Its acceptance gates require:
+[exhaustive 7.03.1 field matrix](../../../../games/no-mans-sky/investigation-state/runs/20260917T043233Z-production-7.03.1-exhaustive-field-matrix/analysis.json)
+completed over 15,097 remote systems and 71,673 planets. It enumerates all 62 visible fields and
+issues one real installed-runtime search for each of their 304 selectable values. Every search
+returned a concrete match. This covers both Require and Exclude for every visible tri-state, every
+resource, every choice in the eight visible colour fields, and a separate three-resource same-planet
+conjunction.
 
-- a positive generated control for every value in all 56 advertised non-palette field categories;
-- every exposed hue across all 11 generated colour palettes;
-- six full-graph native/generated predicate parity controls;
-- 65 exact searches, including all advertised compositions, colour criteria, abundance values,
-  anomaly controls, object-backed floating islands, and representative multi-field presets; and
-- repeatable query snapshots, generated names, object resolution, restored procedural RNG, and
-  released caller-owned native outputs.
+The independent surveys retain a positive generated control for every value in 56 non-palette
+categories and every proven hue across 11 internal palettes. Three internal palettes are diagnostic
+and are not visible controls. Six full-graph native/generated predicate parity controls also pass.
 
-Sixty exact searches returned positive matches. Five deliberately absent or impossible controls
-returned no match as required: AtlasStationFinal, MiniStation, BackgroundSwarmHive,
-`StormFrequency=Always`, and Waterworld plus Giant. Those absent anomaly and storm values are not
-advertised form choices. The matrix status is `completed` only after all assertions pass.
+The matrix retains 65 separate composition and diagnostic searches, repeatable query snapshots and
+generated names, object resolution, restored procedural RNG, and released caller-owned native
+outputs. Sixty of those 65 searches returned positive matches. Five deliberately absent or
+impossible controls returned no match as required: AtlasStationFinal, MiniStation,
+BackgroundSwarmHive, `StormFrequency=Always`, and Waterworld plus Giant. Those absent anomaly and
+storm values are not advertised form choices. The matrix status is `completed` only after every
+assertion passes.
 
 The package and Amethyst managed runtime contain identical corrected modules. All package-owned
 runtime and adapter files match their managed sources. The

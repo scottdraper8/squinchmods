@@ -89,10 +89,13 @@ maps the current planet index to the visibly dissonant Yachi 33/Z7, decodes its 
 and selects that planet when corrupt sentinels are required. No agent-driven gameplay navigation or
 save mutation was used.
 
-The installed full 7.03.1 matrix completed over 15,097 remote systems and 71,673 planets. It proved
-every advertised non-palette choice, every advertised generated-colour hue, native/generated parity,
-and all required exact search compositions. Evidence is retained in
-`games/no-mans-sky/investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/`.
+The installed exhaustive 7.03.1 matrix completed over 15,097 remote systems and 71,673 planets. It
+issued a real search for all 304 selectable values in all 62 visible fields and required a concrete
+match from every one. Both states of every Require/Exclude control, every resource, all choices in
+the eight visible colour fields, and a three-resource conjunction passed. The independent survey,
+native/generated parity, representative composition, resolver, and lifecycle gates also passed.
+Evidence is retained in
+`games/no-mans-sky/investigation-state/runs/20260917T043233Z-production-7.03.1-exhaustive-field-matrix/`.
 
 The single island criterion uses resolved object flags, not terrain-family naming. Sky and water use
 native-selected weather/optical records. Base grass is Green, leaves Purple, selected sky Blue, and

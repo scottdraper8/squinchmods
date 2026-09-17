@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Mapping
 from pathlib import Path
 
+from search_probes import overlay_form
 from search_probes import resident_search_protocol as protocol
 
 ROOT = Path(
@@ -36,6 +37,58 @@ LUSH_ASSET_SUBTYPES = (
     "HydroGarden",
     "Structure",
 )
+ADVERTISED_PRIMARY_COLOUR_FIELDS = (
+    "grass_primary_hue",
+    "plant_primary_hue",
+    "leaf_primary_hue",
+    "water_primary_hue",
+    "sky_primary_hue",
+    "horizon_primary_hue",
+    "sky_fog_primary_hue",
+    "sky_height_fog_primary_hue",
+)
+ADVERTISED_PLANET_TRISTATE_FIELDS = (
+    "floating_islands",
+    "non_gas_giant_planet",
+    "planet_rings",
+    "planet_has_moons",
+    "paradise_planet",
+    "water_planet",
+    "deep_water_planet",
+    "extreme_hazard_planet",
+    "sentinels",
+    "extreme_sentinel_planet",
+    "corrupt_sentinel_planet",
+    "prime_planet",
+    "infested_planet",
+    "normal_planet",
+    "relic_planet",
+    "rgb_planet",
+    "has_scrap",
+    "suitable_creature_discovery",
+    "suitable_weird_creature_discovery",
+    "suitable_creature_taming",
+    "suitable_robot_creature_discovery",
+)
+ADVERTISED_SYSTEM_TRISTATE_FIELDS = (
+    "pirate_system",
+    "giant_planet_system",
+    "gas_giant_system",
+    "non_gas_giant_system",
+    "waterworld_system",
+    "system_water",
+    "deep_water_system",
+    "system_weird_planet",
+    "system_infested_planet",
+    "system_normal_planet",
+    "system_relic_planet",
+    "system_rgb_planet",
+    "system_corrupt_sentinel_planet",
+    "system_extreme_storm_planet",
+)
+ADVERTISED_FIELDS = tuple(
+    field for field in overlay_form.FORM_CRITERIA_FIELDS if field != "resource"
+) + ("required_resources", "minimum_planets")
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -398,6 +451,150 @@ def _require_search_matches(
             )
         controls[label] = len(matches)
     return controls
+
+
+def _advertised_field_search_controls() -> dict[str, dict[str, object]]:
+    """Return one exact search for every value the visible form advertises."""
+
+    controls: dict[str, dict[str, object]] = {}
+
+    def add(field: str, values: object) -> None:
+        for value in values:
+            label = f"{field}={value}"
+            if label in controls:
+                raise RuntimeError(f"duplicate advertised field control: {label}")
+            controls[label] = {field: value}
+
+    add("target_biome", protocol.PROVEN_BIOMES)
+    add("biome_subtype", protocol.PROVEN_BIOME_SUBTYPES)
+    add("planet_size", protocol.PLANET_SIZES)
+    add(
+        "terrain_setting",
+        (
+            value
+            for value in protocol.PROVEN_TERRAIN_SETTINGS
+            if value
+            not in {
+                "FloatingIslands",
+                "FloatingIslandsPrime",
+                "FloatingIslandsPurple",
+            }
+        ),
+    )
+    for resource in protocol.RESOURCE_IDS:
+        controls[f"required_resources={resource}"] = {
+            "required_resources": [resource]
+        }
+    for field in (
+        *ADVERTISED_PLANET_TRISTATE_FIELDS,
+        *ADVERTISED_SYSTEM_TRISTATE_FIELDS,
+    ):
+        add(field, ("Require", "Exclude"))
+    for field, values in (
+        ("life_level", protocol.PROVEN_PLANET_LIFE_LEVELS),
+        ("creature_life_level", protocol.PROVEN_CREATURE_LIFE_LEVELS),
+        ("building_density", protocol.PROVEN_BUILDING_DENSITY_LEVELS),
+        ("resource_level", protocol.PROVEN_RESOURCE_LEVELS),
+        ("weather_conditions", protocol.WEATHER_CONDITIONS),
+        ("weather_type", protocol.PROVEN_WEATHER_TYPES),
+    ):
+        add(field, values)
+    for field in ADVERTISED_PRIMARY_COLOUR_FIELDS:
+        add(field, protocol.PROVEN_PRIMARY_HUES[field])
+    for field, values in (
+        ("star_type", protocol.STAR_TYPES),
+        ("minimum_planets", protocol.PROVEN_MINIMUM_PLANETS),
+        ("wealth_class", protocol.WEALTH_CLASSES),
+        ("trading_class", protocol.TRADING_CLASSES),
+        ("conflict_level", protocol.CONFLICT_LEVELS),
+        ("population_state", protocol.POPULATION_STATES),
+        ("race", protocol.PROVEN_RACES),
+        ("anomaly", protocol.PROVEN_ANOMALIES),
+    ):
+        add(field, values)
+
+    covered_fields = {label.split("=", 1)[0] for label in controls}
+    if covered_fields != set(ADVERTISED_FIELDS):
+        raise RuntimeError(
+            "advertised field controls do not match the visible form: "
+            f"missing={sorted(set(ADVERTISED_FIELDS) - covered_fields)!r}, "
+            f"extra={sorted(covered_fields - set(ADVERTISED_FIELDS))!r}"
+        )
+    return controls
+
+
+def _require_exact_search_result(
+    label: str, criteria: Mapping[str, object], result: Mapping[str, object]
+) -> dict[str, object]:
+    matches = result.get("matches", [])
+    if not result.get("matched") or not isinstance(matches, list) or not matches:
+        raise RuntimeError(
+            f"advertised field search has no exact result: {label} {dict(criteria)!r}"
+        )
+    return {
+        "criteria": dict(criteria),
+        "candidates_checked": result.get("candidates_checked"),
+        "match": matches[0],
+    }
+
+
+def _run_advertised_field_searches(
+    client: ResidentClient, *, candidate_limit: int
+) -> dict[str, object]:
+    controls = _advertised_field_search_controls()
+    results: dict[str, object] = {}
+    raw_results: list[Mapping[str, object]] = []
+    for index, (label, criteria) in enumerate(controls.items()):
+        result = _search(
+            client,
+            f"advertised-{index:03d}",
+            criteria,
+            candidate_limit=candidate_limit,
+        )
+        results[label] = _require_exact_search_result(label, criteria, result)
+        raw_results.append(result)
+
+    conjunction: list[str] = []
+    for result in raw_results:
+        matches = result.get("matches", [])
+        if not isinstance(matches, list) or not matches:
+            continue
+        match = matches[0]
+        if not isinstance(match, Mapping):
+            continue
+        summary = match.get("summary", {})
+        planet = summary.get("planet", {}) if isinstance(summary, Mapping) else {}
+        resources = planet.get("resources", []) if isinstance(planet, Mapping) else []
+        if isinstance(resources, list):
+            conjunction = list(
+                dict.fromkeys(
+                    str(value)
+                    for value in resources
+                    if value in protocol.RESOURCE_IDS
+                )
+            )[:3]
+        if len(conjunction) == 3:
+            break
+    if len(conjunction) != 3:
+        raise RuntimeError("advertised searches found no three-resource conjunction control")
+    criteria = {"required_resources": conjunction}
+    result = _search(
+        client,
+        "advertised-required-resources-conjunction",
+        criteria,
+        candidate_limit=candidate_limit,
+    )
+    results["required_resources=three-way-conjunction"] = (
+        _require_exact_search_result(
+            "required_resources=three-way-conjunction", criteria, result
+        )
+    )
+    return {
+        "field_count": len(ADVERTISED_FIELDS),
+        "value_count": len(controls),
+        "conjunction_count": 1,
+        "results": results,
+    }
 
 
 def _run_smoke(client: ResidentClient, summary: dict[str, object]) -> dict[str, object]:
@@ -767,6 +964,10 @@ def _run_full(
         "max_candidates_per_slice": colour_survey.get("max_candidates_per_slice"),
         "palette_hues": palette_hues,
     }
+
+    summary["advertised_field_searches"] = _run_advertised_field_searches(
+        client, candidate_limit=candidate_limit
+    )
 
     searches: dict[str, object] = {}
     fixed_searches = {

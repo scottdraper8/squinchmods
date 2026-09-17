@@ -8,7 +8,7 @@ or controller.
 
 Current evidence is retained in:
 
-- [`full installed matrix`](../../investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/analysis.json)
+- [`exhaustive installed field matrix`](../../investigation-state/runs/20260917T043233Z-production-7.03.1-exhaustive-field-matrix/analysis.json)
 - [`native sentinel-row trace`](../../investigation-state/runs/20260917T031654Z-sentinel-difficulty-trace/analysis.json)
 - [`aggressive-sentinel control`](../../investigation-state/runs/20260917T032553Z-sentinel-positive-control/analysis.json)
 - [`corrupt-sentinel control`](../../investigation-state/runs/20260917T033732Z-corrupt-sentinel-positive-control/analysis.json)
@@ -21,17 +21,22 @@ The installed package completed the full resident matrix in the user's current g
 navigation or save mutation. The generated-field and colour surveys each examined 15,097 remote
 systems and 71,673 planets.
 
-The matrix requires a positive generated control for every value exposed by all 56 non-palette field
-categories. It separately requires every exposed hue for all 11 generated colour palettes, checks
-six native/generated predicate pairs across the full graph, and executes 65 exact searches. Sixty
-searches returned the required positive match. Five deliberate negative controls returned no match:
-three anomaly enum values that are withheld from the form, `StormFrequency=Always`, and the
-Waterworld-plus-Giant combination. The matrix status is `completed` only after all these assertions
-pass.
+The exhaustive gate enumerates the visible form schema: 62 fields and 304 selectable values. It
+issues one installed-runtime search for every value and requires each search to return a concrete
+match. This includes both Require and Exclude for every visible tri-state, every resource ID, every
+choice in the eight visible colour fields, and every other advertised planet, environment, life, and
+system value. A separate three-resource same-planet conjunction also returns a concrete match.
 
-The matrix covers all advertised target-planet, environment, life, system, resource, colour,
-anomaly, floating-island, abundance, and generated-name choices. Criteria deliberately withheld in
-the canonical plan remain outside this acceptance claim.
+The generated surveys provide an independent source corpus: all values in 56 non-palette categories
+have positive controls, all proven hues remain present across 11 internal palettes, and six
+native/generated predicate pairs agree across the full graph. Three of those internal palettes are
+diagnostic inputs and are not visible form fields.
+
+The matrix also executes 65 composition and diagnostic searches. Sixty return positive matches. Five
+deliberate negative controls return no match: three anomaly enum values withheld from the form,
+`StormFrequency=Always`, and the Waterworld-plus-Giant combination. Repeatable generated names,
+snapshots, object resolution, restored procedural RNG, and released native outputs remain mandatory.
+The matrix status is `completed` only after every gate passes.
 
 ## Sentinel behavior
 
@@ -57,7 +62,7 @@ runtime and adapter sources, so Amethyst will preserve this build.
 
 The final gates are:
 
-- 285 investigation tests passed.
+- 287 investigation tests passed.
 - 10 third-party acquisition tests passed.
 - Ruff and both Git whitespace checks passed.
 - The installed full matrix completed.
