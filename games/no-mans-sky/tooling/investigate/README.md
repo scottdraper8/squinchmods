@@ -12,8 +12,9 @@ Every evidence-bearing command creates a unique run below the ignored
 inputs; `result.json` uses `schemas/cli-output-v1.json`; intermediate inventories, extracted inputs,
 compiler products, hashes, and bounded diffs stay beside them. Runs are never silently reused.
 
-The committed `toolchain.toml` pins HGPAKtool `1.1.3` and the Cosmos 7.01 MBINCompiler release by
-URL and SHA-256. HGPAKtool and its distributions are hash-locked in `uv.lock`. On this Linux host
+The committed `toolchain.toml` targets public Cosmos 7.03.1, Steam build `25351301`, and pins
+HGPAKtool `1.1.3` plus the latest published MBINCompiler release (`v7.02.0-pre2`) by URL and
+SHA-256. HGPAKtool and its distributions are hash-locked in `uv.lock`. On this Linux host
 MBINCompiler runs in a network-disabled .NET 8 container when a matching host runtime is absent.
 Every result records the actual backend image ID and repo digest. The container reference itself is
 digest-pinned, and the Windows asset compression mode is always explicit. `[target]` binds that

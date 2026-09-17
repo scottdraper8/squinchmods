@@ -73,13 +73,26 @@ for the actual form and package gates. Generated colour inputs are not an exact 
 guarantee. The player confirms mission lifecycle and Galaxy Map behavior work; do not reopen that
 investigation or change its native identities.
 
-The current public executable is Steam build `25320008` with SHA-256
-`78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4`. Search Probes has been rebased
-to its current native function/global addresses, its executable allowlist and runtime documentation
-are updated, and the production package was freshly installed. The current live hook control passes,
-F7 visibly opens the form, and the complete production matrix passes in
-`games/no-mans-sky/investigation-state/runs/20260915T153000Z-production-7.01-update/`. Keep that run
-as the current runtime evidence; the matrix label correction is parent tooling only.
+The current public executable is Steam build `25351301` with SHA-256
+`6213bed7f859766d4064de704be25f119f84449fa13d78a3e40e162364a552ad`. Search Probes is rebased to its
+current native function/global addresses and executable allowlist. Sentinel query flags use the
+native ground-combat difficulty field at application offset `0x315A2C`; do not restore the unrelated
+absolute address previously used for this row. The source/package/game/Amethyst copies of the
+corrected modules match. The native trace is retained in
+`games/no-mans-sky/investigation-state/runs/20260917T031654Z-sentinel-difficulty-trace/`, and the
+installed aggressive-sentinel positive control is retained in
+`games/no-mans-sky/investigation-state/runs/20260917T032553Z-sentinel-positive-control/`. It decodes
+Folk at row 2 with sentinel and extreme-sentinel flags true and selects Folk when those properties
+are required. The separate corrupt-sentinel control is retained in
+`games/no-mans-sky/investigation-state/runs/20260917T033732Z-corrupt-sentinel-positive-control/`. It
+maps the current planet index to the visibly dissonant Yachi 33/Z7, decodes its corrupt flag true,
+and selects that planet when corrupt sentinels are required. No agent-driven gameplay navigation or
+save mutation was used.
+
+The installed full 7.03.1 matrix completed over 15,097 remote systems and 71,673 planets. It proved
+every advertised non-palette choice, every advertised generated-colour hue, native/generated parity,
+and all required exact search compositions. Evidence is retained in
+`games/no-mans-sky/investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/`.
 
 The single island criterion uses resolved object flags, not terrain-family naming. Sky and water use
 native-selected weather/optical records. Base grass is Green, leaves Purple, selected sky Blue, and

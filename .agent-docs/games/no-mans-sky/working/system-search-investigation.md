@@ -248,92 +248,60 @@ aggregates and may be satisfied by different planets.
 
 ## Current runtime evidence
 
-The
-[scoped installed-release acceptance](../../../../games/no-mans-sky/investigations/analysis/search-probes-acceptance.md)
-records current form/Guide lifecycle, save/reload, package parity, and cleanup gates. No-match Guide
-probes publish no destination and require explicit abandonment in the Log; the F7 form retains their
-detailed status. Broader platform validation is separate from this host's acceptance.
+The current executable is No Man's Sky 7.03.1, Steam build `25351301`, SHA-256
+`6213bed7f859766d4064de704be25f119f84449fa13d78a3e40e162364a552ad`. The runtime is pinned to that
+hash and fails closed on any other executable.
 
-The full retained survey is under
-`games/no-mans-sky/tooling/runtime/.resident-search/sessions/1789310863789245500-ebf88c4a581a45a4b1f2db7e3b79e6e/`;
-its matrix summary is `results/matrix-full-1789310864882395743-summary.json`. It examined 15,053
-remote graph entries and 71,730 planets in one session, then restored hooks and closed cleanly.
+The current native planet predicate selects its four sentinel rows through the ground-combat
+difficulty field at application offset `0x315A2C`. The retained
+[native trace](../../../../games/no-mans-sky/investigation-state/runs/20260917T031654Z-sentinel-difficulty-trace/analysis.json)
+records the exact disassembly and live row-2 values. Installed controls then prove both
+player-facing cases:
 
-Important observations include:
+- The
+  [aggressive-sentinel control](../../../../games/no-mans-sky/investigation-state/runs/20260917T032553Z-sentinel-positive-control/analysis.json)
+  decodes Folk at sentinel level 2 and selects it with required sentinel and extreme-sentinel
+  properties.
+- The
+  [corrupt-sentinel control](../../../../games/no-mans-sky/investigation-state/runs/20260917T033732Z-corrupt-sentinel-positive-control/analysis.json)
+  maps the current planet index to Yachi 33/Z7, agrees with its visible `Dissonance detected`
+  indicator, and selects it when corrupt sentinels are required.
+- Each case includes an exclude control that selects a planet whose corresponding sentinel flag is
+  false.
 
-- 1,158 exact Paradise planets; storm frequency None/Low/High on 30,862/33,494/7,374 planets; both
-  Default and Extreme intensity; 14 weather types.
-- Floating-island terrain on 7,145 planets. HydroGarden resolved 143 selected object records,
-  including ten exact floating-island flags; all other Lush subtype controls resolved zero such
-  flags.
-- 278 systems with a Giant: 186 GasGiant and 92 non-gas Giant. 301 Waterworld systems, 13,296 with
-  water, and 643 with deep water.
-- Rings on 13,298 planets and at least one moon on 6,954. Every advertised life, creature, building,
-  and resource-abundance choice returned an exact result.
-- Population state on 12,343 inhabited, 1,866 empty, and 844 abandoned systems. Atlas Station and
-  Black Hole had positive controls at ranks 400 and 42.
-- Every temporary generated planet name and explicit generated system name was nonempty. These are
-  base procedural names, not discovery-service/player-renamed display names.
+The installed
+[full 7.03.1 matrix](../../../../games/no-mans-sky/investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/analysis.json)
+completed over 15,097 remote systems and 71,673 planets. Its acceptance gates require:
 
-The exhaustive diagnostic averaged 6.91 ms of engine work per system with a 24.62 ms maximum slice;
-it deliberately copied every optional field. Ordinary generated searches averaged roughly 0.55–1.1
-ms/system, while anomaly scans averaged about 0.19 ms/system. Wall time is intentionally longer
-because work is cooperatively bounded per gameplay update. Performance claims from sessions run
-alongside unrelated heavy workloads are not treated as benchmarks.
+- a positive generated control for every value in all 56 advertised non-palette field categories;
+- every exposed hue across all 11 generated colour palettes;
+- six full-graph native/generated predicate parity controls;
+- 65 exact searches, including all advertised compositions, colour criteria, abundance values,
+  anomaly controls, object-backed floating islands, and representative multi-field presets; and
+- repeatable query snapshots, generated names, object resolution, restored procedural RNG, and
+  released caller-owned native outputs.
 
-Guide/runtime proof is retained in the resident session artifacts:
+Sixty exact searches returned positive matches. Five deliberately absent or impossible controls
+returned no match as required: AtlasStationFinal, MiniStation, BackgroundSwarmHive,
+`StormFrequency=Always`, and Waterworld plus Giant. Those absent anomaly and storm values are not
+advertised form choices. The matrix status is `completed` only after all assertions pass.
 
-- The shipped Earthlike intersection completed over 5,000 candidates in session
-  `1789354244668911900-193edb6196ba463ba4667204b78d3b42`: exact Lush/Paradise, Green generated grass
-  hue, Blue generated sky hue, and has-moons filters returned three systems. Those three controls
-  happened to report one moon each, but the implemented predicate remains one-or-more.
-- That session's live Wiki snapshot contained exactly one runtime-owned topic, **Earthlike**, bound
-  to `SQN_SS_P00`. A subsequent fresh-process normal attach automatically opened the owned form with
-  `1 / 9 saved presets`.
-- Exact slot-zero Guide activation searched Paradise Planet, checked 102 candidates over 43 slices,
-  retained five matches, and passed `0x000087FF278028A5` to the native publisher. That older run
-  proved event creation but not a route-bearing mission context and is not navigation acceptance
-  evidence.
-- A 64-topic capacity probe installed safely, but visual/controller/mouse testing could reach only
-  the first nine rows and found no scrolling path.
-- Empty startup produced one inert topic and no crash; a true zero array had previously crashed.
-- A ninth user preset saved through the form appeared on the next launch as topic **My system
-  search** with the previous-generation slot mission `SQN_SS_P08` in session
-  `1789351835798811800-afd7b92452f74069ab3c625dab443311`, result
-  `1789351884110079466-db6d0513be524f69a4337c5907638d96`.
-- That final session ended with `hook_restored=true` and `executor_closed=true` while NMS survived.
-- A packaged ordinary-launch session in galaxy #256 decoded live `RealityIndex=255`; all eight
-  independently enumerated candidate addresses also decoded to 255. A subsequent visible-form
-  Earthlike search excluded the current system, advanced from 448/499 to completion while the form
-  remained mapped, and recorded galaxy #256 in its enumeration metadata. The same build started
-  hidden, opened through direct F7 state polling, and accepted `500` through the keyboard-editable
-  Maximum systems field.
+The package and Amethyst managed runtime contain identical corrected modules. All package-owned
+runtime and adapter files match their managed sources. The
+[scoped acceptance record](../../../../games/no-mans-sky/investigations/analysis/search-probes-acceptance.md)
+records the package, tests, current matrix, sentinel controls, and lifecycle boundary.
 
-The earlier SS9 arrival control produced a selectable target, a Current Mission Galaxy Map route,
-stable destination-system locality, and an exact planet marker; approach cleared its HUD/map route
-and removed the target from the Log. Its reusable hidden launcher failed abandonment/reuse and is
-not the current form architecture. The retained arrival control is
-`games/no-mans-sky/investigation-state/runs/20260914T114740Z-ss9-player-acceptance/analysis.json`.
-Current start/abandon/reuse and exact-route evidence is retained in
-`games/no-mans-sky/investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json`. This
-task's automation covers menus and missions, not flight or warp; it does not claim a fresh
-travel/arrival test. Live comparison also proves that `GcPlanetData.PlanetIndex` is zero-based while
-`cGcUniverseAddressData.PlanetIndex` is one-based: generated index 3 was loaded planet address value
-4, while published value zero produced only a system destination.
+Mission navigation retains one exact native route, rejects active or pending target replacement,
+uses `GcSeed(value=0, valid=true)`, selects the sole matching active mission, and leaves abandonment
+cleanup to NMS. Current lifecycle evidence remains in the retained
+[mission run](../../../../games/no-mans-sky/investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json)
+and
+[completed-target reuse run](../../../../games/no-mans-sky/investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json).
+The user confirms the mission and Galaxy Map flow. Automated acceptance does not drive flight or
+warp.
 
-Completed-target reuse additionally requires a valid native zero seed:
-`GcSeed(value=0, valid=true)`. Native start compares value and validity, while the active query
-treats an invalid seed as a wildcard. Passing an invalid zero seed creates a duplicate after
-completion; native mission-context cleanup then removes the new route. The runtime uses the exact
-native default identity and explicitly selects the active instance after route publication, because
-the native restart queue ignores the initial selection flag. No artificial stage delay or marker
-republishing is involved. The player's naturally completed first target, failing second target,
-native hardware watch, corrected reuse control, and installed reload/repeat validation are retained
-in `games/no-mans-sky/investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json`.
-
-The same fresh-process Guide snapshot contains two runtime-owned topics, **Earthlike** bound to slot
-`P00` and the newly saved **Frozen Giant** bound to slot `P01`. This proves that preset saves are
-persistent and appear after the documented next-launch refresh boundary.
+Raw run trees are ignored local evidence. Tracked documents point to the small set of runs that
+support the current contract; superseded exploratory and failure runs are not product source.
 
 ## Reference-mod conclusions
 

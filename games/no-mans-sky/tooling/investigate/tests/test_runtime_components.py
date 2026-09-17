@@ -241,6 +241,63 @@ def test_capture_planet_resolves_only_selected_object_indices(monkeypatch):
     assert engine._captured_planet_details[-1]["resolved_object_lists"] == {"ok": True}
 
 
+def test_ground_combat_difficulty_uses_native_application_field(monkeypatch):
+    engine = _engine()
+    application = 0x70000000
+    resolved_singleton = 0x71000000
+    reads = []
+    engine.resolve = lambda address: (
+        resolved_singleton
+        if address == search_engine.APPLICATION_SINGLETON
+        else pytest.fail(f"unexpected preferred address: {address:#x}")
+    )
+
+    class FakeVoidPointer:
+        @staticmethod
+        def from_address(address):
+            reads.append(("pointer", address))
+            return types.SimpleNamespace(value=application)
+
+    class FakeInt32:
+        @staticmethod
+        def from_address(address):
+            reads.append(("int32", address))
+            return types.SimpleNamespace(value=2)
+
+    monkeypatch.setattr(search_engine.ctypes, "c_void_p", FakeVoidPointer)
+    monkeypatch.setattr(search_engine.ctypes, "c_int32", FakeInt32)
+
+    assert engine.current_ground_combat_difficulty() == 2
+    assert reads == [
+        ("pointer", resolved_singleton),
+        (
+            "int32",
+            application + search_engine.APPLICATION_GROUND_COMBAT_TIMERS_OFFSET,
+        ),
+    ]
+
+
+def test_ground_combat_difficulty_rejects_an_invalid_row(monkeypatch):
+    engine = _engine()
+    engine.resolve = lambda _address: 0x71000000
+
+    class FakeVoidPointer:
+        @staticmethod
+        def from_address(_address):
+            return types.SimpleNamespace(value=0x70000000)
+
+    class FakeInt32:
+        @staticmethod
+        def from_address(_address):
+            return types.SimpleNamespace(value=4)
+
+    monkeypatch.setattr(search_engine.ctypes, "c_void_p", FakeVoidPointer)
+    monkeypatch.setattr(search_engine.ctypes, "c_int32", FakeInt32)
+
+    with pytest.raises(RuntimeError, match="ground-combat difficulty row is invalid: 4"):
+        engine.current_ground_combat_difficulty()
+
+
 def test_scheduler_requeue_failure_clears_search_and_survey_state():
     scheduler = SearchScheduler.__new__(SearchScheduler)
     scheduler.commands = type(

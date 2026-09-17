@@ -1,9 +1,9 @@
 schema_version = 1
 
 [target]
-nms_version = "7.01"
+nms_version = "7.03.1"
 branch = "public"
-steam_build_ids = ["25320008"]
+steam_build_ids = ["25351301"]
 
 [hgpaktool]
 package = "hgpaktool"
@@ -11,10 +11,10 @@ version = "1.1.3"
 platform = "windows"
 
 [mbincompiler]
-release = "v7.01.0-pre1"
-reported_version = "7.01.0.1"
+release = "v7.02.0-pre2"
+reported_version = "7.02.0.2"
 filename = "MBINCompiler-linux"
-url = "https://github.com/monkeyman192/MBINCompiler/releases/download/v7.01.0-pre1/MBINCompiler-linux"
-sha256 = "47f96b7607f415d0739e1f694190ff4b0fcd5096c42956146f3538bcd209bc56"
+url = "https://github.com/monkeyman192/MBINCompiler/releases/download/v7.02.0-pre2/MBINCompiler-linux"
+sha256 = "63b13bc88810e925cb1c21137cdae9cf44dbc1a764fb625d4614c237fc11062b"
 dotnet_major = 8
 container_image = "mcr.microsoft.com/dotnet/runtime@sha256:9cfa8aaf5c98a4cedffec74d450dd2d4510ba72ee9e663efe2658500b0321524"

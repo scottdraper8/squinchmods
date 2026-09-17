@@ -442,14 +442,30 @@ def test_decode_rejects_invalid_size_or_count():
         raise AssertionError("invalid planet count was accepted")
 
 
-def test_difficulty_selected_sentinel_flags_use_the_runtime_offset():
+@pytest.mark.parametrize(
+    ("difficulty_offset", "expected"),
+    (
+        (0, (False, False, False)),
+        (1, (True, False, False)),
+        (2, (True, True, True)),
+        (3, (True, True, False)),
+    ),
+)
+def test_difficulty_selected_sentinel_flags_use_the_runtime_offset(
+    difficulty_offset, expected
+):
     raw = bytearray(_sample())
     query = snapshot.PLANET_QUERY_OFFSET
-    raw[query + 0x128 + 2] = 1
-    raw[query + 0x12C + 2] = 1
-    decoded = snapshot.decode_query(bytes(raw), difficulty_offset=2)
-    assert decoded["planets"][0]["has_extreme_sentinels"] is True
-    assert decoded["planets"][0]["has_corrupt_sentinels"] is True
+    raw[query + 0x124 : query + 0x128] = bytes((0, 1, 1, 1))
+    raw[query + 0x128 : query + 0x12C] = bytes((0, 0, 1, 1))
+    raw[query + 0x12C : query + 0x130] = bytes((0, 0, 1, 0))
+    decoded = snapshot.decode_query(bytes(raw), difficulty_offset=difficulty_offset)
+    planet = decoded["planets"][0]
+    assert (
+        planet["has_sentinels"],
+        planet["has_extreme_sentinels"],
+        planet["has_corrupt_sentinels"],
+    ) == expected
 
 
 def test_system_extreme_storm_requires_extreme_flag_and_nonzero_frequency() -> None:

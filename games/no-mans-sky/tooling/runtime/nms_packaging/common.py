@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 APP_ID = "275850"
-NMS_VERSION = "7.01"
+NMS_VERSION = "7.03.1"
 PRODUCT_MARKER = "SearchProbes product=1\n"
 OWNED_PROXY_HASH = "OWNED_WINMM_SHA256"
 FEDORA_MINGW_IMAGE = (

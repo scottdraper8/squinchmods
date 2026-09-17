@@ -1,98 +1,85 @@
 # Search Probes acceptance
 
-The installed package targets the pinned No Man's Sky 7.01 executable on this Steam Proton host. It
-starts with an ordinary Steam launch and needs no external injector or controller. F7 creates and
-shows the form on first use. Mod source lives in `mods/search-probes`; all build, installation,
-test, investigation, and desktop-control tooling lives in the parent repository.
+The installed package targets No Man's Sky 7.03.1, Steam build `25351301`, on the validated Steam
+Proton host. The executable SHA-256 is
+`6213bed7f859766d4064de704be25f119f84449fa13d78a3e40e162364a552ad`; the runtime fails closed for any
+other executable. An ordinary Steam launch starts the packaged runtime without an external injector
+or controller.
 
-Raw records are
-[`mission lifecycle`](../../investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json)
-and
-[`completed-target reuse`](../../investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json).
+Current evidence is retained in:
 
-## Current 7.01 production state
+- [`full installed matrix`](../../investigation-state/runs/20260917T035632Z-production-7.03.1-full-matrix/analysis.json)
+- [`native sentinel-row trace`](../../investigation-state/runs/20260917T031654Z-sentinel-difficulty-trace/analysis.json)
+- [`aggressive-sentinel control`](../../investigation-state/runs/20260917T032553Z-sentinel-positive-control/analysis.json)
+- [`corrupt-sentinel control`](../../investigation-state/runs/20260917T033732Z-corrupt-sentinel-positive-control/analysis.json)
+- [`mission lifecycle`](../../investigation-state/runs/20260914T200400Z-mission-lifecycle/analysis.json)
+- [`completed-target reuse`](../../investigation-state/runs/20260914T223411Z-arrival-reuse/analysis.json)
 
-The current public Steam executable is build `25320008`, SHA-256
-`78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4`. The minor game update recompiled
-the native functions and moved their absolute virtual addresses and RIP-relative global references.
-The old exact-build hash gate therefore stopped Search Probes before its hook could install; this
-was a native compatibility failure, not an Amethyst priority or UI layout issue.
+## Search and filter acceptance
 
-The product now uses the current function/global addresses, the current allocator instruction guard,
-and the current executable allowlist. Hook installation also handles the updated client's
-thread-snapshot race by retrying transient suspend failures and recognizing threads that exit
-between enumeration and suspension while still failing closed for a live inaccessible thread.
+The installed package completed the full resident matrix in the user's current galaxy without
+navigation or save mutation. The generated-field and colour surveys each examined 15,097 remote
+systems and 71,673 planets.
 
-The final production package was installed through the normal Steam launch path and through the
-Amethyst managed source layout. Its current hook control passed (`42 → 43 → 42`), F7 opened the
-rendered Search Probes form, and the full live matrix passed exhaustive survey, colour survey,
-advertised filters, anomaly controls, and positive searches. The retained raw run is
-[`20260915T153000Z-production-7.01-update`](../../investigation-state/runs/20260915T153000Z-production-7.01-update/manifest.json).
+The matrix requires a positive generated control for every value exposed by all 56 non-palette field
+categories. It separately requires every exposed hue for all 11 generated colour palettes, checks
+six native/generated predicate pairs across the full graph, and executes 65 exact searches. Sixty
+searches returned the required positive match. Five deliberate negative controls returned no match:
+three anomaly enum values that are withheld from the form, `StormFrequency=Always`, and the
+Waterworld-plus-Giant combination. The matrix status is `completed` only after all these assertions
+pass.
 
-## Colour/UI and managed deployment
+The matrix covers all advertised target-planet, environment, life, system, resource, colour,
+anomaly, floating-island, abundance, and generated-name choices. Criteria deliberately withheld in
+the canonical plan remain outside this acceptance claim.
 
-The
-[reference capture](../../investigation-state/runs/20260915T030000Z-colour-island-reference/analysis.json)
-and
-[installed footprint](../../investigation-state/runs/20260915T030000Z-colour-island-reference/installation.json)
-cover selected sky/water inputs, native water parity across 19 records, read-only selected colours
-on six loaded planets, the captured island reference, and combined-filter negative controls.
+## Sentinel behavior
 
-The
-[fresh installed run](../../investigation-state/runs/20260915T050700Z-colour-redeployment/analysis.json)
-and its
-[footprint](../../investigation-state/runs/20260915T050700Z-colour-redeployment/installation.json)
-close the host-recovery gameplay-callback gate. Amethyst's mirrored source had redeployed eight
-stale modules; both the game and managed sources now match the corrected package. The installer
-updates all owned copies transactionally and remembers managed paths even after game files become
-regular files. It rejects ambiguous/foreign sources and preserves user presets without shipping old
-sessions and logs into managed sources. Failure-injection tests cover rollback after partial
-publication.
+The 7.03.1 native `cGcScanEventManager::PassesPlanetInfoChecks` reads the active ground-combat
+difficulty row from the application singleton at application offset `0x315A2C`. Its sentinel,
+extreme-sentinel, and corrupt-sentinel predicates index the four-byte query arrays at `+0x124`,
+`+0x128`, and `+0x12C` with that row. Live memory and the native compatibility global both selected
+row 2 during the aggressive-sentinel trace.
 
-The fresh runtime reproduces the loaded selected colours of the player's Bujav L2 exactly. Blue sky
-and blue water each reject that target; non-colour criteria and its actual selected-colour controls
-accept it. Bounded positive blue sky/water and island require/exclude searches return matches whose
-exact criteria also pass independent candidate rechecks. The first F7 opens the simplified form;
-saved legacy constraints remain explicit and are included unchanged in submitted searches.
+The installed runtime decodes Folk at sentinel level 2 with sentinel presence and extreme sentinels
+true. Requiring both properties selects Folk; excluding sentinel presence selects a different planet
+whose flag is false. On Yachi 33/Z7, the visible `Dissonance detected` indicator, the runtime's
+current planet index, sentinel level 3, and the corrupt-sentinel flag agree. Requiring corrupt
+sentinels selects Yachi itself; excluding them selects a planet whose flag is false.
 
-276 investigation tests, 10 acquisition tests, and lint pass. All 32 product modules and 1,727
-immutable payload files agree with source/manifest in both deployment destinations; user presets
-remain byte-identical. Selected sky/water values are generated inputs, not promises about final
-pixels after atmosphere, time of day, reflections, or screen grading. No flight, warp, or mission
-lifecycle change was performed.
+## Package and deployment
 
-## Mission/lifecycle baseline
+The package was built and installed while NMS was closed. Source, package, direct-game, and Amethyst
+copies of the corrected modules have identical hashes. All 1,723 package runtime files match
+Amethyst's managed source, and all four owned adapter files match both destinations. The direct game
+tree contains additional live session state. Both deployment records point at the verified Amethyst
+runtime and adapter sources, so Amethyst will preserve this build.
 
-| Gate                     | Evidence                                                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Correct native ownership | Current reward/mission-sequence callers resolve the native mission start and manager; exact executable and byte prefixes are checked.                                                             |
-| Form lifecycle           | Repeated start/abandon/restart, duplicate rejection before target mutation, one exact planet route, and zero owned routes after abandonment.                                                      |
-| Completed-target reuse   | The player's naturally completed target is reused with a valid zero native seed; one mission instance and the exact next route remain active. Native selection is verified before acknowledgment. |
-| Save/reload              | A saved active target survives a fresh process as one Log entry with the same exact destination; native abandonment still works.                                                                  |
-| Actual form interaction  | Search and Navigate exercised through the visible form; names populated; first F7 verified on the final installed source.                                                                         |
-| Guide lifecycle          | Actual Guide launch with a positive control produces one native mission-owned exact route; no-match control produces no target. Both abandon normally.                                            |
-| Search parity            | Final installed smoke matrix completed; exhaustive generated-field controls remain linked from the canonical plan and filter audit.                                                               |
-| Packaging                | Both game and managed-source payloads match the package; fresh gameplay-callback and form controls are specified above.                                                                           |
-| Cleanup                  | Baseline native abandonment leaves zero owned routes and preserves unrelated routes. The player confirms mission lifecycle/galaxy-map behavior works; this update does not modify it.             |
+The final gates are:
 
-The form uses a disposable native NPC mission, not a persistent Wiki listener. Guide slots retain
-their separate native ready handshake; an abandoned slot cannot publish a route. No-match Guide
-searches require abandoning the probe in the Log; their detailed status is available in the F7 form.
-Guide preset edits are applied on the next launch.
+- 285 investigation tests passed.
+- 10 third-party acquisition tests passed.
+- Ruff and both Git whitespace checks passed.
+- The installed full matrix completed.
+- Aggressive and corrupt sentinel positive and negative controls passed.
 
-The native mission seed is `value=0, valid=true`; an all-zero structure is a different identity.
-Both fields participate in native restart matching. The active-query wildcard behavior must not be
-mistaken for an identity suitable for starting a mission. NMS's restart queue drops the initial
-selection flag, so the runtime explicitly selects the sole active matching instance after its exact
-route is present. Route disappearance is not handled by republishing markers or delaying mission
-stages.
+## Form, mission, and lifecycle contract
 
-The player completed the first target naturally. The follow-up uses that completed mission to
-validate reuse; no automated flight, warp, movement, or fabricated completion was performed.
-Fresh-process validation retains the exact route and selected Log target, followed by two installed
-start/abandon cycles. Galaxy Map rendering is not newly exercised from the freighter hangar. Native
-Windows, VR, HDR, other resolutions, multiplayer sessions, and broad graphics/input-overlay
-compatibility are not claimed by this host's acceptance.
+The form uses one disposable native NPC mission per navigation target. Active or pending targets are
+rejected before destination mutation. A successful start publishes one exact planet route and
+selects the sole matching active instance. The mission identity uses `GcSeed(value=0, valid=true)`;
+an invalid all-zero seed is a different identity. Native abandonment owns cleanup.
 
-Desktop capture failures are retained separately as invalid host evidence. Wayland Vulkan
-screenshots use the compositor; stale X11 window captures are not input or runtime evidence.
+Retained lifecycle controls cover repeated start, abandonment, restart, duplicate rejection,
+completed-target reuse, save/reload, Guide positive and no-match launches, exact route ownership,
+and cleanup without disturbing unrelated routes. The user has confirmed mission and Galaxy Map
+behavior. The sentinel correction does not change the route or mission lifecycle.
+
+The host acceptance does not claim native Windows, VR, HDR, multiplayer, other display/input
+configurations, or automatic flight and warp. Generated colours are searchable generation inputs;
+they do not promise final pixels after atmosphere, lighting, weather, reflections, or screen
+grading.
+
+Raw run directories are local ignored evidence. Tracked documentation identifies the small set of
+current runs needed to reproduce each acceptance claim; superseded or failed runs are not product
+source and need not be published.

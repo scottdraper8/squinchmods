@@ -13,7 +13,6 @@ def mission_runtime():
     spec.loader.exec_module(module)
     runtime = module.NativeMissions.__new__(module.NativeMissions)
     runtime._manager = lambda: 0x100000
-    runtime._active = lambda *args: False
     return runtime
 
 
@@ -73,9 +72,17 @@ def test_target_route_active_ignores_events_without_mission_context():
 
 
 def test_active_target_is_rejected_before_a_new_request():
-    runtime = mission_runtime()
-    runtime._active = lambda *args: True
-    runtime._read = lambda *args: pytest.fail("active target must be rejected before queue access")
+    runtime, _calls = selection_runtime(
+        [{"mission": b"SQN_SS11_NAV", "progress": 0}]
+    )
+    read = runtime._read
+
+    def guarded_read(address, size):
+        if address == 0x100180:
+            pytest.fail("active target must be rejected before queue access")
+        return read(address, size)
+
+    runtime._read = guarded_read
     with pytest.raises(RuntimeError, match="Abandon it in the Log"):
         runtime.require_available(b"SQN_SS11_NAV")
 
@@ -83,6 +90,7 @@ def test_active_target_is_rejected_before_a_new_request():
 def test_pending_requests_use_exact_identity_and_both_native_queues():
     runtime = mission_runtime()
     data = {
+        0x1001C0: struct.pack("<IIQ", 0, 0, 0),
         0x100180: struct.pack("<IIQ", 2, 1, 0x200000),
         0x100190: struct.pack("<IIQ", 2, 1, 0x300000),
         0x200000: b"UNRELATED\0".ljust(16, b"\0"),
@@ -131,30 +139,38 @@ def test_valid_zero_seed_is_distinct_from_legacy_invalid_zero_seed():
     assert bytes(seed) != bytes(16)
 
 
-def test_active_queries_the_same_valid_zero_seed_identity():
-    runtime = mission_runtime()
-    calls = []
-
-    def active(manager, identity, seed):
-        calls.append(
-            (
-                manager,
-                ctypes.string_at(identity, 16),
-                ctypes.string_at(seed, 16),
-            )
-        )
-        return True
-
-    runtime._active = active
-
+def test_active_finds_the_same_valid_zero_seed_identity_as_select():
+    runtime, _calls = selection_runtime(
+        [{"mission": b"SQN_SS11_NAV", "progress": 0}]
+    )
     assert runtime.active(b"SQN_SS11_NAV")
-    assert calls == [
-        (
-            0x100000,
-            b"SQN_SS11_NAV".ljust(16, b"\0"),
-            struct.pack("<QB7x", 0, 1),
-        )
-    ]
+
+
+def test_active_ignores_completed_or_different_seed_instances():
+    runtime, _calls = selection_runtime(
+        [
+            {"mission": b"SQN_SS11_NAV", "progress": 2, "stages": 2},
+            {
+                "mission": b"SQN_SS11_NAV",
+                "progress": 0,
+                "seed": struct.pack("<QB7x", 1, 1),
+            },
+        ]
+    )
+
+    assert not runtime.active(b"SQN_SS11_NAV")
+
+
+def test_active_rejects_duplicate_matching_instances():
+    runtime, _calls = selection_runtime(
+        [
+            {"mission": b"SQN_SS11_NAV", "progress": 0},
+            {"mission": b"SQN_SS11_NAV", "progress": 1},
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="multiple active"):
+        runtime.active(b"SQN_SS11_NAV")
 
 
 def test_completed_mission_reuses_valid_zero_seed_without_duplicate_entry():

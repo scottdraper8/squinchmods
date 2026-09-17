@@ -3,9 +3,6 @@ from pathlib import Path
 from .errors import LaunchError
 
 APP_ID = "275850"
-TOP_SAVE_X = 1900
-TOP_SAVE_Y = 680
-SAVE_ROW_SPACING = 170
 VISIBLE_SAVE_ROWS = 5
 
 
@@ -50,18 +47,25 @@ def verify_latest_save(profile: Path) -> dict[str, object]:
     if not saves:
         raise LaunchError(f"No save*.hg files found in {profile}")
     latest = max(saves, key=lambda path: (path.stat().st_mtime_ns, path.name))
+    return verify_save(profile, latest.name)
+
+
+def verify_save(profile: Path, filename: str) -> dict[str, object]:
+    if Path(filename).name != filename or filename.startswith("mf_"):
+        raise LaunchError(f"Invalid NMS save filename: {filename!r}")
+    latest = profile / filename
+    if latest.suffix != ".hg" or not latest.is_file():
+        raise LaunchError(f"NMS save does not exist: {latest}")
     pair_index = save_pair_index(latest)
     if pair_index >= VISIBLE_SAVE_ROWS:
         raise LaunchError(
-            f"The newest save is {latest.name} in row {pair_index + 1}, outside the "
+            f"The selected save is {latest.name} in row {pair_index + 1}, outside the "
             f"{VISIBLE_SAVE_ROWS} currently proven visible rows; refusing unproved scrolling"
         )
     return {
         "profile": str(profile),
         "save": str(latest),
         "save_pair": pair_index + 1,
-        "selection_x": TOP_SAVE_X,
-        "selection_y": TOP_SAVE_Y + pair_index * SAVE_ROW_SPACING,
         "mtime_ns": latest.stat().st_mtime_ns,
         "bytes": latest.stat().st_size,
     }

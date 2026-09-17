@@ -37,8 +37,7 @@ Runs live below the ignored `games/no-mans-sky/investigation-state/` boundary. S
 
 [`client/`](client/) contains current-host UI automation kept deliberately outside the evidence
 runner. Its launcher creates a virtual controller before Steam starts NMS, focuses NMS immediately
-before each known input, and selects the verified newest/top save route without per-step
-screenshots:
+before each known input, and can load the verified newest save for gameplay checks:
 
 ```bash
 games/no-mans-sky/tooling/client/launch-latest-save.py
@@ -57,7 +56,7 @@ locally with:
 
 ```bash
 games/no-mans-sky/tooling/runtime/build_system_search.py \
-  games/no-mans-sky/dist/SearchProbes-7.01
+  games/no-mans-sky/dist/SearchProbes-7.03.1
 ```
 
 Run it with NMS stopped. It emits an expanded Nexus-rooted tree plus ZIP, verifies both product and

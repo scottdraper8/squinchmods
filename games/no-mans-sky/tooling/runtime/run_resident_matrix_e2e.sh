@@ -4,13 +4,16 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly MOD_SOURCE="$(cd -- "${SCRIPT_DIR}/../../mods/search-probes/src" && pwd)"
 export PYTHONPATH="${MOD_SOURCE}${PYTHONPATH:+:${PYTHONPATH}}"
+readonly STEAM_ROOT="${SQN_STEAM_ROOT:-${HOME}/.local/share/Steam}"
+readonly DEFAULT_NMS_ROOT="${STEAM_ROOT}/steamapps/common/No Man's Sky"
+readonly NMS_ROOT="${SQN_NMS_GAME_ROOT:-$DEFAULT_NMS_ROOT}"
 readonly CLIENT="$SCRIPT_DIR/../client/launch-latest-save.py"
-readonly STATE_ROOT="$SCRIPT_DIR/.resident-search"
+readonly STATE_ROOT="${SQN_RESIDENT_SEARCH_ROOT:-${NMS_ROOT}/Binaries/SearchProbes/app/.resident-search}"
+export SQN_RESIDENT_SEARCH_ROOT="$STATE_ROOT"
 readonly PHASE="${1:-full}"
 readonly CANDIDATE_LIMIT="${SQN_MATRIX_CANDIDATE_LIMIT:-20000}"
 readonly TIMEOUT="${SQN_MATRIX_TIMEOUT:-3600}"
-
-hook_pid=""
+readonly GAMEPLAY_WAIT="${SQN_GAMEPLAY_WAIT:-75}"
 
 nms_count() {
   python3 - <<'PY'
@@ -117,10 +120,6 @@ cleanup() {
   if [[ "$(nms_count)" != 0 ]]; then
     close_nms || true
   fi
-  if [[ -n "$hook_pid" ]]; then
-    kill -TERM "$hook_pid" 2>/dev/null || true
-    wait "$hook_pid" 2>/dev/null || true
-  fi
 }
 trap cleanup EXIT
 
@@ -130,64 +129,49 @@ if [[ "$PHASE" != smoke && "$PHASE" != full ]]; then
 fi
 
 health_gate prelaunch 0
+if [[ ! -f "$NMS_ROOT/Binaries/SearchProbes/SEARCH_PROBES_PRODUCT" ]]; then
+  echo "installed Search Probes runtime is missing: $NMS_ROOT/Binaries/SearchProbes" >&2
+  exit 1
+fi
+old_session=""
+if [[ -f "$STATE_ROOT/current.json" ]]; then
+  old_session=$(python3 -c 'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]) / "current.json"; print(json.load(open(p, encoding="utf-8")).get("session_id", ""))' "$STATE_ROOT")
+fi
 echo "AUTOMATED CLIENT LAUNCH START"
-"$CLIENT" --failure-screenshot /tmp/squinch-nms-launch-failure.png
+client_args=(--gameplay-wait "$GAMEPLAY_WAIT" \
+  --failure-screenshot /tmp/squinch-nms-launch-failure.png)
+if [[ -n "${SQN_NMS_TEST_SAVE:-}" ]]; then
+  client_args+=(--load-save "$SQN_NMS_TEST_SAVE")
+else
+  client_args+=(--load-latest-save)
+fi
+"$CLIENT" "${client_args[@]}"
 echo "GAMEPLAY WAIT COMPLETE"
 health_gate prehook 1
-
-old_session="$(
-  python3 -c "import json; print(json.load(open('$STATE_ROOT/current.json')).get('session_id', ''))" \
-    2>/dev/null || true
-)"
-SQN_RESIDENT_SEARCH_NO_OVERLAY=1 "$SCRIPT_DIR/launch_resident_search.sh" \
-  >/tmp/sqn-resident-matrix-e2e.log 2>&1 &
-hook_pid="$!"
 
 session_state=""
 overlay_state=""
 for _attempt in $(seq 1 90); do
   if [[ -f "$STATE_ROOT/current.json" ]]; then
-    new_session="$(
-      python3 -c "import json; print(json.load(open('$STATE_ROOT/current.json')).get('session_id', ''))" \
-        2>/dev/null || true
-    )"
+    new_session=$(python3 -c 'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]) / "current.json"; print(json.load(open(p, encoding="utf-8")).get("session_id", ""))' "$STATE_ROOT")
     if [[ -n "$new_session" && "$new_session" != "$old_session" ]]; then
-      readarray -t state_values < <(
-        python3 - "$STATE_ROOT" <<'PY'
-import json
-import pathlib
-import sys
-
-root = pathlib.Path(sys.argv[1])
-current = json.load(open(root / "current.json", encoding="utf-8"))
-path = root / "sessions" / current["session_id"] / "state.json"
-state = json.load(open(path, encoding="utf-8")) if path.exists() else {}
-print(state.get("state", ""))
-print(str(state.get("overlay_enabled", "")).lower())
-PY
-      )
-      session_state="${state_values[0]:-}"
-      overlay_state="${state_values[1]:-}"
+      state_values=$(python3 -c 'import json, pathlib, sys; root=pathlib.Path(sys.argv[1]); current=json.load(open(root / "current.json", encoding="utf-8")); path=root / "sessions" / current["session_id"] / "state.json"; state=json.load(open(path, encoding="utf-8")) if path.is_file() else {}; print(state.get("state", "") + "\t" + str(state.get("overlay_enabled", "")).lower())' "$STATE_ROOT")
+      IFS=$'\t' read -r session_state overlay_state <<< "$state_values"
       [[ "$session_state" == ready ]] && break
     fi
-  fi
-  if ! kill -0 "$hook_pid" 2>/dev/null; then
-    echo "ATTACH FAILED" >&2
-    sed -n '1,320p' /tmp/sqn-resident-matrix-e2e.log >&2
-    exit 1
   fi
   sleep 1
 done
 
 if [[ "$session_state" != ready ]]; then
-  echo "ATTACH TIMEOUT" >&2
+  echo "PACKAGED RUNTIME ATTACH TIMEOUT" >&2
+  error_log="$NMS_ROOT/Binaries/SearchProbes/bootstrap-error.log"
+  if [[ -f "$error_log" ]]; then
+    sed -n '1,240p' "$error_log" >&2
+  fi
   exit 1
 fi
-if [[ "$overlay_state" != false ]]; then
-  echo "HEADLESS ASSERTION FAILED: overlay_enabled=$overlay_state" >&2
-  exit 1
-fi
-echo "ATTACHED session=$new_session overlay_enabled=$overlay_state"
+echo "PACKAGED RUNTIME READY session=$new_session overlay_enabled=$overlay_state"
 
 python3 "$SCRIPT_DIR/resident_search_control.py" submit ping \
   --id matrix-e2e-start --wait=20 >/dev/null
@@ -220,10 +204,8 @@ print(f"MATRIX_STATUS {summary.get('status')}")
 PY
 
 python3 "$SCRIPT_DIR/resident_search_control.py" stop --wait=30
-kill -TERM "$hook_pid" 2>/dev/null || true
-wait "$hook_pid" 2>/dev/null || true
-hook_pid=""
 echo "HOOK STOPPED; CLOSING NMS"
 close_nms
 echo "NMS CLOSED"
+health_gate postshutdown 0
 trap - EXIT

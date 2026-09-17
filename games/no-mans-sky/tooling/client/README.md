@@ -14,9 +14,10 @@ Spectacle is used for focused Vulkan window captures when available; X11 uses Im
 command.
 
 The helper creates its virtual controller before launching Steam, focuses the NMS window immediately
-before every event, dismisses the mod warning, and holds Play. It reports the newest save file as
-metadata for operator reference, but does not click a guessed save-menu coordinate. Use
-`--save-menu-only` to state the safe stop behavior explicitly, `--interactive` to keep the
+before every event, dismisses the mod warning, and holds Play. It verifies the newest save and its
+visible row. By default it stops at the save menu. `--load-latest-save` uses the virtual controller
+to select that verified row and load it for gameplay checks; it sends no movement or travel input.
+Use `--save-menu-only` to state the default stop behavior explicitly, `--interactive` to keep the
 controller available for manual selection, and `--screenshot PATH` for an optional checkpoint. A
 failure screenshot is written to `/tmp/squinch-nms-launch-failure.png` by default.
 
@@ -31,10 +32,10 @@ It accepts only a visible `NMS System Search` window, requires the target to rem
 window, checks focus while converging, waits for a stable pointer position, and releases the button
 after a bounded click. Use `move` or `scroll` when selection needs separate confirmation.
 
-The route fails closed when NMS is already running, the save profile is ambiguous, or the NMS window
-is not 3840×2160. The launcher never emits a guessed save click or the right-stick click bound to
-save deletion. After the save menu is ready, use `control-running.py` to reconnect a fresh
-controller if NMS stops accepting the original virtual pad after loading.
+The route fails closed when NMS is already running, the save profile is ambiguous, the newest save
+is outside the proven visible rows, or the NMS window is not 3840×2160. It never uses the
+right-stick click bound to save deletion. After the save menu is ready, use `control-running.py` to
+reconnect a fresh controller if NMS stops accepting the original virtual pad after loading.
 
 Use the timing flags only when startup or loading behavior on this host changes. The 50-second
 warning delay covers the observed cold-Steam case in which the window exists well before the mod

@@ -185,7 +185,7 @@ def copy_runtime(source: Path, destination: Path) -> None:
 
 def write_package_readme(path: Path) -> None:
     path.write_text(
-        """Search Probes for No Man's Sky 7.01
+        """Search Probes for No Man's Sky 7.03.1
 
 This archive is rooted at the No Man's Sky installation directory. It contains:
 - Binaries/winmm.dll: a two-export forwarder that starts the bundled runtime.

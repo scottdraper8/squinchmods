@@ -2,9 +2,9 @@
 
 This directory owns the parent-side build, install, host-control, and resident test tooling. Product
 code lives in the private [`search-probes`](../../mods/search-probes/) mod repository, under
-`src/search_probes/`. The package currently targets the pinned Cosmos 7.01 build and the validated
-Proton host. The current public Steam build is `25320008`, and the runtime refuses any executable
-whose SHA-256 differs from `78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4`. The
+`src/search_probes/`. The package currently targets Cosmos 7.03.1, Steam build `25351301`, and the
+validated Proton host. The runtime refuses any executable whose SHA-256 differs from
+`6213bed7f859766d4064de704be25f119f84449fa13d78a3e40e162364a552ad`. The
 [scoped acceptance record](../../investigations/analysis/search-probes-acceptance.md) distinguishes
 tested lifecycle behavior from broader platform and travel validation.
 
@@ -14,7 +14,7 @@ Stop NMS before building or installing:
 
 ```bash
 games/no-mans-sky/tooling/runtime/build_system_search.py \
-  games/no-mans-sky/dist/SearchProbes-7.01
+  games/no-mans-sky/dist/SearchProbes-7.03.1
 ```
 
 The command creates an expanded Nexus-ready tree and a same-named ZIP, verifies the manifest,
@@ -61,8 +61,8 @@ is converted to NMS's one-based address field, so navigation targets the matched
 only its system. System-only queries use the first generated planet as their destination.
 
 The navigation mission uses NMS's ordinary `SQN_SS11_NAV` NPC mission path. `NativeMissions.start`
-invokes the current-build native start function at `0x1409B1F90` with the mission manager resolved
-from application base + `0x837B20`. Before changing a target, the resident requires the mission's
+invokes the current-build native start function at `0x1409B1F10` with the mission manager resolved
+from application base + `0x837B40`. Before changing a target, the resident requires the mission's
 active/pending guard. The acknowledgement waits for both the active mission state and the exact
 route-bearing target, preventing a stale or merely system-level route from being reported as ready.
 
@@ -113,6 +113,11 @@ For a cold-client end-to-end run with health gates and ordered teardown:
 ```bash
 games/no-mans-sky/tooling/runtime/run_resident_matrix_e2e.sh full
 ```
+
+The harness uses the package's normal Steam bootstrap and shared resident state. By default it loads
+the verified newest visible save. Set `SQN_NMS_TEST_SAVE=save2.hg` to pin the run to a specific
+verified visible save; this is useful when a matrix control depends on that save's world seed. It
+leaves the player idle while the matrix runs and does not drive, warp, or travel the player.
 
 The host controller can inspect state or request an orderly live detach. It must use the installed
 state root and the mod source for protocol imports:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly EXPECTED_EXE_SHA256="78c1d883a8d47c99308795ee22e8bdf7c03970f0af090effa45107cefb194ba4"
+readonly EXPECTED_EXE_SHA256="6213bed7f859766d4064de704be25f119f84449fa13d78a3e40e162364a552ad"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly MOD_SOURCE="$(cd -- "${SCRIPT_DIR}/../../mods/search-probes/src" && pwd)"
 readonly STEAM_ROOT="${SQN_STEAM_ROOT:-${HOME}/.local/share/Steam}"

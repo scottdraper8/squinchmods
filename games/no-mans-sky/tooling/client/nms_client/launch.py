@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch NMS and leave the save menu ready for operator selection."""
+"""Launch NMS, optionally loading the verified latest save for gameplay checks."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from .controls import (
     wait_for_geometry,
 )
 from .errors import LaunchError
-from .saves import APP_ID, save_profile, verify_latest_save
+from .saves import APP_ID, save_profile, verify_latest_save, verify_save
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,14 @@ def run(args: argparse.Namespace) -> None:
     running = nms_processes()
     if running:
         raise LaunchError("NMS is already running:\n" + "\n".join(running))
-    save = verify_latest_save(save_profile())
+    profile = save_profile()
+    load_save = getattr(args, "load_save", None)
+    if load_save and args.load_latest_save:
+        raise LaunchError("choose either --load-latest-save or --load-save")
+    if load_save:
+        save = verify_save(profile, load_save)
+    else:
+        save = verify_latest_save(profile)
     event("preflight", **save)
     ensure_uinput_access()
     timings = Timings(
@@ -106,9 +113,32 @@ def run(args: argparse.Namespace) -> None:
             tap_button(controller, window, e.BTN_SOUTH, duration=2.5)
             event("input", action="select_play", button="A", hold_seconds=2.5)
             wait("save_menu", timings.save_menu)
+            if args.load_latest_save or load_save:
+                save_pair = int(save["save_pair"])
+                for _row in range(save_pair - 1):
+                    tap_button(controller, window, e.BTN_DPAD_DOWN)
+                    event("input", action="select_next_save_row", button="down")
+                event(
+                    "input",
+                    action="load_verified_save",
+                    save_pair=save_pair,
+                    save=Path(str(save["save"])).name,
+                    button="A",
+                    hold_seconds=2.5,
+                )
+                tap_button(controller, window, e.BTN_SOUTH, duration=2.5)
+                wait("gameplay_load", args.gameplay_wait)
             if args.screenshot is not None:
                 capture(window, args.screenshot.resolve())
-            event("complete", result="save_menu_ready", window=window)
+            event(
+                "complete",
+                result=(
+                    "gameplay_ready"
+                    if args.load_latest_save or load_save
+                    else "save_menu_ready"
+                ),
+                window=window,
+            )
             if args.interactive:
                 interactive(controller, window)
     except Exception:
@@ -126,7 +156,7 @@ def run(args: argparse.Namespace) -> None:
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(
-        description="Launch NMS and leave the save menu ready for operator selection"
+        description="Launch NMS and optionally load the verified latest save"
     )
     value.add_argument("--window-timeout", type=float, default=120.0)
     value.add_argument("--controller-settle", type=float, default=2.0)
@@ -137,6 +167,22 @@ def parser() -> argparse.ArgumentParser:
         "--save-menu-only",
         action="store_true",
         help="Stop at the save menu (the default safe behavior)",
+    )
+    value.add_argument(
+        "--load-latest-save",
+        action="store_true",
+        help="Select and load the already-verified latest save, without moving the player",
+    )
+    value.add_argument(
+        "--load-save",
+        metavar="FILENAME",
+        help="Select and load this verified visible save file, such as save2.hg",
+    )
+    value.add_argument(
+        "--gameplay-wait",
+        type=float,
+        default=75.0,
+        help="Seconds to allow the selected save to load before continuing",
     )
     value.add_argument(
         "--interactive", action="store_true", help="Accept controller commands on stdin"

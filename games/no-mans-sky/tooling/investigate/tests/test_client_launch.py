@@ -34,7 +34,7 @@ def _client_module(monkeypatch: pytest.MonkeyPatch):
         ("save.hg", 0),
         ("save2.hg", 0),
         ("save3.hg", 1),
-        ("save7.hg", 3),
+        ("save5.hg", 2),
         ("save10.hg", 4),
     ),
 )
@@ -47,22 +47,18 @@ def test_save_pair_index(
     assert save_pair_index(Path(filename)) == pair
 
 
-def test_latest_visible_save_maps_to_proven_row(
+def test_latest_visible_save_maps_to_controller_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = _client_module(monkeypatch)
     (tmp_path / "save.hg").write_bytes(b"old")
-    latest = tmp_path / "save7.hg"
+    latest = tmp_path / "save5.hg"
     latest.write_bytes(b"latest")
     latest.touch()
 
     result = client.verify_latest_save(tmp_path)
 
-    assert result["save_pair"] == 4
-    from nms_client.saves import SAVE_ROW_SPACING, TOP_SAVE_X, TOP_SAVE_Y
-
-    assert result["selection_x"] == TOP_SAVE_X
-    assert result["selection_y"] == TOP_SAVE_Y + 3 * SAVE_ROW_SPACING
+    assert result["save_pair"] == 3
 
 
 def test_latest_offscreen_save_fails_closed(
@@ -74,6 +70,100 @@ def test_latest_offscreen_save_fails_closed(
 
     with pytest.raises(client.LaunchError, match="unproved scrolling"):
         client.verify_latest_save(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("load_latest_save", "load_save", "save_pair", "expected_filename"),
+    (
+        (True, None, 1, "save2.hg"),
+        (False, "save2.hg", 1, "save2.hg"),
+    ),
+)
+def test_load_verified_save_selects_its_row_then_waits_for_gameplay(
+    monkeypatch: pytest.MonkeyPatch,
+    load_latest_save: bool,
+    load_save: str | None,
+    save_pair: int,
+    expected_filename: str,
+) -> None:
+    launch = _client_module(monkeypatch)
+    actions: list[tuple[str, object]] = []
+    events: list[dict[str, object]] = []
+
+    class Controller:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    monkeypatch.setattr(launch, "require_command", lambda _command: None)
+    monkeypatch.setattr(launch, "nms_processes", lambda: [])
+    monkeypatch.setattr(launch, "save_profile", lambda: Path("profile"))
+    monkeypatch.setattr(
+        launch,
+        "verify_latest_save",
+        lambda _profile: {
+            "save": "profile/save2.hg",
+            "save_pair": 1,
+        },
+    )
+    monkeypatch.setattr(
+        launch,
+        "verify_save",
+        lambda _profile, filename: {
+            "save": f"profile/{filename}",
+            "save_pair": 1,
+        },
+    )
+    monkeypatch.setattr(launch, "ensure_uinput_access", lambda: None)
+    monkeypatch.setattr(
+        launch,
+        "event",
+        lambda name, **values: events.append({"name": name, **values}),
+    )
+    monkeypatch.setattr(launch, "UInput", lambda *_args, **_kwargs: Controller())
+    monkeypatch.setattr(launch.subprocess, "Popen", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(launch, "find_window", lambda _timeout: "window")
+    monkeypatch.setattr(launch, "wait_for_geometry", lambda _window: (3840, 2160))
+    monkeypatch.setattr(
+        launch,
+        "wait",
+        lambda label, seconds: actions.append((f"wait:{label}", seconds)),
+    )
+    monkeypatch.setattr(
+        launch,
+        "tap_button",
+        lambda _controller, _window, button, duration=0.15: actions.append(
+            ("button", button, duration)
+        ),
+    )
+
+    launch.run(
+        launch.argparse.Namespace(
+            window_timeout=120.0,
+            controller_settle=0.0,
+            warning_wait=0.0,
+            main_menu_wait=0.0,
+            save_menu_wait=0.0,
+            screenshot=None,
+            failure_screenshot=None,
+            interactive=False,
+            load_latest_save=load_latest_save,
+            load_save=load_save,
+            gameplay_wait=75.0,
+        )
+    )
+
+    assert actions.count(("button", launch.e.BTN_DPAD_DOWN, 0.15)) == save_pair - 1
+    assert ("button", launch.e.BTN_SOUTH, 2.5) in actions
+    assert ("wait:gameplay_load", 75.0) in actions
+    assert next(event for event in events if event["name"] == "preflight")["save"].endswith(
+        expected_filename
+    )
+    assert next(
+        event for event in events if event.get("action") == "load_verified_save"
+    )["save"] == expected_filename
 
 
 def test_keyboard_key_uses_separate_device_and_releases_key(
