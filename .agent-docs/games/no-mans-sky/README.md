@@ -49,7 +49,7 @@ mod.”
 ## Data flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[PCBANKS/NMSARC.*.pak<br>vanilla HGPAK archives] -->|HGPAKtool| B[Extracted vanilla files]
     B --> C[MBIN serialized templates]
     C -->|matching MBINCompiler| D[MXML editable full document]

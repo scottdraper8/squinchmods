@@ -172,12 +172,33 @@ mid-search aborts that search with an actionable retry error, because mixing alr
 candidates from one graph with another graph would be unsound. Explicit navigation to an older
 result from another galaxy is rejected for the same reason.
 
-The requested candidate count is an upper bound. NMS's active spatial graph may contain fewer
-indexed systems than requested; the engine returns at most that graph count and Search Probes then
-removes the current system. For example, a 10,000-system request against a 7,195-entry active graph
-correctly evaluates 7,194 remote systems. Current evidence does not establish whether graph size is
-caused by galactic-edge position, graph partitioning, or another native loading policy. Searching
-beyond the active graph would require a separately proved coordinate-space/region enumerator.
+The requested candidate count is the native nearest-query output capacity. Search Probes passes it
+to NMS's 3D spatial-tree query, maps returned graph IDs through the active index's system-address
+array, and skips rank zero (the current system). The count is not a distance radius and increasing
+it does not add systems to the index. NMS's own criteria-based nearest-system resolver calls the
+same coordinate-to-graph and spatial-nearest functions and reads the same indexed system count and
+address array, so this is also NMS's native nearby-candidate path. The exact-build disassemblies are
+retained in the
+[spatial-query](../../../../games/no-mans-sky/investigation-state/runs/20260917T094220Z-exe-functions-84f637bb/pe-functions/function-00000001403a9160.asm)
+and
+[native resolver](../../../../games/no-mans-sky/investigation-state/runs/20260917T093027Z-exe-functions-d225c97e/pe-functions/function-00000001412d2190.asm)
+runs.
+
+The active index is finite and its count varies by observed location/state. A 20,000-entry request
+returned all 14,723 indexed candidates (including the current system) in the live Galaxy 256 probe;
+earlier exact-build controls recorded 14,527 in Galaxy 256 at another system and 15,098 in
+Galaxy 30. The
+[live enumeration](../../../../games/no-mans-sky/investigation-state/runs/20260917T092545Z-spatial-index-enumeration/results/1789637145117661656-e00fc4912e6b447cbabebe62fad7d11a.json),
+[earlier Galaxy 256 result](../../../../games/no-mans-sky/investigation-state/runs/20260915T050700Z-colour-redeployment/live-results/islands.json),
+and
+[Galaxy 30 survey](../../../../games/no-mans-sky/investigation-state/runs/20260917T043233Z-production-7.03.1-exhaustive-field-matrix/analysis.json)
+preserve the exact results. This variation is consistent with a position-dependent active subset,
+but the native graph population/rebuild policy and the reason for its finite size remain unresolved.
+The native nearest functions only query that existing index. Raising the 20,000 protocol cap could
+cover a larger index if one is found, but would not grow it. Searching beyond the active index needs
+a proved native expansion/rebuild seam or a separate coordinate-space/region enumerator. The
+existing index remains the supported source for nearby searches; no complete alternative has been
+proved, and whole-galaxy coverage is not claimed.
 
 `Any` is omitted from the sparse query and therefore incurs no check for that field. Weather,
 palette, and fixed planet metadata are captured only when requested. Object-list resolution is last
