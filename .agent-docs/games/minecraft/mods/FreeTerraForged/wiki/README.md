@@ -1,8 +1,9 @@
 # FreeTerraForged Engineering Wiki
 
-Current FTF-specific concepts that would otherwise require reconstructing behavior from source.
-Pages describe mental models, data flow, coordinate meanings, and compatibility invariants. They do
-not contain investigations, QA runs, branch state, or feature history.
+This wiki documents FreeTerraForged's current engineering models and preset settings. Concept pages
+explain behavior and data flow; settings pages correspond to categories in the preset editor.
+Investigation results, branch state, and feature history belong in their focused records rather than
+here.
 
 ## Concepts
 
@@ -15,6 +16,12 @@ not contain investigations, QA runs, branch state, or feature history.
 - [Surface rules and materials](concepts/surface-rules-and-materials.md)
 - [Compatibility invariants](concepts/compatibility-invariants.md)
 
+## Preset editor settings
+
+The [settings index](settings/README.md) links to beginner-friendly guides for the settings pages
+reachable in the preset editor. The guides explain what the controls change and call out visible
+controls that currently have no effect.
+
 General Minecraft mechanisms live in the [Minecraft reference](../../../wiki/README.md).
 Feature-specific contracts, acceptance boundaries, and unresolved work are recorded in `../plans/`
-or the relevant PR description.
+or the relevant pull request description.
