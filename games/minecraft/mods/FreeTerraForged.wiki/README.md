@@ -22,6 +22,8 @@ The [settings index](settings/README.md) links to beginner-friendly guides for t
 reachable in the preset editor. The guides explain what the controls change and call out visible
 controls that currently have no effect.
 
-General Minecraft mechanisms live in the [Minecraft reference](../../../wiki/README.md).
-Feature-specific contracts, acceptance boundaries, and unresolved work are recorded in `../plans/`
-or the relevant pull request description.
+General Minecraft mechanisms live in the
+[Minecraft reference](../../../../.agent-docs/games/minecraft/wiki/README.md). Feature-specific
+contracts, acceptance boundaries, and unresolved work are recorded in the
+[engineering plans](../../../../.agent-docs/games/minecraft/mods/FreeTerraForged/plans/) or the
+relevant pull request description.

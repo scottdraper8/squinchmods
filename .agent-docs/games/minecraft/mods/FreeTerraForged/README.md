@@ -12,8 +12,8 @@ code branch.
 - [`agent-resume.md`](../../../../../agent-resume.md) — concise routing, accepted state, and current
   integration boundary. It points to authoritative documents and retained evidence rather than
   preserving a session history.
-- [`wiki/README.md`](wiki/README.md) — current FTF engineering concepts: mental models, data flow,
-  coordinate meanings, ownership boundaries, and compatibility invariants.
+- [FreeTerraForged wiki](../../../../../games/minecraft/mods/FreeTerraForged.wiki/README.md) —
+  engineering concepts and preset-editor setting guides.
 - [`Compatibility-runtime acceptance`](refs/compatibility-runtime-acceptance.md) — the implemented
   runtime, accepted verification surface, and current production-artifact state.
 - [`Minecraft reference`](../../wiki/README.md) — general Minecraft world-generation reference for

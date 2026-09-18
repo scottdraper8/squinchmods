@@ -5,14 +5,14 @@ shorelines, and No Man's Sky Search Probes are parked. Live Git, source, depende
 runtime state supersede this routing note.
 
 The preset-editor settings documentation is complete in the
-[FreeTerraForged engineering wiki](.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/README.md).
-The [settings index](.agent-docs/games/minecraft/mods/FreeTerraForged/wiki/settings/README.md) links
-to beginner-friendly guides for the nine settings screens reachable through the current GUI
-navigation. Reachability was checked from the preset list through each page's previous/next links;
-the unlinked Structure Settings page is excluded. Each included page was checked against its GUI,
-preset data, and generation consumers. Visible controls with no effect remain documented as such.
-For future documentation, recheck current source rather than assuming a tooltip is correct, and use
-the Minecraft investigation guide and `tooling/squinch mc-investigate` when source cannot settle
+[FreeTerraForged wiki](games/minecraft/mods/FreeTerraForged.wiki/README.md). The
+[settings index](games/minecraft/mods/FreeTerraForged.wiki/settings/README.md) links to
+beginner-friendly guides for the nine settings screens reachable through the current GUI navigation.
+Reachability was checked from the preset list through each page's previous/next links; the unlinked
+Structure Settings page is excluded. Each included page was checked against its GUI, preset data,
+and generation consumers. Visible controls with no effect remain documented as such. For future
+documentation, recheck current source rather than assuming a tooltip is correct, and use the
+Minecraft investigation guide and `tooling/squinch mc-investigate` when source cannot settle
 behavior.
 
 ## FreeTerraForged
