@@ -84,12 +84,6 @@ def _tracked_status(project: Path) -> bytes:
     return _git(project, "status", "--porcelain=v2", "-z", "--untracked-files=no")
 
 
-def _int_seed(value: str) -> tuple[int, int]:
-    exact = _java_seed(value)
-    generator = ((exact + 2**31) % 2**32) - 2**31
-    return exact, generator
-
-
 def _predicate(value: str) -> dict[str, Any]:
     match = PREDICATE.match(value)
     if not match:
@@ -224,7 +218,7 @@ def run_cell_scan(args) -> dict:
         half = width * zoom / 2
         bounds = [center_x - half, center_z - half, center_x + half, center_z + half]
     tiles = _tiles(bounds, args.tile_size) if args.mode == "tile" else []
-    exact_seed, generator_seed = _int_seed(args.seed)
+    exact_seed = _java_seed(args.seed)
     active = active_path(project, "fabric")
     blocked = uninterruptible_owned_processes(active.parent)
     if blocked:
@@ -247,7 +241,7 @@ def run_cell_scan(args) -> dict:
     request = {
         "schema_version": 1,
         "mode": args.mode,
-        "seed": generator_seed,
+        "seed": exact_seed,
         "requested_seed": args.seed,
         "exact_seed": exact_seed,
         "preset_path": str(preset_path),
@@ -360,7 +354,7 @@ def run_cell_scan(args) -> dict:
         "dirty": bool(status_before),
         "tracked_status_sha256": hashlib.sha256(status_before).hexdigest(),
         "tracked_source_unchanged": True,
-        "seed": {"requested": args.seed, "exact": exact_seed, "generator_int": generator_seed},
+        "seed": {"requested": args.seed, "exact": exact_seed},
         "preset": preset_manifest,
         "request": request,
         "command": command,

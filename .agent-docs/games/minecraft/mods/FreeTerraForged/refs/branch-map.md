@@ -1,52 +1,28 @@
 # FreeTerraForged branch map
 
-This file records durable branch roles and integration boundaries. Live Git is authoritative; use
-`git fetch --all --prune` and inspect the graph before relying on any recorded snapshot. `origin` is
+This file records durable branch roles. Live Git is authoritative. `origin` is
 `scottdraper8/FreeTerraForged`; `upstream` is `ETcodehome/FreeTerraForged`.
 
-## Branch roles
+| Branch                                | Role                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `1.21.1`                              | Local production baseline tracking `upstream/1.21.1` and published to `origin/1.21.1`.  |
+| `feat/worldgen-compatibility-runtime` | Ongoing runtime implementation branch and worktree.                                     |
+| `feat/configurable-strata`            | Retained unmerged feature branch; parked pending baseline integration and QA.           |
+| `feat/configurable-shorelines`        | Retained unmerged shoreline feature branch; parked pending baseline integration and QA. |
 
-| Branch                                | Role                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------- |
-| `rename`                              | PR #225 namespace/branding qualification branch; tracks `upstream/rename`.      |
-| `1.21.1`                              | Local production baseline tracking the same-named origin and upstream branches. |
-| `feat/worldgen-compatibility-runtime` | Active compatibility worktree and integration branch.                           |
-| `feat/configurable-strata`            | Pushed feature branch awaiting product QA and upstream integration.             |
-| `feat/configurable-shorelines`        | Pushed feature branch awaiting visual/product QA and upstream integration.      |
+The ongoing compatibility worktree is
+`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. Review its exact status
+before acting. Its current branch tip predates the newly synced baseline; reconcile it deliberately
+before treating branch-owned probes as current evidence. Start new production evidence from a clean
+worktree based on the live `upstream/1.21.1` tip. The feature plans and
+[`tooling-scenario-matrix.md`](tooling-scenario-matrix.md) identify their remaining integration and
+acceptance work.
 
-The active compatibility worktree is
-`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. Its exact commit and the
-current production-tip relationship belong in `agent-resume.md`, where they form one replaceable
-state snapshot instead of being duplicated here.
+## Compatibility boundary
 
-The clean detached PR #225 qualification worktree is
-`games/minecraft/investigation-state/worktrees/ftf-rename-qa`. The NeoForge baseline smoke uses it
-because the nested source's ordinary NeoForge run directory contains intentionally retained,
-undeclared compatibility jars; investigation isolation must not delete or silently load them.
-
-The `rename` branch is currently the only listed branch using Java root `etcodehome.freeterraforged`
-and mod/resource ID `freeterraforged`. The feature workstreams still descend from the pre-rename
-`1.21.1` tree. Their current scenarios and runtime-specific probe packs are retained as branch-owned
-inputs, but they cannot produce post-rename evidence until each branch is deliberately integrated
-with `rename`. A detached merge trial on 2026-09-11 produced conflicts across the runtime, preview,
-Mixin, and loader layers, so this is a production integration task, not a tooling alias or
-package-compatibility problem. See `tooling-scenario-matrix.md`.
-
-## Integration boundary
-
-The upstream archipelago redesign from PR #207 is integrated in the compatibility branch. The old
-local archipelago plan is retired; remaining island and broader biome/terrain work is an open
-reconciliation investigation recorded in
-`games/minecraft/investigations/freeterraforged/analysis/archipelago-biome-surface-followup.md`.
-
-The upstream graph also contains compatibility approaches that the consolidated runtime supersedes:
-
-- PRs #208 and #210 modify `MixinMultiNoiseBiomeSource`. The compatibility runtime removes that
-  consumer-side interception and provides possible-biome closure through `UnifiedBiomeSource`.
-- PR #212 applies a process-wide `RandomOffsetPlacement` clamp. The compatibility runtime instead
-  compiles an FTF-owner-scoped placement contract from public graph shape and exact identities, so
-  ordinary generators retain vanilla behavior.
-
-Reconcile later upstream changes by behavior and ownership contract, not by replaying superseded
-Mixins. The current product boundary and acceptance gates are in
-`../plans/worldgen-compatibility.md`.
+The compatibility runtime remains governed by the
+[`worldgen-compatibility.md`](../plans/worldgen-compatibility.md) contract. It requires FTF-owned
+immutable plans and typed results; preview, generation, diagnostics, and other downstream consumers
+must not depend on third-party registries, providers, callbacks, or samplers. Keep biome selection,
+spatial ownership, climate sampling, surface rules, density, placed features, and diagnostics as
+separate compatibility domains until evidence proves a shared contract.

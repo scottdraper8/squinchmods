@@ -1,8 +1,7 @@
 # Configurable Shorelines
 
-Status: implemented on the pre-rename `feat/configurable-shorelines` line, currently `a5c6c538`.
-Earlier loader compilation and Fabric startup are regression evidence; current product QA begins
-after deliberate integration with `rename`. Visual tuning and product QA remain open.
+Status: `feat/configurable-shorelines` requires deliberate integration with the current
+`upstream/1.21.1` baseline. Visual tuning and product QA remain open.
 
 The reusable shoreline data model and its surface-material consumer are described in
 [`hydrology-and-shore-geometry.md`](../wiki/concepts/hydrology-and-shore-geometry.md),

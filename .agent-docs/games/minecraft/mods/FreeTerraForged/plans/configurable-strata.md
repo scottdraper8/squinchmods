@@ -1,8 +1,7 @@
 # Configurable Strata
 
-Status: implemented on the pre-rename `feat/configurable-strata` line, currently `b8da5683`. Earlier
-loader compilation and Fabric startup are regression evidence; current product QA begins after
-deliberate integration with `rename`. Product QA and the deepslate policy remain open.
+Status: `feat/configurable-strata` requires deliberate integration with the current
+`upstream/1.21.1` baseline. Product QA and the deepslate policy remain open.
 
 The reusable material-layer and surface-rule model is described in
 [`surface-rules-and-materials.md`](../wiki/concepts/surface-rules-and-materials.md). This plan keeps

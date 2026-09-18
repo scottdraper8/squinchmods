@@ -82,7 +82,7 @@ public final class CellScanMain {
             HolderGetter<Noise> noises = provider.lookupOrThrow(FTFRegistries.NOISE);
             long registryReady = System.nanoTime();
 
-            int seed = request.get("seed").getAsInt();
+            long seed = request.get("seed").getAsLong();
             int tileSize = request.get("tile_size").getAsInt();
             int batchCount = request.get("batch_count").getAsInt();
             previewContext = GeneratorContext.makeUncached(

@@ -1,6 +1,6 @@
 schema_version = 1
 name = "FTF NeoForge scenario runner smoke"
-project = "games/minecraft/investigation-state/worktrees/ftf-rename-qa"
+project = "games/minecraft/mods/FreeTerraForged"
 loader = "neoforge"
 seed = 3216933670
 ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"

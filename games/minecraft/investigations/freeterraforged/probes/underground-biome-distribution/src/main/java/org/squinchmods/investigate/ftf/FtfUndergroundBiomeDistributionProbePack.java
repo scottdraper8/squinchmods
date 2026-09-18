@@ -68,6 +68,35 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
         private final boolean expectZeroCaveBiomes;
         private final boolean validateFinishedChunkParity;
         private final boolean reportVerticalRuns;
+        private final boolean reportVerticalAdjacency;
+        private final boolean reportHorizontalAdjacency;
+        private final boolean reportClimateByBiome;
+        private final boolean includeDirectSurface;
+        private final int columnsPerTick;
+        private FinishedChunkSelection.Snapshot finishedSnapshot;
+        private boolean directInitialized;
+        private int nextBlockX;
+        private int nextBlockZ;
+        private final Counts all = new Counts();
+        private final Map<String, Counts> byBand = new LinkedHashMap<>();
+        private final List<ColumnTrace> directTraces = new ArrayList<>();
+        private final MessageDigest directSelections = digest();
+        private final MessageDigest directSurfaceHeights = digest();
+        private final MessageDigest directSurfaceBiomes = digest();
+        private long surfaceSamples;
+        private long surfaceHeightSum;
+        private int surfaceHeightMin = Integer.MAX_VALUE;
+        private int surfaceHeightMax = Integer.MIN_VALUE;
+        private final Map<Integer, String[]> previousXColumns = new LinkedHashMap<>();
+        private String[] previousZColumn;
+        private int adjacencyX = Integer.MIN_VALUE;
+        private long xAdjacencyPairs;
+        private long xAdjacencyMatches;
+        private long zAdjacencyPairs;
+        private long zAdjacencyMatches;
+        private long verticalAdjacencyPairs;
+        private long verticalAdjacencyMatches;
+        private final Map<String, ClimateStats> climateByBiome = new LinkedHashMap<>();
 
         private Distribution(ProbeRequest request) {
             JsonObject config = request.config();
@@ -86,6 +115,11 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
             this.expectZeroCaveBiomes = bool(config, "expect_zero_cave_biomes", false);
             this.validateFinishedChunkParity = bool(config, "validate_finished_chunk_parity", true);
             this.reportVerticalRuns = bool(config, "report_vertical_runs", false);
+            this.reportVerticalAdjacency = bool(config, "report_vertical_adjacency", false);
+            this.reportHorizontalAdjacency = bool(config, "report_horizontal_adjacency", false);
+            this.reportClimateByBiome = bool(config, "report_climate_by_biome", false);
+            this.includeDirectSurface = bool(config, "include_direct_surface", true);
+            this.columnsPerTick = integer(config, "columns_per_tick", 1);
 
             if (this.minX > this.maxX || this.minZ > this.maxZ || this.minY > this.maxY) {
                 throw new IllegalArgumentException("sample minima must not exceed maxima");
@@ -94,6 +128,9 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
                 || this.verticalStep < 4 || this.verticalStep % 4 != 0) {
                 throw new IllegalArgumentException("sample steps must be positive multiples of four blocks");
             }
+            if (this.columnsPerTick < 1) {
+                throw new IllegalArgumentException("columns_per_tick must be positive");
+            }
             long xSamples = ((long) this.maxX - this.minX) / this.horizontalStep + 1L;
             long zSamples = ((long) this.maxZ - this.minZ) / this.horizontalStep + 1L;
             long verticalSamples = ((long) this.maxY - this.minY) / this.verticalStep + 1L;
@@ -101,39 +138,44 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
             if (total > 5_000_000L) {
                 throw new IllegalArgumentException("direct biome census exceeds the 5M sample limit: " + total);
             }
+            this.bands.forEach(band -> this.byBand.put(band.id(), new Counts()));
         }
 
         @Override
         public ProbeResult tick(net.minecraft.server.MinecraftServer server) {
             ServerLevel level = server.overworld();
-            FinishedChunkSelection.Snapshot snapshot = this.selection.poll(level);
-            if (snapshot == null) {
-                return null;
-            }
-            if (!snapshot.complete()) {
-                return this.selection.result(snapshot, new JsonObject());
+            if (this.finishedSnapshot == null) {
+                FinishedChunkSelection.Snapshot snapshot = this.selection.poll(level);
+                if (snapshot == null) {
+                    return null;
+                }
+                if (!snapshot.complete()) {
+                    return this.selection.result(snapshot, new JsonObject());
+                }
+                this.finishedSnapshot = snapshot;
             }
 
             var randomState = level.getChunkSource().randomState();
             var generator = level.getChunkSource().getGenerator();
             Climate.Sampler sampler = randomState.sampler();
             BiomeSource biomeSource = generator.getBiomeSource();
-            Counts all = new Counts();
-            Map<String, Counts> byBand = new LinkedHashMap<>();
-            List<ColumnTrace> directTraces = new ArrayList<>();
-            MessageDigest directSelections = digest();
-            MessageDigest directSurfaceHeights = digest();
-            MessageDigest directSurfaceBiomes = digest();
-            long surfaceSamples = 0L;
-            long surfaceHeightSum = 0L;
-            int surfaceHeightMin = Integer.MAX_VALUE;
-            int surfaceHeightMax = Integer.MIN_VALUE;
-            this.bands.forEach(band -> byBand.put(band.id(), new Counts()));
 
-            for (int blockX = this.minX; blockX <= this.maxX; blockX += this.horizontalStep) {
+            if (!this.directInitialized) {
+                this.nextBlockX = this.minX;
+                this.nextBlockZ = this.minZ;
+                this.directInitialized = true;
+            }
+            int processedColumns = 0;
+            while (this.nextBlockX <= this.maxX && processedColumns < this.columnsPerTick) {
+                int blockX = this.nextBlockX;
+                int blockZ = this.nextBlockZ;
                 int quartX = QuartPos.fromBlock(blockX);
-                for (int blockZ = this.minZ; blockZ <= this.maxZ; blockZ += this.horizontalStep) {
-                    int quartZ = QuartPos.fromBlock(blockZ);
+                int quartZ = QuartPos.fromBlock(blockZ);
+                if (this.reportHorizontalAdjacency && this.adjacencyX != blockX) {
+                    this.adjacencyX = blockX;
+                    this.previousZColumn = null;
+                }
+                if (this.includeDirectSurface) {
                     int surfaceY = generator.getBaseHeight(
                         blockX,
                         blockZ,
@@ -154,36 +196,86 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
                     update(directSurfaceBiomes, surfaceY);
                     update(directSurfaceBiomes, blockZ);
                     update(directSurfaceBiomes, surfaceBiome);
-                    surfaceSamples++;
-                    surfaceHeightSum += surfaceY;
-                    surfaceHeightMin = Math.min(surfaceHeightMin, surfaceY);
-                    surfaceHeightMax = Math.max(surfaceHeightMax, surfaceY);
-                    ColumnTrace trace = this.reportVerticalRuns ? new ColumnTrace(blockX, blockZ) : null;
-                    for (int blockY = this.minY; blockY <= this.maxY; blockY += this.verticalStep) {
-                        int quartY = QuartPos.fromBlock(blockY);
-                        Holder<Biome> selected = biomeSource.getNoiseBiome(quartX, quartY, quartZ, sampler);
-                        String biome = MinecraftProbeHelpers.biomeId(selected);
-                        update(directSelections, blockX);
-                        update(directSelections, blockY);
-                        update(directSelections, blockZ);
-                        update(directSelections, biome);
-                        boolean cave = this.caveBiomes.contains(biome);
-                        all.add(biome, cave);
-                        if (trace != null) {
-                            trace.add(blockY, biome);
-                        }
-                        for (Band band : this.bands) {
-                            if (band.includes(blockY)) {
-                                byBand.get(band.id()).add(biome, cave);
-                            }
-                        }
+                    this.surfaceSamples++;
+                    this.surfaceHeightSum += surfaceY;
+                    this.surfaceHeightMin = Math.min(this.surfaceHeightMin, surfaceY);
+                    this.surfaceHeightMax = Math.max(this.surfaceHeightMax, surfaceY);
+                }
+                ColumnTrace trace = this.reportVerticalRuns ? new ColumnTrace(blockX, blockZ) : null;
+                String[] columnBiomes = this.reportHorizontalAdjacency
+                    ? new String[(this.maxY - this.minY) / this.verticalStep + 1]
+                    : null;
+                String[] previousXColumn = this.reportHorizontalAdjacency
+                    ? this.previousXColumns.get(blockZ)
+                    : null;
+                int verticalIndex = 0;
+                String previousVerticalBiome = null;
+                for (int blockY = this.minY; blockY <= this.maxY; blockY += this.verticalStep) {
+                    int quartY = QuartPos.fromBlock(blockY);
+                    Holder<Biome> selected = biomeSource.getNoiseBiome(quartX, quartY, quartZ, sampler);
+                    String biome = MinecraftProbeHelpers.biomeId(selected);
+                    update(directSelections, blockX);
+                    update(directSelections, blockY);
+                    update(directSelections, blockZ);
+                    update(directSelections, biome);
+                    boolean cave = this.caveBiomes.contains(biome);
+                    this.all.add(biome, cave);
+                    if (this.reportClimateByBiome) {
+                        Climate.TargetPoint target = sampler.sample(quartX, quartY, quartZ);
+                        this.climateByBiome.computeIfAbsent(biome, ignored -> new ClimateStats())
+                            .add(
+                                Climate.unquantizeCoord(target.temperature()),
+                                Climate.unquantizeCoord(target.humidity())
+                            );
                     }
                     if (trace != null) {
-                        trace.finish(this.maxY);
-                        directTraces.add(trace);
+                        trace.add(blockY, biome);
+                    }
+                    if (columnBiomes != null) {
+                        columnBiomes[verticalIndex] = biome;
+                        if (previousXColumn != null) {
+                            this.xAdjacencyPairs++;
+                            this.xAdjacencyMatches += biome.equals(previousXColumn[verticalIndex]) ? 1L : 0L;
+                        }
+                        if (this.previousZColumn != null) {
+                            this.zAdjacencyPairs++;
+                            this.zAdjacencyMatches += biome.equals(this.previousZColumn[verticalIndex]) ? 1L : 0L;
+                        }
+                        verticalIndex++;
+                    }
+                    if (this.reportVerticalAdjacency) {
+                        if (previousVerticalBiome != null) {
+                            this.verticalAdjacencyPairs++;
+                            this.verticalAdjacencyMatches += biome.equals(previousVerticalBiome) ? 1L : 0L;
+                        }
+                        previousVerticalBiome = biome;
+                    }
+                    for (Band band : this.bands) {
+                        if (band.includes(blockY)) {
+                            this.byBand.get(band.id()).add(biome, cave);
+                        }
                     }
                 }
+                if (trace != null) {
+                    trace.finish(this.maxY);
+                    this.directTraces.add(trace);
+                }
+                if (columnBiomes != null) {
+                    this.previousXColumns.put(blockZ, columnBiomes);
+                    this.previousZColumn = columnBiomes;
+                }
+                this.nextBlockZ += this.horizontalStep;
+                if (this.nextBlockZ > this.maxZ) {
+                    this.nextBlockZ = this.minZ;
+                    this.nextBlockX += this.horizontalStep;
+                }
+                processedColumns++;
             }
+            if (this.nextBlockX <= this.maxX) {
+                return null;
+            }
+
+            FinishedChunkSelection.Snapshot snapshot = this.finishedSnapshot;
 
             long paritySamples = 0L;
             long parityMismatches = 0L;
@@ -274,34 +366,61 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
             JsonArray caveIds = new JsonArray();
             this.caveBiomes.forEach(caveIds::add);
             data.add("cave_biomes", caveIds);
-            data.add("all", all.toJson());
+            data.add("all", this.all.toJson());
             JsonObject bands = new JsonObject();
-            byBand.forEach((id, counts) -> bands.add(id, counts.toJson()));
+            this.byBand.forEach((id, counts) -> bands.add(id, counts.toJson()));
             data.add("bands", bands);
             data.addProperty(
                 "direct_biome_sha256",
                 HexFormat.of().formatHex(directSelections.digest())
             );
             JsonObject directSurface = new JsonObject();
-            directSurface.addProperty("authority", "generator-base-height-world-surface-wg");
-            directSurface.addProperty("sampled_columns", surfaceSamples);
-            directSurface.addProperty("height_min", surfaceHeightMin);
-            directSurface.addProperty("height_max", surfaceHeightMax);
-            directSurface.addProperty("height_sum", surfaceHeightSum);
-            directSurface.addProperty(
-                "height_sha256",
-                HexFormat.of().formatHex(directSurfaceHeights.digest())
-            );
-            directSurface.addProperty(
-                "surface_biome_sha256",
-                HexFormat.of().formatHex(directSurfaceBiomes.digest())
-            );
+            directSurface.addProperty("enabled", this.includeDirectSurface);
+            if (this.includeDirectSurface) {
+                directSurface.addProperty("authority", "generator-base-height-world-surface-wg");
+                directSurface.addProperty("sampled_columns", this.surfaceSamples);
+                directSurface.addProperty("height_min", this.surfaceHeightMin);
+                directSurface.addProperty("height_max", this.surfaceHeightMax);
+                directSurface.addProperty("height_sum", this.surfaceHeightSum);
+                directSurface.addProperty(
+                    "height_sha256",
+                    HexFormat.of().formatHex(this.directSurfaceHeights.digest())
+                );
+                directSurface.addProperty(
+                    "surface_biome_sha256",
+                    HexFormat.of().formatHex(this.directSurfaceBiomes.digest())
+                );
+            }
             data.add("direct_surface", directSurface);
             if (this.reportVerticalRuns) {
                 JsonObject verticalRuns = new JsonObject();
-                verticalRuns.add("direct", verticalRunSummary(directTraces));
+                verticalRuns.add("direct", verticalRunSummary(this.directTraces));
                 verticalRuns.add("stored", verticalRunSummary(storedTraces));
                 data.add("vertical_runs", verticalRuns);
+            }
+            if (this.reportHorizontalAdjacency) {
+                JsonObject adjacency = new JsonObject();
+                adjacency.add("x", adjacency(this.xAdjacencyPairs, this.xAdjacencyMatches));
+                adjacency.add("z", adjacency(this.zAdjacencyPairs, this.zAdjacencyMatches));
+                adjacency.add(
+                    "combined",
+                    adjacency(
+                        this.xAdjacencyPairs + this.zAdjacencyPairs,
+                        this.xAdjacencyMatches + this.zAdjacencyMatches
+                    )
+                );
+                data.add("horizontal_adjacency", adjacency);
+            }
+            if (this.reportVerticalAdjacency) {
+                data.add(
+                    "vertical_adjacency",
+                    adjacency(this.verticalAdjacencyPairs, this.verticalAdjacencyMatches)
+                );
+            }
+            if (this.reportClimateByBiome) {
+                JsonObject climate = new JsonObject();
+                this.climateByBiome.forEach((biome, stats) -> climate.add(biome, stats.toJson()));
+                data.add("climate_by_biome", climate);
             }
             JsonObject parity = new JsonObject();
             parity.addProperty("authority", "server-biome-source-vs-finished-chunk-quart-palette");
@@ -406,6 +525,14 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
         }
     }
 
+    private static JsonObject adjacency(long pairs, long matches) {
+        JsonObject result = new JsonObject();
+        result.addProperty("pairs", pairs);
+        result.addProperty("matches", matches);
+        result.addProperty("match_share", pairs == 0L ? 0.0D : (double) matches / pairs);
+        return result;
+    }
+
     private static JsonObject verticalRunSummary(List<ColumnTrace> traces) {
         JsonObject result = new JsonObject();
         result.addProperty("columns", traces.size());
@@ -505,6 +632,46 @@ public final class FtfUndergroundBiomeDistributionProbePack implements ProbePack
             JsonObject biomeCounts = new JsonObject();
             this.biomes.forEach(biomeCounts::addProperty);
             result.add("biomes", biomeCounts);
+            return result;
+        }
+    }
+
+    private static final class ClimateStats {
+        private final AxisStats temperature = new AxisStats();
+        private final AxisStats humidity = new AxisStats();
+
+        private void add(float temperature, float humidity) {
+            this.temperature.add(temperature);
+            this.humidity.add(humidity);
+        }
+
+        private JsonObject toJson() {
+            JsonObject result = new JsonObject();
+            result.add("temperature", this.temperature.toJson());
+            result.add("humidity", this.humidity.toJson());
+            return result;
+        }
+    }
+
+    private static final class AxisStats {
+        private long count;
+        private double sum;
+        private float min = Float.POSITIVE_INFINITY;
+        private float max = Float.NEGATIVE_INFINITY;
+
+        private void add(float value) {
+            this.count++;
+            this.sum += value;
+            this.min = Math.min(this.min, value);
+            this.max = Math.max(this.max, value);
+        }
+
+        private JsonObject toJson() {
+            JsonObject result = new JsonObject();
+            result.addProperty("count", this.count);
+            result.addProperty("min", this.min);
+            result.addProperty("max", this.max);
+            result.addProperty("mean", this.count == 0L ? 0.0D : this.sum / this.count);
             return result;
         }
     }

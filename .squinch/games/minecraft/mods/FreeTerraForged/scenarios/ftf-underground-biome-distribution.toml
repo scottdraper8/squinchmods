@@ -1,6 +1,6 @@
 schema_version = 1
 name = "FTF underground biome distribution"
-project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+project = "games/minecraft/mods/FreeTerraForged"
 loader = "fabric"
 seed = 3216933670
 probe_packs = ["games/minecraft/investigations/freeterraforged/probes/underground-biome-distribution"]
@@ -24,7 +24,7 @@ required_mods = ["minecraft", "freeterraforged"]
 [[probes]]
 id = "squinch:ftf-underground-biome-distribution"
 version = "1"
-config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 1200, sample_min_x = -32768, sample_max_x = 32768, sample_min_z = -32768, sample_max_z = 32768, horizontal_step_blocks = 512, sample_min_y = -64, sample_max_y = 63, vertical_step_blocks = 4, bands = [
+config = { bounds = [0, 0, 0, 0], unit = "chunk", max_wait_ticks = 1200, columns_per_tick = 16, sample_min_x = -32768, sample_max_x = 32768, sample_min_z = -32768, sample_max_z = 32768, horizontal_step_blocks = 512, sample_min_y = -64, sample_max_y = 63, vertical_step_blocks = 4, bands = [
   { id = "lower", min_y = -64, max_y = -1 },
   { id = "middle", min_y = 0, max_y = 31 },
   { id = "upper", min_y = 32, max_y = 63 },

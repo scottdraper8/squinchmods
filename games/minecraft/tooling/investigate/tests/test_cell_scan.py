@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pytest
 
+from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.cell_scan import (
     CELL_FIELDS,
     _fields,
+    _java_seed,
     _predicate,
     _tiles,
     _validate_result,
@@ -14,7 +16,11 @@ from squinch_minecraft_investigate.cell_scan import (
 def test_default_fields_are_supported_by_the_current_cell_model() -> None:
     assert set(_fields([], [], "height")) <= CELL_FIELDS
     assert "biome_type" not in CELL_FIELDS
-from squinch_minecraft_investigate.errors import InvestigationError
+
+
+def test_cell_scan_seed_conversion_preserves_the_complete_world_seed() -> None:
+    assert _java_seed("4418424085") == 4418424085
+    assert _java_seed("123456789") != _java_seed("4418424085")
 
 
 def test_tile_selection_uses_floor_coordinates_across_negative_origin() -> None:
