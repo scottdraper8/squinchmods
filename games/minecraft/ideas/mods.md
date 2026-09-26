@@ -32,15 +32,8 @@ Prior-art / reference mods:
   dimension, rather than adding new player-built portal types.
 - [Dimension Link](https://modrinth.com/mod/dimensionlink): Mod for creating linked dimension sets,
   such as giving a custom overworld its own Nether and End equivalents. Useful reference for
-  world-set-style behavior, but less directly aligned with Portalate if the goal is arbitrary portal
-  rules, per-portal controls, and modded portal disabling.
-
-## Compatibility Mods
-
-### CTS Compats
-
-- [CTS Compats](https://www.curseforge.com/minecraft/mc-mods/cts-compats): seems to be dead, so make
-  my own or make a PR. Add compatibility with [KleeSlabs](https://modrinth.com/mod/kleeslabs).
+  world-set-style behavior, but less directly aligned with Portalate since the goal is arbitrary
+  portal rules, per-portal controls, and modded portal disabling.
 
 ## Optimization Mods
 
@@ -54,4 +47,3 @@ Prior-art / reference mods:
 
 - [Medieval Glass](https://www.curseforge.com/minecraft/mc-mods/medievalglass): backport
 - [Respackopts](https://modrinth.com/mod/respackopts): port to Forge
-- [Slabbed](https://modrinth.com/mod/slabbed): backport and port to Forge
