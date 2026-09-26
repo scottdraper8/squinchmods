@@ -64,3 +64,13 @@ Also contains the code for [squinchmods.com](https://squinchmods.com), which hou
 **If you're an agent working in this repo, look in `.agent-docs/` first** for structural and
 implementation detail beyond what this README covers, starting with `.agent-docs/README.md`.
 Additionally, be sure to strictly adhere to `AGENTS.md`.
+
+## License & note on private modifications
+
+This project is licensed under the PolyForm Strict License 1.0.0.
+
+For practical purposes, I don't intend to pursue people who privately modify the code for their own
+noncommercial use, as long as they don't redistribute it or make it available to others.
+
+This is just a statement of my current enforcement intentions and does not change or add permissions
+to the license.
