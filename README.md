@@ -8,12 +8,8 @@
 
 ---
 
-Development workspace for all of squinchmods, where each mod lives as its own git submodule. This
-repo centralizes all orchestration, reference material, and QA tooling so submodules stay clean and
-lean.
-
-By adhering to this paradigm, all mods ship as lightweight as possible and development is
-streamlined with reusable tooling.
+Development workspace for Minecraft and No Man's Sky mods. Each maintained mod lives in a Git
+submodule under `games/<game>/mods/`, alongside game-specific tools and technical references.
 
 ---
 

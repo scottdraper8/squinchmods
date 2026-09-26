@@ -1,116 +1,75 @@
-# .agent-docs
+# Agent documentation
 
-Central home for agent-facing planning and reference material across squinchmods. This exists mainly
-to keep mod submodules clean, especially forks used for upstream contribution, which should never
-need squinchmods-specific planning clutter on a branch that might get PR'd upstream. Anything that
-isn't meant to become part of a mod's own repo belongs here instead.
+This directory contains repository guidance, technical references, and retained investigation
+analysis. Game-specific material lives under `games/<game>/`.
 
-## Root structure
+## Workspace map
 
-squinchmods is a multi-game workspace: `games/<game>/` holds each game's mods, tooling, and
-reference material. Root-level tooling and config (this directory included) stay game-agnostic;
-anything that only makes sense for one game belongs under that game's own directory, not at the
-root. As more games get added, the root should stay small.
+Mods are Git submodules under `games/<game>/mods/<mod>/`. Game tooling, investigations, and
+reference material live beside them. The `tooling/squinch` dispatcher provides entry points to tools
+implemented under each game's `tooling/` directory.
 
-Mods are git submodules under `games/<game>/mods/<mod>/`. `.squinch/` is the other repo-wide
-directory with the same rationale as this one: it holds centrally owned configuration, including QA
-config and game-specific third-party artifact catalogs, rather than placing squinchmods state in an
-upstream-facing mod submodule. See `.agent-docs/games/minecraft/README.md` (below) for how the QA
-system actually uses it.
-
-`.squinch/`'s config _mechanism_ is game-agnostic (profiles are just named test-id lists), but its
-current _content_ is not: the global default profile's test list and the mod-config schema's
-required `target` fields (`minecraft`, `loader`, `java`) are Minecraft-specific, since Minecraft is
-the only game with real QA needs so far. A second game adopting this system will need its own target
-shape, not necessarily this one; don't assume the schema is already generic.
+`.squinch/` contains repository-owned tooling configuration, including Minecraft check profiles and
+investigation scenarios, plus third-party artifact catalogs for both games.
 
 ```mermaid
-graph LR
-    subgraph Central [squinchmods]
-        Config[.squinch/ config]
-        Docs[.agent-docs/]
-        Planner[QA planner + runner]
-    end
+flowchart LR
+    Dispatcher[tooling/squinch] --> MCTools[games/minecraft/tooling]
+    Dispatcher --> NMSTools[games/no-mans-sky/tooling]
+    Config[.squinch configuration] --> Checks[Local Minecraft checks]
+    Config --> MCInvestigate[Minecraft investigations]
+    Config --> Artifacts[Third-party artifact tools]
+    MCTools --> Checks
+    MCTools --> MCInvestigate
+    NMSTools --> NMSInvestigate[No Man's Sky investigations]
+    MCTools --> Artifacts
+    NMSTools --> Artifacts
+    MCMods[games/minecraft/mods/*] --> MCTools
+    NMSMods[games/no-mans-sky/mods/*] --> NMSTools
+    Docs[.agent-docs references] -.-> MCTools
+    Docs -.-> NMSTools
 
-    subgraph Mods [Mod Submodules]
-        Mod1[redstone-backport]
-        Mod2[FreeTerraForged]
-    end
-
-    subgraph Remote [GitHub Actions]
-        Runner[Remote QA Runner]
-    end
-
-    Config --> Planner
-    Mod1 --> Planner
-    Mod2 --> Planner
-    Planner -->|local promote| Current[qa/current]
-    Planner -->|dispatch| Runner
-    Runner -->|artifact| Planner
-    Docs -.->|planning refs| Mod1
-    Docs -.->|planning refs| Mod2
-
-    %% Dracula Theme Styling
-    style Central fill:#282a36,stroke:#6272a4,color:#f8f8f2
-    style Mods fill:#44475a,stroke:#bd93f9,color:#f8f8f2
-    style Remote fill:#282a36,stroke:#ff79c6,color:#f8f8f2
+    style Dispatcher fill:#bd93f9,color:#282a36
     style Config fill:#6272a4,color:#f8f8f2
+    style Checks fill:#50fa7b,color:#282a36
+    style MCInvestigate fill:#8be9fd,color:#282a36
+    style NMSInvestigate fill:#8be9fd,color:#282a36
+    style Artifacts fill:#ffb86c,color:#282a36
+    style MCMods fill:#f1fa8c,color:#282a36
+    style NMSMods fill:#f1fa8c,color:#282a36
     style Docs fill:#6272a4,color:#f8f8f2
-    style Planner fill:#bd93f9,color:#282a36
-    style Mod1 fill:#f1fa8c,color:#282a36
-    style Mod2 fill:#f1fa8c,color:#282a36
-    style Runner fill:#ff79c6,color:#282a36
-    style Current fill:#50fa7b,color:#282a36
 ```
-
-This is the structural relationship only; the QA plan/run/promote pipeline itself is covered in
-`.agent-docs/games/minecraft/README.md`, not duplicated here.
 
 ## Layout
 
 ```text
 .agent-docs/
-  README.md                     this file
-  refs/                         cross-cutting reference notes not tied to one game/mod
+  README.md                         workspace documentation map
+  refs/                             cross-game technical references
   games/
     <game>/
-      README.md                 architecture/conceptual docs for that game's tooling
-      mods/
-        <maintained-mod>/
-          README.md
-          plans/                durable investigation/design docs for that mod
-          refs/                 durable reference notes (branch maps, decisions) for that mod
-      refs/
-        third-party/            durable findings about externally maintained mods
-  runs/                         optional summarized run reports worth keeping long-term
-  tmp/                          disposable scratch, gitignored, safe to delete anytime
-  .cache/                       disposable generated cache, gitignored
-  private/                      local-only notes, gitignored
+      README.md                     game tooling and reference guide
+      mods/<mod>/
+        README.md                   mod documentation entry point
+        plans/                      active technical plans
+        refs/                       durable technical findings
+  runs/                             retained investigation analysis
+  tmp/                              disposable scratch files
+  .cache/                           generated documentation cache
+  private/                          local-only notes
 ```
 
-`.agent-docs/games/minecraft/README.md` is the entry point for the Minecraft QA system's
-architecture. The executable investigation and third-party tooling live under
-`games/minecraft/tooling/`; reusable investigation inputs remain under
-`games/minecraft/investigations/`; generated state is kept in the ignored sibling
-`games/minecraft/investigation-state/`; and mod-specific scenario definitions live under
-`.squinch/games/minecraft/mods/<mod>/scenarios/`.
+The Minecraft tool guides are `.agent-docs/games/minecraft/README.md` and
+[`games/minecraft/tooling/qa/README.md`](../games/minecraft/tooling/qa/README.md). Minecraft
+investigation inputs live in `games/minecraft/investigations/`; generated runs live in the ignored
+`games/minecraft/investigation-state/`. Scenario definitions and artifact catalogs are under
+`.squinch/games/minecraft/`.
 
-`.agent-docs/games/no-mans-sky/README.md` is the current technical reference for No Man's Sky's
-post-5.50 loose-file mod loader, authoring formats, runtime-hook boundary, and Bazzite/Proton paths.
-Its game-owned executable tooling lives under `games/no-mans-sky/tooling/` and is reached through
-the repo-wide `tooling/squinch` dispatcher. Its `mods/` documentation namespace is reserved for mods
-maintained in this workspace; third-party inspections belong under `refs/third-party/`.
+The No Man's Sky reference entry point is `.agent-docs/games/no-mans-sky/README.md`; its executable
+tools live under `games/no-mans-sky/tooling/` and are available through `tooling/squinch`.
 
-## Maintenance
+## Documentation maintenance
 
-- Durable decisions go in `plans/` or `refs/`; temporary exploration goes in `tmp/` or `.cache/` and
-  should never need to be committed.
-- Don't let a plan doc outlive the work it planned. Once something is built, either fold anything
-  still worth knowing into real reference documentation (this repo's `README.md`, a game's
-  `README.md`, or the tool's own README) and delete the plan, or just delete it if nothing durable
-  survives. A plan describing already-shipped work isn't documentation. It's a changelog nobody
-  reads, and it rots the moment reality moves past it.
-- Keep reference docs conceptual and current-state-only. If a doc would need to change every time an
-  implementation detail shifts, it's too specific for this level. Put that detail in the tool's own
-  README/docstrings instead, and keep this layer about the durable ideas: why things are shaped the
-  way they are, and where to find more.
+- Keep durable technical findings in `refs/` and current plans in `plans/`.
+- Update the relevant tool guide when commands or configuration change.
+- Keep reference documents focused on current behavior and established findings.

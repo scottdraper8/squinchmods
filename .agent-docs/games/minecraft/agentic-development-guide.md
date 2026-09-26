@@ -1,13 +1,10 @@
 # Minecraft Agentic Development Guide
 
-## Status: 2026-08-01
-
-Operational entry point for the tight Minecraft development/investigation loop, run through
-`tooling/squinch mc-investigate`. This replaces the old ad hoc `dev-server` script and its companion
-how-to; nothing here requires reading history to use. Case studies that used this workflow live
-under `mods/<mod>/plans/`; this doc is the reusable process, not any one investigation's findings.
-If something about the tooling itself surprises you (not a mod-specific finding), record it in
-`agentic-development-findings.md` rather than expanding this file — see the last section.
+Use `tooling/squinch mc-investigate` for managed Minecraft sessions, controlled probes, and retained
+investigation evidence. This guide documents the repository workflow; mod-specific findings live
+under `.agent-docs/games/minecraft/mods/<mod>/`. If something about the tooling itself surprises you
+(not a mod-specific finding), record it in `agentic-development-findings.md` rather than expanding
+this file — see the last section.
 
 Worked examples throughout are FTF's Fabric/NeoForge dev environment, but the tool is not
 FTF-specific — the same pattern applies to any Fabric/NeoForge mod with a `runServer` Gradle task.

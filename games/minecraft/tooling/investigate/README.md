@@ -1,7 +1,7 @@
 # Minecraft Investigation Tooling
 
-This package owns the tight Minecraft development and investigation loop. Release matrices and
-promotion remain under `../qa/`.
+This package manages local Minecraft server and client sessions for controlled development
+investigations.
 
 Use the repository dispatcher from any working directory and always name the exact target worktree:
 
