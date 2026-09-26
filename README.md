@@ -2,14 +2,18 @@
 
 # Multi-Game Modding Workspace
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-bd93f9?logo=python&logoColor=white&labelColor=6272a4)](https://www.python.org/downloads/)
-[![pre-commit](https://img.shields.io/badge/pre--commit-4.6-50fa7b?logo=pre-commit&logoColor=282a36&labelColor=6272a4)](https://github.com/pre-commit/pre-commit)
-[![SDKMAN!](<https://img.shields.io/badge/SDKMAN!-Java_21_(Temurin)-ffb86c?labelColor=6272a4>)](https://sdkman.io/)
+[![Java 17 / 21](https://img.shields.io/badge/Java-17%20%2F%2021-ffb86c?logo=openjdk&logoColor=white&labelColor=6272a4)](https://dev.java/learn/)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-8be9fd?logo=python&logoColor=white&labelColor=6272a4)](https://www.python.org/downloads/)
+[![Rust 1.98.1](https://img.shields.io/badge/Rust-1.98.1-ff5555?logo=rust&logoColor=white&labelColor=6272a4)](https://www.rust-lang.org/)
 
 ---
 
-Workspace for all of squinchmods' game mod where each mod lives as its own git submodule. This repo
-centralizes all orchestration, reference material, and QA tooling so submodules stay clean.
+Development workspace for all of squinchmods, where each mod lives as its own git submodule. This
+repo centralizes all orchestration, reference material, and QA tooling so submodules stay clean and
+lean.
+
+By adhering to this paradigm, all mods ship as lightweight as possible and development is
+streamlined with reusable tooling.
 
 ---
 
@@ -17,14 +21,21 @@ centralizes all orchestration, reference material, and QA tooling so submodules 
 
 ## Mods as Submodules
 
-Each mod is a separate git repository, added as a submodule under `games/<game>/mods/<mod>/`. Some
-mods are forks intended for upstream contribution and are kept clean of anything
-squinchmods-specific.
+Each mod is a separate git repository, added as a submodule under `games/<game>/mods/<mod>/`.
 
-## `.agent-docs/`
+```text
+games/
+├── minecraft/
+│   └── mods/
+│       ├── FreeTerraForged/   — Customizable overworld terrain generation for Minecraft
+│       └── redstone-backport/ — Backports redstone additions to older Minecraft versions
+└── no-mans-sky/
+    └── mods/
+        └── search-probes/     — Customizable massive-scale searches for No Man's Sky systems and planets
+```
 
-Planning notes, architecture references, and per-mod investigation docs live here, not scattered
-across mod submodules.
+## Agents
 
-**If you're an agent working in this repo, look there first** for structural and implementation
-detail beyond what this README covers, starting with `.agent-docs/README.md`.
+**If you're an agent working in this repo, look in `.agent-docs/` first** for structural and
+implementation detail beyond what this README covers, starting with `.agent-docs/README.md`.
+Additionally, be sure to strictly adhere to `AGENTS.md`.
