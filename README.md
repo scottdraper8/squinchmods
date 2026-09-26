@@ -8,27 +8,56 @@
 
 ---
 
-Development workspace for Minecraft and No Man's Sky mods. Each maintained mod lives in a Git
-submodule under `games/<game>/mods/`, alongside game-specific tools and technical references.
+Development workspace for all of squinchmods, where each mod lives as its own git submodule. This
+repo centralizes all orchestration, reference material, and QA tooling so individual mods stay clean
+and lean.
+
+Also contains the code for [squinchmods.com](https://squinchmods.com), which houses each mod's wiki.
 
 ---
 
 </div>
 
-## Mods as Submodules
+## Mods
 
-Each mod is a separate git repository, added as a submodule under `games/<game>/mods/<mod>/`.
-
-```text
-games/
-├── minecraft/
-│   └── mods/
-│       ├── FreeTerraForged/   — Customizable overworld terrain generation for Minecraft
-│       └── redstone-backport/ — Backports redstone additions to older Minecraft versions
-└── no-mans-sky/
-    └── mods/
-        └── search-probes/     — Customizable massive-scale searches for No Man's Sky systems and planets
-```
+<table>
+  <thead>
+    <tr>
+      <th align="center">Game</th>
+      <th align="center">Mod Name</th>
+      <th align="center">Mod Description</th>
+      <th align="center">Downloads</th>
+      <th align="center">GitHub</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- markdownlint-disable MD013 -->
+    <tr>
+      <td rowspan="2" align="center"><img src="assets/minecraft-logo.png" alt="Minecraft Java Edition logo" width="120"></td>
+      <td>FreeTerraForged</td>
+      <td>Customizable overworld terrain generation for Minecraft.</td>
+      <td>
+        <a href="https://modrinth.com/mod/freeterraforged" aria-label="Download FreeTerraForged from Modrinth"><img alt="Modrinth downloads" src="https://img.shields.io/modrinth/dt/freeterraforged?logo=modrinth&amp;logoColor=white&amp;label=Modrinth&amp;color=50fa7b&amp;labelColor=6272a4"></a><br>
+        <a href="https://www.curseforge.com/minecraft/mc-mods/freeterraforged" aria-label="Download FreeTerraForged from CurseForge"><img alt="CurseForge downloads" src="https://img.shields.io/curseforge/dt/1576275?logo=curseforge&amp;logoColor=white&amp;label=CurseForge&amp;color=ffb86c&amp;labelColor=6272a4"></a>
+      </td>
+      <td><a href="https://github.com/scottdraper8/FreeTerraForged">Visit <img src="assets/external-link.svg" alt="" width="14" height="14"></a></td>
+    </tr>
+    <tr>
+      <td>Redstone Backport</td>
+      <td>Backports redstone additions from later Minecraft versions to older versions.</td>
+      <td></td>
+      <td><a href="https://github.com/scottdraper8/redstone-backport">Visit <img src="assets/external-link.svg" alt="" width="14" height="14"></a></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="assets/no-mans-sky-logo.png" alt="No Man's Sky logo" width="120"></td>
+      <td>Search Probes</td>
+      <td>Searches No Man's Sky systems and planets by their generated properties.</td>
+      <td></td>
+      <td><a href="https://github.com/scottdraper8/search-probes">Visit <img src="assets/external-link.svg" alt="" width="14" height="14"></a></td>
+    </tr>
+    <!-- markdownlint-enable MD013 -->
+  </tbody>
+</table>
 
 ## Agents
 
