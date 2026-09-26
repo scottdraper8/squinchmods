@@ -1,0 +1,36 @@
+schema_version = 1
+name = "FTF biome reachability census — biomeSize 900 warm inland"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 12345
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/reachability-census"]
+retention = "keep-on-failure"
+
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/shallow-depth-mountain-control--biome-size-900/fixture.toml"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged"]
+
+[[probes]]
+id = "squinch:ftf-reachability-census"
+version = "1"
+config = { bounds = [226, -414, 286, -354], unit = "chunk", max_wait_ticks = 6000, horizontal_quart_step = 1, vertical_quart_step = 2, surface_threshold_y = 62 }
+
+[[steps]]
+id = "generate-census-biomesize900"
+type = "generate"
+unit = "chunk"
+bounds = [226, -414, 286, -354]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-reachability-census"
+expect = { terminal_state = "pass" }

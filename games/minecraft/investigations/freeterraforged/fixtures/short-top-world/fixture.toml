@@ -1,0 +1,16 @@
+schema_version = 2
+id = "short-top-world"
+classification = "reusable-control"
+purpose = "Real dimension top build height below vanilla's Y=256 canonical-range reference, at otherwise-default depth, for cave-feature-placement height-bracket edge cases."
+applicable_questions = [
+  "behavior of features/placements anchored to vanilla's literal absolute(256) height when the world's real ceiling sits below it",
+  "whether a consumer assumes the world always brackets vanilla's -64..256 reference range",
+]
+known_limitations = [
+  "not representative of ordinary/default world height",
+  "overrides only the dimension_type height/logical_height; the FTF preset's own worldHeight field is left at its base value, so anything that reads the preset directly (rather than the real dimension bounds) will not see this change",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "331bcd32bd629b4bba5161555f3f585431ae004da4288644e3cabf88962dc7b7"

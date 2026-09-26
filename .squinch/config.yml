@@ -1,0 +1,29 @@
+schema: 1
+
+globals:
+  default_profile: default
+
+  profiles:
+    dev:
+      tests: [build, server-smoke]
+
+    default:
+      tests: [build, server-smoke, pregen]
+      max_parallel: 4
+      max_jobs: 32
+
+    pre-pr:
+      extends: default
+      max_parallel: 2
+      max_jobs: 64
+
+    release:
+      extends: pre-pr
+      max_parallel: 2
+      max_jobs: 128
+
+  tests:
+    pregen:
+      config:
+        preset: xs
+        tool_preference: [chunksmith, chunky]

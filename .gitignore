@@ -1,0 +1,49 @@
+# Environment
+/.direnv/
+
+# Editors
+.vscode/
+
+# OS
+.directory
+.DS_Store
+Desktop.ini
+ehthumbs.db
+Thumbs.db
+
+# Project
+/logs/
+games/minecraft/reference/
+games/no-mans-sky/reference/
+games/minecraft/qa-state/
+games/minecraft/investigation-state/
+games/no-mans-sky/investigation-state/
+.qa-runs/
+.qa-incoming/
+.qa-staging/
+.qa-current/
+.qa-trash/
+
+# Agent-generated scratch
+.agent-docs/.cache/
+.agent-docs/tmp/
+.agent-docs/private/
+
+# Python tooling (all uv-managed projects)
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+**/dist/
+
+# Minecraft investigation execution products and caches
+games/minecraft/investigations/**/.gradle/
+games/minecraft/investigations/**/build/
+games/minecraft/investigations/**/run/
+games/minecraft/investigations/**/*.class
+games/minecraft/investigations/**/*.jar
+games/minecraft/investigations/**/*.log
+games/minecraft/investigations/**/*.log.gz

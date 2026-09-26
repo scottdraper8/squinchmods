@@ -1,0 +1,15 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--modern-default-full-climate"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--modern-default-full-climate."
+applicable_questions = [
+  "FTF climate-domain evaluation — modern default full climate",
+  "FTF biome reachability census — modern default full climate",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "5ebd17a880fa7763bc98a931a72aa62c4a86ad1759204cd82e3c7a1d5d7085e1"

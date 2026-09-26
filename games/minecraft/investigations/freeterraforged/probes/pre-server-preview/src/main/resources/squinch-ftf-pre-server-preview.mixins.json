@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.ftf.preview.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CreateWorldScreenInvoker",
+    "MixinConfirmScreen",
+    "MixinCreateWorldScreen",
+    "MixinMinecraft",
+    "MixinPreview2D",
+    "MixinPreview3D",
+    "MixinWorldCreationUiState"
+  ],
+  "mixins": [
+    "MixinMinecraftServer",
+    "MixinNeoForgeEventHandler",
+    "MixinReloadableServerResources"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

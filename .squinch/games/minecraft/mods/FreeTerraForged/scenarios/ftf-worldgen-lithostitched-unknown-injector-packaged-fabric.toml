@@ -1,0 +1,35 @@
+schema_version = 1
+name = "FTF packaged Fabric subject — Lithostitched unknown injector boundary"
+project = "games/minecraft/investigations/vanilla-control"
+loader = "fabric"
+launch_task = "prodServer"
+subject_artifact = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility/fabric/build/libs/freeterraforged-1.0.0-fabric-1.21.1.jar"
+subject_compile_artifact = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility/fabric/build/libs/freeterraforged-1.0.0-dev-shadow.jar"
+seed = 3216933670
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+subject_source_project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+probe_packs = [
+    "games/minecraft/investigations/freeterraforged/probes/lithostitched-unknown-injector",
+]
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
+    "mc1.21.1-fabric-lithostitched-1.8.0-beta6",
+]
+probe_compile_artifacts = [
+    { id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta6", loader = "neoforge", mapping = "named" },
+]
+retention = "keep-on-failure"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged", "lithostitched"]
+startup_failure = { code = "startup_exited", log_contains = ["lithostitched_injector_type_unsupported", "squinch:unknown_injector_entry=squinch:unknown_injector"] }

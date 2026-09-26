@@ -1,0 +1,14 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--default-ocean-depth"
+classification = "reusable-control"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--default-ocean-depth."
+applicable_questions = [
+  "FTF actual-editor grid and finished parity with Terrestria",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "259a0a9e6ef3d8cba4ac7537a9bf3162934be8c92176ebfc4f9f09f498ed37fa"

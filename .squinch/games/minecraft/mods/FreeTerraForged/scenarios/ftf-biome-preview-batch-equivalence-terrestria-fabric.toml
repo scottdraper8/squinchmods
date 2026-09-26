@@ -1,0 +1,39 @@
+schema_version = 1
+name = "FTF + Terrestria parallel batch preview equivalence"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+launch_task = "prodServer"
+seed = 3216933670
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-preview-parity"]
+companion_artifacts = [
+    "mc1.21.1-fabric-fabric-api-0.116.17+1.21.1",
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-biolith-3.0.14",
+    "mc1.21.1-fabric-terrestria-7.0.3",
+]
+retention = "keep-on-failure"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 600
+step = 600
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged", "biolith", "terrestria"]
+
+[[probes]]
+id = "squinch:ftf-biome-preview-batch-equivalence"
+version = "1"
+config = { center_x = 0, center_z = 0, zoom = 150, example_limit = 64 }
+
+[[steps]]
+id = "compare-parallel-batch-to-serial-request"
+type = "probe"
+probe = "squinch:ftf-biome-preview-batch-equivalence"
+expect = { terminal_state = "pass" }

@@ -1,0 +1,16 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--biome-size-2000"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-size-2000."
+applicable_questions = [
+  "FTF + Oh The Biomes We've Gone spatial compatibility — biome size 2000",
+  "FTF + current Regions Unexplored spatial compatibility — biome size 2000",
+  "FTF + current Terrestria spatial compatibility — biome size 2000",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "8b78b05b96640c7c092f2fa853ddd37a71dc483b0d77855336996269cf66aa43"

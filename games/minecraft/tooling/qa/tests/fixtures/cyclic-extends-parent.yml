@@ -1,0 +1,10 @@
+schema: 1
+globals:
+  default_profile: alpha
+  profiles:
+    alpha:
+      extends: beta
+      tests: [build]
+    beta:
+      extends: alpha
+      tests: [build]

@@ -1,0 +1,14 @@
+import org.gradle.api.tasks.compile.JavaCompile
+
+allprojects { project ->
+    project.pluginManager.withPlugin("net.ltgt.errorprone") {
+        if (project.name != "forge") {
+            return
+        }
+
+        project.tasks.withType(JavaCompile).configureEach { task ->
+            // Forge's CI binary artifact path can expose duplicate synthetic parameter names.
+            task.options.errorprone.disable("OverridingMethodInconsistentArgumentNamesChecker")
+        }
+    }
+}

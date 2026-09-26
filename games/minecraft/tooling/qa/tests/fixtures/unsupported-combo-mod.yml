@@ -1,0 +1,17 @@
+schema: 1
+
+mod:
+  id: unsupported-combo
+  display_name: Unsupported Combo Test Fixture
+
+targets:
+  - id: fabric-1.20.1
+    minecraft: "1.20.1"
+    loader: fabric
+    loader_version: "0.15.0"
+    java: 17
+    capabilities: [command-script, server]
+
+tests:
+  tick-freeze-gametest:
+    requires: [gametest]

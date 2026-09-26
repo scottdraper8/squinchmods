@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.ftf.spatial.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AccessorMultiNoiseBiomeSource"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

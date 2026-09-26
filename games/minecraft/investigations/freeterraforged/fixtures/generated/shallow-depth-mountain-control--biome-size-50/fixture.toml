@@ -1,0 +1,14 @@
+schema_version = 2
+id = "shallow-depth-mountain-control--biome-size-50"
+classification = "reusable-stress"
+purpose = "Complete generated registries for shallow-depth-mountain-control--biome-size-50."
+applicable_questions = [
+  "FTF biome reachability census — biomeSize 50 warm inland",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "5a189862e250d837267307fb7d1a2813b0062dedb06c075eb2b85c3108381f9d"

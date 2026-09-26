@@ -1,0 +1,36 @@
+schema_version = 1
+name = "FTF standalone tile and runtime cache cross-check"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 12345
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/cell-cache"]
+retention = "discard"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+
+[timeouts]
+startup = 360
+step = 300
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged"]
+
+[[probes]]
+id = "squinch:ftf-tile-cache"
+version = "1"
+config = { coordinates = [[0, 0], [7, 9], [15, 15], [31, 31]], fields = ["height", "height_blocks", "terrain", "biome_type", "continent_edge", "river_mask", "terrain_region_id", "biome_region_id"], tolerance = 0.000001, expected = [
+  { x = 0, z = 0, height = -0.08613083, height_blocks = -22, terrain = "deep_ocean", biome_type = "TEMPERATE_FOREST", continent_edge = 0.097821034, river_mask = 0.2776475, terrain_region_id = 0.81007314, biome_region_id = 0.97156304 },
+  { x = 7, z = 9, height = -0.07488436, height_blocks = -19, terrain = "deep_ocean", biome_type = "TEMPERATE_FOREST", continent_edge = 0.09398253, river_mask = 0.2885648, terrain_region_id = 0.81007314, biome_region_id = 0.97156304 },
+  { x = 15, z = 15, height = -0.073197685, height_blocks = -18, terrain = "deep_ocean", biome_type = "TEMPERATE_FOREST", continent_edge = 0.09095026, river_mask = 0.3006026, terrain_region_id = 0.81007314, biome_region_id = 0.97156304 },
+  { x = 31, z = 31, height = -0.089986265, height_blocks = -23, terrain = "deep_ocean", biome_type = "TEMPERATE_FOREST", continent_edge = 0.09288469, river_mask = 0.32361752, terrain_region_id = 0.81007314, biome_region_id = 0.97156304 },
+] }
+
+[[steps]]
+id = "compare-runtime-cache"
+type = "probe"
+probe = "squinch:ftf-tile-cache"
+expect = { terminal_state = "pass" }

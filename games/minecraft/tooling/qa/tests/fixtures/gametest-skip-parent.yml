@@ -1,0 +1,8 @@
+schema: 1
+globals:
+  default_profile: default
+  profiles:
+    default:
+      tests: [build, tick-freeze-gametest]
+      max_parallel: 4
+      max_jobs: 32

@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "org.squinchmods.investigate.ftf.enclosure.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinUndergroundFeatureEnclosureGuard"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

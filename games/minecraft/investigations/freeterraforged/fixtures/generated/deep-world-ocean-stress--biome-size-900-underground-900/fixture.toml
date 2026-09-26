@@ -1,0 +1,14 @@
+schema_version = 2
+id = "deep-world-ocean-stress--biome-size-900-underground-900"
+classification = "reusable-stress"
+purpose = "Complete generated registries for deep-world-ocean-stress--biome-size-900-underground-900."
+applicable_questions = [
+  "FTF underground sizing — surface 900 / underground 900",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "63aefe096d31ff270b042251909b7a621c79822724c9f9c1726f4d03fc1f414e"

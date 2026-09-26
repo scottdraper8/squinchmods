@@ -1,0 +1,32 @@
+plugins {
+    id "dev.architectury.loom"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+}
+
+loom {
+    runConfigs.configureEach {
+        ideConfigGenerated = false
+    }
+}
+
+tasks.register("prodServer", net.fabricmc.loom.task.prod.ServerProductionRunTask) {
+    group = "fabric"
+    description = "Runs the packaged-subject Fabric evidence harness"
+    loaderVersion = rootProject.fabric_loader_version
+    minecraftVersion = rootProject.minecraft_version
+    runDir = file("run")
+    jvmArgs.add("-Xmx${providers.environmentVariable("SQUINCH_MC_MAX_HEAP").getOrElse("4G")}")
+}
+
+processResources {
+    inputs.property "version", "1.0.0"
+    filesMatching("fabric.mod.json") {
+        expand "version": "1.0.0"
+    }
+}

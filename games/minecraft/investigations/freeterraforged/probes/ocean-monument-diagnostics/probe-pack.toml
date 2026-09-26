@@ -1,0 +1,9 @@
+schema_version = 1
+id = "ftf-ocean-monument-diagnostics"
+version = "1"
+target_adapter = "freeterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-ftf-ocean-monument-diagnostics.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["structure-hooks", "server-thread", "finished-chunk"]

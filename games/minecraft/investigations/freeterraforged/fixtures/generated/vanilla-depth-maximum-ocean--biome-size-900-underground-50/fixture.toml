@@ -1,0 +1,18 @@
+schema_version = 2
+id = "vanilla-depth-maximum-ocean--biome-size-900-underground-50"
+classification = "reusable-stress"
+purpose = "Complete generated registries for vanilla-depth-maximum-ocean--biome-size-900-underground-50."
+applicable_questions = [
+  "FTF + Biolith/Terrestria focused finished palette",
+  "FTF + TerraBlender/Biolith/Terrestria biome preview parity",
+  "FTF + Biolith/Terrestria underground-sizing composition audit",
+  "FTF + YUNG's Cave Biomes underground-sizing composition audit",
+  "FTF + YUNG's Cave Biomes focused finished palette",
+]
+known_limitations = [
+  "Generated registry agreement does not substitute for finished-chunk or visual confirmation.",
+]
+minecraft_version = "1.21.1"
+ftf_version = "0.0.6005"
+preset = "preset.json"
+preset_sha256 = "d702be2c58dfc4763db6be6b57ddb013486ca9d7ab77f03e98cc12a0721c7850"

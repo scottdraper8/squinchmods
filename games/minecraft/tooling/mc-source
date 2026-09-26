@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+#
+# Download and decompile Minecraft source code.
+#
+# Usage:
+#   mc-source <version>
+#
+# Examples:
+#   mc-source 1.20.4
+#
+set -euo pipefail
+
+# Find tooling directory
+tooling_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+minecraft_dir="$(cd -- "${tooling_dir}/.." && pwd)"
+
+# Bootstrap environment
+source "${tooling_dir}/env.sh"
+
+reference_dir="${minecraft_dir}/reference"
+sources_root="${reference_dir}/sources"
+gradlew="${tooling_dir}/source-worker/gradlew"
+
+usage() {
+	cat <<EOF
+Usage: mc-source <version>
+
+Arguments:
+  version    Minecraft version (e.g., 1.20.4)
+
+Examples:
+  mc-source 1.20.4
+EOF
+}
+
+if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+	usage
+	exit 1
+fi
+
+version="$1"
+mappings_dir="${sources_root}/${version}/official"
+target_dir="${mappings_dir}/src"
+
+if [[ -d "${mappings_dir}" ]]; then
+	echo "error: reference for version ${version} already exists at ${mappings_dir}"
+	exit 1
+fi
+
+mkdir -p "${sources_root}"
+
+temp_dir=$(mktemp -d -t mc-source-XXXXXXXX)
+echo "Setting up temporary Gradle project in ${temp_dir}..."
+
+cat <<EOF >"${temp_dir}/build.gradle"
+plugins {
+    id 'org.quiltmc.loom' version '1.15.1'
+}
+repositories {
+    mavenCentral()
+}
+dependencies {
+    minecraft "com.mojang:minecraft:${version}"
+    mappings loom.layered {
+        officialMojangMappings()
+    }
+}
+EOF
+
+cat <<EOF >"${temp_dir}/settings.gradle"
+pluginManagement {
+    repositories {
+        maven { url "https://maven.quiltmc.org/repository/release" }
+        maven { url "https://maven.fabricmc.net/" }
+        gradlePluginPortal()
+    }
+}
+rootProject.name = 'mc-source-temp'
+EOF
+
+echo "Generating sources for Minecraft ${version}..."
+(cd "${temp_dir}" && "${gradlew}" genSources)
+
+# Find the sources jar
+# Quilt Loom puts remapped sources in the global gradle cache
+sources_jar=$(find "${GRADLE_USER_HOME}/caches/quilt-loom/minecraftMaven" -name "*-sources.jar" | grep "${version}" | head -n 1)
+
+if [[ -z "${sources_jar}" ]]; then
+	echo "error: could not find decompiled sources jar for version ${version}"
+	rm -rf "${temp_dir}"
+	exit 1
+fi
+
+echo "Extracting sources to ${target_dir}..."
+mkdir -p "${target_dir}"
+unzip -q "${sources_jar}" -d "${target_dir}"
+
+sources_jar_sha256=$(sha256sum "${sources_jar}" | awk '{print $1}')
+generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cat <<EOF >"${mappings_dir}/manifest.json"
+{
+  "schema": 1,
+  "minecraft": "${version}",
+  "mappings": {
+    "type": "official",
+    "version": null
+  },
+  "tool": {
+    "name": "quilt-loom",
+    "version": "1.15.1"
+  },
+  "source_jar_sha256": "${sources_jar_sha256}",
+  "generated_at": "${generated_at}"
+}
+EOF
+
+echo "Cleaning up..."
+rm -rf "${temp_dir}"
+
+echo "Successfully decompiled Minecraft ${version} to ${target_dir}"

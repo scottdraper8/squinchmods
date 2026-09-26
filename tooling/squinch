@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# Top-level squinchmods tooling dispatcher.
+#
+# Usage:
+#   squinch <tool> [args...]
+#
+# Tools:
+#   qa    QA planner (uv-managed Python package)
+#   mc-investigate  Minecraft development investigation runner
+#   nms-investigate  No Man's Sky static and controlled-runtime investigation runner
+#   third-party  Game-specific third-party acquisition and inspection
+#
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: squinch <tool> [args...]"
+    echo ""
+    echo "Tools:"
+    echo "  qa    QA planner — run 'squinch qa --help' for details"
+    echo "  mc-investigate  Minecraft investigation tooling"
+    echo "  nms-investigate  No Man's Sky investigation tooling"
+    echo "  third-party  Game-specific third-party acquisition and inspection"
+    exit 0
+fi
+
+tool="$1"
+shift
+
+case "${tool}" in
+    qa)
+        if ! command -v uv &>/dev/null; then
+            echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
+            exit 127
+        fi
+        exec uv run --project "${script_dir}/../games/minecraft/tooling/qa" \
+            python -m squinch_qa "$@"
+        ;;
+    mc-investigate)
+        if ! command -v uv &>/dev/null; then
+            echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
+            exit 127
+        fi
+        exec uv run --project "${script_dir}/../games/minecraft/tooling/investigate" \
+            python -m squinch_minecraft_investigate "$@"
+        ;;
+    nms-investigate)
+        if ! command -v uv &>/dev/null; then
+            echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
+            exit 127
+        fi
+        exec uv run --project "${script_dir}/../games/no-mans-sky/tooling/investigate" \
+            python -m squinch_nms_investigate "$@"
+        ;;
+    third-party)
+        exec "${script_dir}/third-party" "$@"
+        ;;
+    *)
+        echo "error: unknown tool '${tool}'" >&2
+        echo "Run 'squinch --help' for usage." >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,32 @@
+schema_version = 1
+name = "FTF worldgen normalization census — control"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/worldgen-normalization-census"]
+retention = "keep-on-failure"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 240
+step = 240
+shutdown = 90
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged"]
+
+[[probes]]
+id = "squinch:ftf-worldgen-normalization-census"
+version = "1"
+config = {}
+
+[[steps]]
+id = "census-normalizable-worldgen-graph"
+type = "probe"
+probe = "squinch:ftf-worldgen-normalization-census"
+expect = { terminal_state = "pass" }

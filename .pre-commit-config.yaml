@@ -1,0 +1,120 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-added-large-files
+        args: ['--maxkb=5120']
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-merge-conflict
+    -   id: check-case-conflict
+    -   id: mixed-line-ending
+        args: ['--fix=lf']
+    -   id: check-yaml
+    -   id: check-toml
+    -   id: check-json
+    -   id: check-ast
+        files: \.py$
+    -   id: debug-statements
+        files: \.py$
+    -   id: check-executables-have-shebangs
+    -   id: check-shebang-scripts-are-executable
+
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+    -   id: codespell
+        files: \.md$
+        args: ['-L', 'ore']
+        additional_dependencies: [tomli]
+
+-   repo: local
+    hooks:
+    -   id: tracked-artifact-boundary
+        name: reject tracked runtime and investigation artifacts
+        entry: tooling/check-tracked-artifacts
+        language: system
+        pass_filenames: false
+        always_run: true
+    -   id: investigation-retention-index
+        name: enforce investigation citation and retention discipline
+        entry: tooling/check-investigation-retention
+        language: system
+        pass_filenames: false
+        always_run: true
+    -   id: prettier
+        name: prettier (markdown)
+        entry: prettier --write
+        language: node
+        additional_dependencies:
+        - prettier@3.6.2
+        files: \.md$
+
+-   repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.1
+    hooks:
+    -   id: markdownlint-cli2
+        name: markdownlint-cli2 (markdown)
+        args: ['--config', '.markdownlint-cli2.yaml']
+        files: \.md$
+
+-   repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+    -   id: gitleaks
+
+# Shell scripts under games/minecraft/tooling/ (includes extensionless
+# scripts like build-mod and mc-source, not just *.sh)
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+    -   id: shellcheck
+        args: ['--severity=warning']
+        files: ^games/minecraft/tooling/(.*\.sh|build-mod|mc-source)$
+
+-   repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+    -   id: shfmt
+        files: ^games/minecraft/tooling/(.*\.sh|build-mod|mc-source)$
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+    -   id: ruff-format
+        files: ^games/minecraft/tooling/qa/.*\.py$
+    -   id: ruff
+        files: ^games/minecraft/tooling/qa/.*\.py$
+        args: ['--fix']
+
+-   repo: local
+    hooks:
+    -   id: squinch-qa-pytest
+        name: squinch-qa pytest
+        entry: uv run --project games/minecraft/tooling/qa --extra dev pytest
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^games/minecraft/tooling/qa/
+
+# GitHub Actions workflows (no-op until games/minecraft/mods QA workflows exist)
+-   repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+    -   id: actionlint
+
+# QA config schema validation (validation only, never executes QA). Mod-level
+# config lives under .squinch/games/minecraft/mods/, not inside each mod
+# submodule, so upstream-facing forks never need squinchmods-specific files
+# on branches meant for upstream PRs.
+-   repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.4
+    hooks:
+    -   id: check-jsonschema
+        name: validate parent .squinch config
+        files: ^\.squinch/config\.yml$
+        args: ['--schemafile', '.squinch/schema/global-config.schema.json']
+    -   id: check-jsonschema
+        name: validate mod-level .squinch configs
+        files: ^\.squinch/games/minecraft/mods/[^/]+/config\.yml$
+        args: ['--schemafile', '.squinch/schema/mod-config.schema.json']

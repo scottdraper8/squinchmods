@@ -1,0 +1,32 @@
+schema_version = 1
+name = "Ore plan final feature graph census (Fabric)"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/feature-graph-census"]
+retention = "discard"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 600
+shutdown = 60
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged"]
+
+[[probes]]
+id = "squinch:ftf-feature-graph-census"
+version = "1"
+config = {}
+
+[[steps]]
+id = "census-final-feature-graph"
+type = "probe"
+probe = "squinch:ftf-feature-graph-census"
+expect = { terminal_state = "pass" }

@@ -1,0 +1,54 @@
+schema: 1
+
+mod:
+  id: redstone-backport
+  display_name: Redstone Backport
+
+targets:
+  - id: forge-1.20.1
+    minecraft: "1.20.1"
+    loader: forge
+    loader_version: "47.4.0"
+    java: 17
+    capabilities: [command-script, server, worldgen]
+  - id: forge-1.21.4
+    minecraft: "1.21.4"
+    loader: forge
+    loader_version: "54.1.0"
+    java: 21
+    capabilities: [command-script, server, worldgen]
+
+profiles:
+  pre-pr:
+    add: [tick-freeze, crafter-basic]
+
+tests:
+  tick-freeze:
+    requires: [server, command-script]
+    adapters:
+      forge:
+        type: command-script
+    config:
+      commands:
+        - tick freeze
+        - tick query
+        - tick step 1
+        - tick unfreeze
+        - tick query
+      expect_output:
+        - The game is frozen
+        - Stepping 1 tick
+        - The game runs normally
+
+  crafter-basic:
+    requires: [server, command-script]
+    adapters:
+      forge:
+        type: command-script
+    config:
+      commands:
+        - setblock 0 64 0 redstone_backport:crafter
+        - data get block 0 64 0 id
+      expect_output:
+        - Changed the block at 0, 64, 0
+        - redstone_backport:crafter

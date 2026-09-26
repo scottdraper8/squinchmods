@@ -1,0 +1,40 @@
+schema_version = 1
+name = "FTF + Lithostitched/Regions Unexplored biome preview parity (NeoForge)"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "neoforge"
+launch_task = "prodServer"
+seed = 3216933670
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml"
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-preview-parity"]
+companion_artifacts = [
+    "mc1.21.1-neoforge-lithostitched-1.8.0-beta6",
+    "mc1.21.1-neoforge-regions-unexplored-0.6.2-lithostitched-beta6",
+]
+retention = "keep-on-failure"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged", "lithostitched", "regions_unexplored"]
+
+[[probes]]
+id = "squinch:ftf-biome-preview-parity"
+version = "1"
+config = { bounds = [64, 64, 67, 67], unit = "chunk", max_wait_ticks = 2400, horizontal_quart_step = 1, example_limit = 32, use_tile_authority = true }
+
+[[steps]]
+id = "compare-preview-to-finished-chunks"
+type = "generate"
+unit = "chunk"
+bounds = [64, 64, 67, 67]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-biome-preview-parity"
+expect = { terminal_state = "pass" }

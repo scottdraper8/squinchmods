@@ -1,0 +1,46 @@
+schema_version = 1
+name = "FTF + Biolith/Terrestria focused finished palette"
+project = "games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility"
+loader = "fabric"
+seed = 3216933670
+probe_packs = ["games/minecraft/investigations/freeterraforged/probes/biome-palette"]
+companion_artifacts = [
+    "mc1.21.1-fabric-terrablender-4.1.0.8",
+    "mc1.21.1-fabric-biolith-3.0.14",
+    "mc1.21.1-fabric-terrestria-7.0.3",
+]
+retention = "keep-on-failure"
+
+ftf_fixture = "games/minecraft/investigations/freeterraforged/fixtures/generated/vanilla-depth-maximum-ocean--biome-size-900-underground-50/fixture.toml"
+
+[server_properties]
+view-distance = 4
+simulation-distance = 4
+max-tick-time = -1
+
+[timeouts]
+startup = 360
+step = 900
+shutdown = 120
+
+[expectations]
+required_mods = ["minecraft", "freeterraforged", "terrablender", "biolith", "terrestria"]
+
+[[probes]]
+id = "squinch:ftf-biome-palette"
+version = "1"
+config = { bounds = [-58, 165, -50, 173], unit = "chunk", max_wait_ticks = 6000, min_y = -64, max_y = 320, horizontal_quart_step = 1, vertical_quart_step = 2, top_k = 40, example_limit = 24, include_climate_axes = false }
+
+[[steps]]
+id = "locate-terrestria"
+type = "command"
+command = "locate biome terrestria:japanese_maple_forest"
+
+[[steps]]
+id = "generate-focused-palette"
+type = "generate"
+unit = "chunk"
+bounds = [-58, 165, -50, 173]
+authority = "finished-chunk"
+terminal_probe = "squinch:ftf-biome-palette"
+expect = { terminal_state = "pass" }

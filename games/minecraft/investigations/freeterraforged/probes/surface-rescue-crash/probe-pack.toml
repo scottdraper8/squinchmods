@@ -1,0 +1,10 @@
+schema_version = 1
+id = "ftf-surface-rescue-crash"
+version = "1"
+target_adapter = "freeterraforged-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = []
+configuration_schema = "probe-config-v1.json"
+capabilities = ["placement-hooks", "server-thread"]
+required_source_paths = ["common/src/main/java/etcodehome/freeterraforged/world/worldgen/runtime"]

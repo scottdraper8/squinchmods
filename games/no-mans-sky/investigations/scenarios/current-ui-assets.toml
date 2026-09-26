@@ -1,0 +1,27 @@
+schema_version = 1
+id = "current-ui-assets"
+fail_fast = true
+
+[[steps]]
+id = "extract-menu-layouts"
+operation = "extract"
+paths = [
+  "UI/COMPONENTS/PAGESELECTBAR.MBIN",
+  "UI/COMPONENTS/JOURNEYSEASONPATCH.MBIN",
+  "UI/JOURNEYMILESTONEPAGE.MBIN",
+]
+
+[[steps]]
+id = "roundtrip-menu-bar"
+operation = "roundtrip"
+paths = ["UI/COMPONENTS/PAGESELECTBAR.MBIN"]
+
+[[steps]]
+id = "find-menu-routing-evidence"
+operation = "exe-strings"
+patterns = [
+  "PAGESELECTBAR",
+  "FrontendPage",
+  "UI[/\\].*(Inventory|Journey|Discovery|Wiki|MissionLog|Options)",
+]
+limit = 500

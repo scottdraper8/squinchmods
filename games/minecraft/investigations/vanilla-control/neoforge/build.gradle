@@ -1,0 +1,62 @@
+plugins {
+    id "dev.architectury.loom"
+}
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://maven.neoforged.net/releases/" }
+}
+
+configurations {
+    neoForge
+    productionServerInstaller
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
+    compileOnly "org.spongepowered:mixin:0.8.5"
+    productionServerInstaller "net.neoforged:neoforge:${rootProject.neoforge_version}:installer"
+}
+
+def productionServerDir = file("run")
+def productionServerArguments = file("run/libraries/net/neoforged/neoforge/${rootProject.neoforge_version}/unix_args.txt")
+def productionJava = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.register("installProductionServer", Exec) {
+    group = "neoforge"
+    description = "Installs the neutral production NeoForge server runtime"
+    inputs.files(configurations.productionServerInstaller)
+    outputs.file(productionServerArguments)
+    workingDir productionServerDir
+    onlyIf { !productionServerArguments.isFile() }
+    doFirst {
+        productionServerDir.mkdirs()
+        commandLine productionJava.get().executablePath.asFile,
+            "-jar",
+            configurations.productionServerInstaller.singleFile,
+            "--install-server",
+            productionServerDir
+    }
+}
+
+tasks.register("prodServer", Exec) {
+    group = "neoforge"
+    description = "Runs the packaged-subject NeoForge evidence harness"
+    dependsOn "installProductionServer"
+    workingDir productionServerDir
+    doFirst {
+        commandLine productionJava.get().executablePath.asFile,
+            "-Xmx${providers.environmentVariable("SQUINCH_MC_MAX_HEAP").getOrElse("4G")}",
+            "@libraries/net/neoforged/neoforge/${rootProject.neoforge_version}/unix_args.txt",
+            "nogui"
+    }
+}

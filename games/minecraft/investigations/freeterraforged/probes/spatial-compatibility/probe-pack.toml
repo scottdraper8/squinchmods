@@ -1,0 +1,10 @@
+schema_version = 1
+id = "ftf-spatial-compatibility"
+version = "1"
+target_adapter = "minecraft-1.21.1"
+sources = ["src/main/java"]
+resources = ["src/main/resources"]
+mixins = ["squinch-ftf-spatial-compatibility.mixins.json"]
+configuration_schema = "probe-config-v1.json"
+capabilities = ["server-thread", "finished-chunk", "spatial-topology", "provider-boundaries", "raw-grid"]
+required_source_paths = ["common/src/main/java/etcodehome/freeterraforged/world/worldgen/runtime"]
