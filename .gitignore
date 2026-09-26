@@ -39,9 +39,12 @@ games/no-mans-sky/investigation-state/
 **/*.egg-info/
 **/dist/
 **/node_modules/
+
+# Site build output and local Cloudflare tooling
 site/.output/
 site/.tanstack/
 site/.wrangler/
+site/dist/
 
 # Minecraft investigation execution products and caches
 games/minecraft/investigations/**/.gradle/

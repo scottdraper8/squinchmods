@@ -45,19 +45,19 @@ repos:
         pass_filenames: false
         always_run: true
     -   id: prettier
-        name: prettier (markdown and site source)
+        name: prettier (markdown, SCSS, and site config)
         entry: prettier --write
         language: node
         additional_dependencies:
         - prettier@3.9.9
-        files: (\.md$|^site/.*\.(ts|tsx|scss|json|jsonc|yaml)$)
-        exclude: ^site/(pnpm-lock\.yaml|src/routeTree\.gen\.ts)$
-    -   id: site-eslint
-        name: site eslint
-        entry: pnpm --dir site lint
+        files: (\.md$|^site/.*\.(scss|json|jsonc|yaml)$)
+        exclude: ^site/pnpm-lock\.yaml$
+    -   id: site-biome
+        name: site Biome lint and format
+        entry: pnpm --dir site check:write
         language: system
         pass_filenames: false
-        files: ^site/(.*\.(ts|tsx)|eslint\.config\.js|package\.json|pnpm-lock\.yaml)$
+        files: ^site/.*\.(ts|tsx)$|^site/(biome\.json|package\.json|pnpm-lock\.yaml)$
     -   id: site-typecheck
         name: site TypeScript check
         entry: pnpm --dir site typecheck
@@ -102,11 +102,11 @@ repos:
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: a56c0b927e6465d37cae3e97d35d4d18ab2b96cd  # frozen: v0.16.9
     hooks:
-    -   id: ruff-format
-        files: ^games/minecraft/tooling/qa/.*\.py$
-    -   id: ruff
-        files: ^games/minecraft/tooling/qa/.*\.py$
+    -   id: ruff-check
+        types_or: [python, pyi]
         args: ['--fix']
+    -   id: ruff-format
+        types_or: [python, pyi]
 
 -   repo: local
     hooks:

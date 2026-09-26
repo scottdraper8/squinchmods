@@ -1,9 +1,9 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { SiteShell } from "#/components/layout/SiteShell";
-import { RedstoneBackportOverview } from "#/content/games/minecraft/mods/redstone-backport/Overview";
-import { redstoneBackport } from "#/content/games/minecraft/mods/redstone-backport/mod";
 import { findGame, findMod } from "#/content/catalog";
+import { redstoneBackport } from "#/content/games/minecraft/mods/redstone-backport/mod";
+import { RedstoneBackportOverview } from "#/content/games/minecraft/mods/redstone-backport/Overview";
 
 export const Route = createFileRoute("/games/$gameSlug/mods/$modSlug")({
   component: ModWikiPage,

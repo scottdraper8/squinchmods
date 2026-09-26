@@ -5,11 +5,11 @@ import "./styles.scss";
 export function RedstoneBackportOverview() {
   return (
     <div className="redstone-overview">
-      <div className="mod-facts" aria-label="Mod details">
+      <section className="mod-facts" aria-label="Mod details">
         <span>{redstoneBackport.status}</span>
         <span>Minecraft Java {redstoneBackport.minecraftVersion}</span>
         <span>{redstoneBackport.loaders.join(" · ")}</span>
-      </div>
+      </section>
 
       <section aria-labelledby="redstone-features-title">
         <div className="section-heading">

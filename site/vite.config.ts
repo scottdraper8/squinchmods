@@ -1,8 +1,6 @@
-import { defineConfig } from "vite";
-
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-
 import viteReact from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 import { games } from "./src/content/catalog.ts";
 
 const prerenderPages = Object.values(games).flatMap((game) => [

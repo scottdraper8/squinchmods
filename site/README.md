@@ -103,7 +103,7 @@ for page navigations. The generated \_routes.json excludes static asset paths.
     ├── pnpm-lock.yaml
     ├── tsconfig.json
     ├── vite.config.ts
-    ├── eslint.config.js
+    ├── biome.json
     ├── wrangler.jsonc
     ├── public/
     │   ├── _routes.json
@@ -162,14 +162,16 @@ The website lives in site/, but repository-wide tooling stays at the repository 
 
 - Keep the existing root .gitignore, .prettierrc.yaml, and .pre-commit-config.yaml; extend them when
   site files need coverage rather than creating duplicate site copies.
-- Keep the site's TypeScript-aware eslint.config.js and package scripts in site/.
-- Root pre-commit hooks format site source and run the site's ESLint, TypeScript, and production
-  build checks when relevant site files change.
+- Keep the site's Biome configuration and package scripts in site/.
+- Root pre-commit hooks use Biome for site TS/TSX, Prettier for Markdown, SCSS, and site config,
+  markdownlint-cli2 for Markdown, and Ruff for Python. They also run the site's TypeScript and
+  production build checks when relevant site files change.
 - Do not create a second site-specific AGENTS.md unless the site later needs rules that differ from
   the repository instructions. This README is the site architecture and contributor plan.
 
-The site provides `dev`, `build`, `typecheck`, `lint`, and `pages:dev` scripts. Vite writes the
-static Pages output to `site/dist/client`, which is confirmed by the first build.
+The site provides `dev`, `build`, `typecheck`, `lint`, `format`, `format:check`, `check`, and
+`pages:dev` scripts. Vite writes the static Pages output to `site/dist/client`, which is confirmed
+by the first build.
 
 ## Cloudflare Pages CI/CD
 
