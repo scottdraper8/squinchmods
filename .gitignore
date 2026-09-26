@@ -38,6 +38,10 @@ games/no-mans-sky/investigation-state/
 **/.ruff_cache/
 **/*.egg-info/
 **/dist/
+**/node_modules/
+site/.output/
+site/.tanstack/
+site/.wrangler/
 
 # Minecraft investigation execution products and caches
 games/minecraft/investigations/**/.gradle/

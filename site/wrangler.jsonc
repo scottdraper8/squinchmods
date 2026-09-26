@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "squinchmods-site",
+  "pages_build_output_dir": "./dist/client",
+  "compatibility_date": "2026-09-26",
+  "dev": {
+    "ip": "127.0.0.1",
+    "port": 8788,
+  },
+}

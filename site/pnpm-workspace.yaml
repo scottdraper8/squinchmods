@@ -1,0 +1,9 @@
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+strictDepBuilds: true
+
+allowBuilds:
+  "@parcel/watcher": false
+  esbuild: true
+  lightningcss: true
+  workerd: true
