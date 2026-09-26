@@ -54,11 +54,7 @@ def _snapshot_local(world_src: Path, inc: Path) -> None:
 
 
 def _extract(inc: Path, stg: Path) -> None:
-    """Move a ready incoming entry into staging, sentinel written last.
-
-    Named to match a future remote bundle's unpack step (Phase 9); for a local
-    run the data is already a plain directory, so this is just a move.
-    """
+    """Move a ready incoming entry into staging, sentinel written last."""
     if not (inc / INCOMING_READY).is_file():
         raise ReplaceError(
             reason="incoming_not_ready",
@@ -214,8 +210,8 @@ def promote_run(
     filesystem changes) before any of them is actually promoted. If any
     selected job has a real validation failure — as opposed to a benign skip
     like "no world artifact" or "status not promotable" — nothing in the
-    batch is promoted, so a partially-broken remote matrix run can never
-    leave `current/` in a mix of old and new worlds.
+    batch is promoted, so a failed validation cannot leave `current/` with a
+    mix of old and new worlds.
 
     Does not call recover_pending itself — callers own that (see promote_job).
     """

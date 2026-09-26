@@ -165,7 +165,7 @@ class PregenExecutor:
                 jar_sha256=jar_sha256,
             )
 
-        # ── Phase 1: Jar acquisition (fallback triggers here only) ───────────────
+        # ── Jar acquisition (fallback triggers here only) ───────────────
         acquired = None
         exhausted_tools: list[str] = []
         for tool_name in tool_preference:
@@ -187,7 +187,7 @@ class PregenExecutor:
 
         server_run_dir = loader_run_dir
 
-        # ── Phase 2: Place jar for Gradle-dev runtimes ───────────────────────────
+        # ── Place jar for Gradle-dev runtimes ───────────────────────────
         if ctx.test_config.get("server_runtime") == "gradle-dev" or loader != "forge":
             loader_run_mods.mkdir(parents=True, exist_ok=True)
             jar_dest = loader_run_mods / acquired.path.name
@@ -195,7 +195,7 @@ class PregenExecutor:
             pre_write_eula(loader_run_dir)
             configure_qa_server_properties(loader_run_dir, level_name=level_name)
 
-        # ── Phase 3: Resolve env ─────────────────────────────────────────────────
+        # ── Resolve env ─────────────────────────────────────────────────
         try:
             env = resolve_gradle_env(ctx.repo_root)
         except GradleEnvError as e:
@@ -207,7 +207,7 @@ class PregenExecutor:
             )
 
         with tempfile.TemporaryDirectory(prefix=f"squinch-pregen-{ctx.run_id}-") as td:
-            # ── Phase 4: Launch server ───────────────────────────────────────────
+            # ── Launch server ───────────────────────────────────────────
             try:
                 proc, log_path, server_run_dir = _launch_pregen_server(
                     loader=loader,
@@ -226,7 +226,7 @@ class PregenExecutor:
                     jar_sha256=jar_sha256,
                 )
 
-            # ── Phase 5: Wait for server ready ───────────────────────────────────
+            # ── Wait for server ready ───────────────────────────────────
             try:
                 wait_for_ready(proc, log_path, timeout_s)
             except ServerNotReadyError as e:
@@ -248,7 +248,7 @@ class PregenExecutor:
                     jar_sha256=jar_sha256,
                 )
 
-            # ── Phase 6: Drive pregen tool via stdin ─────────────────────────────
+            # ── Drive pregen tool via stdin ─────────────────────────────
             commands = TOOL_COMMANDS[tool_used](preset)
             try:
                 for cmd in commands:
@@ -294,7 +294,7 @@ class PregenExecutor:
                     jar_sha256=jar_sha256,
                 )
 
-            # ── Phase 7: Stop server, drain, copy world ──────────────────────────
+            # ── Stop server, drain, copy world ──────────────────────────
             send_stop(proc)
             wait_for_exit(proc, shutdown_timeout_s)
             drain_stdout(proc, log_path)

@@ -136,7 +136,7 @@ def qa_run_factory(tmp_path: Path):
                             "minecraft": "1.21.1",
                         },
                         "mod": {"id": mod_id, "jar_sha256": jar_sha256},
-                        "test": {"id": test_id, "required": True, "status": status},
+                        "test": {"id": test_id, "status": status},
                         "world_sha256": world_sha256,
                     }
                 )
@@ -255,7 +255,6 @@ def make_job_context(runner_repo: Path, tmp_path: Path):
             target_id=target_id,
             test_id=test_id,
             job_dir=jdir,
-            adapter=None,
             test_config=config or {},
             repo_root=repo,
             mod_dir=repo / "games" / "minecraft" / "mods" / mod_name,

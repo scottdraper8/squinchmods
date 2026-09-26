@@ -91,22 +91,13 @@ repos:
     hooks:
     -   id: squinch-qa-pytest
         name: squinch-qa pytest
-        entry: uv run --project games/minecraft/tooling/qa --extra dev pytest
+        entry: uv run --project games/minecraft/tooling/qa --extra dev pytest games/minecraft/tooling/qa/tests
         language: system
         pass_filenames: false
         stages: [pre-push]
         files: ^games/minecraft/tooling/qa/
 
-# GitHub Actions workflows (no-op until games/minecraft/mods QA workflows exist)
--   repo: https://github.com/rhysd/actionlint
-    rev: v1.7.12
-    hooks:
-    -   id: actionlint
-
-# QA config schema validation (validation only, never executes QA). Mod-level
-# config lives under .squinch/games/minecraft/mods/, not inside each mod
-# submodule, so upstream-facing forks never need squinchmods-specific files
-# on branches meant for upstream PRs.
+# Centralized Minecraft check config schema validation.
 -   repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 0.37.4
     hooks:

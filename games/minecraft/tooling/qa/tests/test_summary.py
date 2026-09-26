@@ -27,35 +27,21 @@ def _target(id: str) -> Target:
         loader="forge",
         loader_version="47.0.0",
         java=17,
-        supported=True,
-        capabilities=["server"],
     )
 
 
-def _test_spec(id: str, required: bool = True) -> TestSpec:
+def _test_spec(id: str) -> TestSpec:
     return TestSpec(
         id=id,
-        required=required,
-        requires=[],
-        adapters={},
-        expectations={},
         config={},
         origin_index=0,
     )
 
 
-def _job(
-    target_id: str,
-    test_id: str,
-    *,
-    expected_failure: dict | None = None,
-) -> PlannedJob:
+def _job(target_id: str, test_id: str) -> PlannedJob:
     return PlannedJob(
         target=_target(target_id),
         test_spec=_test_spec(test_id),
-        adapter=None,
-        expected_failure=expected_failure,
-        expectations={},
     )
 
 
@@ -71,12 +57,9 @@ def _build_run(
             name="default",
             resolved_from=["default"],
             tests=[j.test_spec for j in jobs],
-            max_parallel=4,
             max_jobs=32,
         ),
         jobs=jobs,
-        skipped=[],
-        skipped_targets=[],
     )
     job_results = {
         (j.target.id, j.test_spec.id): result for j, result in jobs_and_results
@@ -184,28 +167,6 @@ class TestRenderSummary:
         text = render_summary(run_dir)
         assert "tool-timeout" in text
         assert "chunksmith did not finish within 900s" in text
-
-    def test_expected_failure_line_includes_reason_and_expiry(self, tmp_path: Path):
-        ef = {
-            "reason": "Quilt menu sync not implemented yet",
-            "expires": "2026-08-01",
-            "expired": False,
-        }
-        run_dir = _build_run(
-            tmp_path,
-            [
-                (
-                    _job("quilt-1.20.1", "crafter-basic", expected_failure=ef),
-                    _result(
-                        "fail", FailureDetail(reason="menu_desync", detail="timeout")
-                    ),
-                )
-            ],
-        )
-        text = render_summary(run_dir)
-        assert "expected_failure" in text
-        assert "Quilt menu sync not implemented yet" in text
-        assert "2026-08-01" in text
 
     def test_passing_job_has_no_trailing_failure_detail(self, tmp_path: Path):
         run_dir = _build_run(

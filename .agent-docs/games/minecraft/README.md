@@ -1,253 +1,86 @@
-# Minecraft
+# Minecraft workspace
 
-Architecture reference for how Minecraft modding is organized in squinchmods. For QA CLI usage, see
-`games/minecraft/tooling/qa/README.md` (the operational reference); for the tight
-development/investigation loop, see [`agentic-development-guide.md`](agentic-development-guide.md)
-(`mc-investigate`'s operational entry point) and `games/minecraft/tooling/investigate/README.md` for
-exact command/flag reference. This doc is the conceptual one, and shouldn't need to change every
-time a flag or field gets added.
+Minecraft tooling in squinchmods builds mod submodules, runs local checks, manages development
+servers for controlled investigations, and acquires catalogued third-party artifacts. Command
+references live beside each tool:
 
-General tooling friction discovered while using the investigation workflow is logged in
-[`agentic-development-findings.md`](agentic-development-findings.md).
+- [`qa/README.md`](../../../games/minecraft/tooling/qa/README.md): local check profiles, plans,
+  runs, world promotion, summaries, and cleanup.
+- [`investigate/README.md`](../../../games/minecraft/tooling/investigate/README.md): managed server
+  and client investigations.
+- [`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md): runtime JAR and
+  source acquisition.
+- [`agentic-development-guide.md`](agentic-development-guide.md): the Minecraft investigation
+  workflow and evidence handling.
 
 ## Layout
 
 ```text
 games/minecraft/
-  mods/<mod>/            git submodule per mod
+  mods/<mod>/             Git submodule for each maintained mod
   tooling/
-    env.sh               shared JDK pin + monorepo cache-dir setup; sourced by every script below
-    build-mod            `./gradlew build` for one mod, with env.sh bootstrapped
-    mc-source             source-extraction script
-    source-worker/        its own minimal Gradle wrapper, independent of any mod
-    investigate/          mc-investigate: managed dev-server lifecycle/probes, for live investigation
-    third-party/          catalog-backed Modrinth acquisition and source checkout tooling
-    qa/                  the QA planner/runner (squinch-qa)
-  investigations/         source-controlled probes, fixtures, patches, and control projects
-  investigation-state/    gitignored generated runs, worktrees, reports, and worlds
-  reference/             gitignored: decompiled source, curated reference worlds
-  qa-state/              gitignored: QA runtime state (generated per run)
+    env.sh                shared JDK and cache setup
+    build-mod             build one mod submodule
+    mc-source             extract vanilla source for inspection
+    source-worker/        Gradle project used by mc-source
+    qa/                   local check planner and runner
+    investigate/          managed Minecraft server and client investigations
+    third-party/          catalog-backed artifact and source acquisition
+  investigations/        probes, fixtures, and controlled projects
+  investigation-state/   generated investigation runs and worlds
+  reference/             local vanilla and third-party source checkouts
+  qa-state/               local check runs and promoted worlds
 
-.squinch/games/minecraft/
-  mods/<mod>/scenarios/    repository-root-relative scenario definitions
-  third-party/artifacts.toml  committed runtime/source ownership catalog
+.squinch/
+  config.yml                                      shared Minecraft check profiles
+  schema/                                         check configuration schemas
+  games/minecraft/mods/<mod>/config.yml           per-mod targets and check settings
+  games/minecraft/mods/<mod>/scenarios/           mc-investigate scenarios
+  games/minecraft/third-party/artifacts.toml      third-party artifact catalog
 ```
 
-Dispatched from the repo root via `tooling/squinch <tool>` (e.g. `tooling/squinch qa plan ...`), a
-thin game-agnostic dispatcher that `exec`s into the target tool's own project directory. Root
-`tooling/` was renamed from `tools/` to match this same `games/<game>/tooling/` convention.
+Use `tooling/squinch <tool>` from the repository root to reach the package CLIs. Local check and
+investigation state is kept beneath the corresponding game-owned state directory.
 
-## Root vs. per-game tooling boundary
+## Local checks
 
-Root-level tooling and config are meant to stay game-agnostic; anything that only makes sense for
-one game belongs under that game's own directory instead (see root `.agent-docs/README.md`).
-Minecraft is currently the only game with real tooling, which makes `squinch-qa` the easiest place
-to wrongly assume something is already generic just because it's the only example that exists.
+`tooling/squinch qa` resolves a shared profile and a mod's target/check configuration, prints a
+plan, and can execute its jobs against the mod submodule. The runner currently supports builds,
+server smoke checks, pregeneration, and command-based server checks. Jobs run sequentially. A
+successful run can promote generated worlds into `games/minecraft/qa-state/current/`; the CLI also
+provides run summaries and cleanup.
 
-Looking at what's actually inside `squinch-qa`, the real seam isn't at the package boundary:
+Shared profiles are `quick`, `default`, and `extended`. Per-mod settings can select a complete check
+list or add checks to an inherited profile, and can override check configuration. The operational
+guide has the profile contents and exact command syntax.
 
-- Genuinely generic (no Minecraft assumptions in the logic itself): profile/`extends` resolution,
-  capability `requires`/skip matching, matrix expansion, the plan JSON shape, the
-  run/manifest/result artifact layout, the incoming→staging→current→trash promotion pipeline with
-  atomic-completion sentinels, retention-based cleanup, remote-dispatch polling via `gh`.
-- Genuinely Minecraft-specific: the `Target` schema's required fields (`minecraft`/`loader`/`java`),
-  and every executor (`build` via `gradlew`, `server-smoke`, `command-script`, `pregen` via
-  chunksmith/chunky, the Forge-production launcher) — all mod-loader/Gradle/server concepts baked
-  into the executor layer.
+## Investigations and artifacts
 
-`squinch-qa` stays under `games/minecraft/tooling/` rather than moving to root, deliberately, until
-a second game actually needs matrix QA. Splitting it into a generic root engine plus a Minecraft
-executor "plugin" now would mean guessing where the real boundary belongs; a second game's actual
-requirements should draw that line, not speculation from a single data point. This mirrors the
-existing note in root `.agent-docs/README.md` that `.squinch/`'s config _mechanism_ is game-agnostic
-but its current _content_ (e.g. the target schema) is not.
+`mc-investigate` runs repository-defined scenarios against an explicitly selected project worktree.
+It owns server or isolated-client startup and cleanup, records run inputs and outputs, and supports
+structured probes, generation, comparisons, and artifact inspection. Scenario files are stored under
+`.squinch/games/minecraft/mods/<mod>/scenarios/`; reusable probe projects and fixtures are under
+`games/minecraft/investigations/`.
 
-## Adding new Minecraft tooling
-
-New tools live as flat siblings under `games/minecraft/tooling/`, matching the existing
-`build-mod`/`mc-source`/`qa/` pattern:
-
-- Start as a plain script (sourcing `env.sh` for JDK/cache setup, like `build-mod` and `mc-source`
-  do) if the scope is small; only graduate to a real package (`pyproject.toml`, `uv`-managed, like
-  `qa/`) once it actually needs dependencies, tests, or a real CLI surface. Don't pre-build the
-  package shape before the scope demands it.
-- Name for what the tool actually is, not for an aspirational cross-game generality it doesn't have
-  — `qa` already drifted this way (a generic-sounding name for a Minecraft-only tool), which is an
-  accepted rough edge, not a pattern to repeat. Tooling for live-server/RCON investigation, for
-  example, should read as investigation tooling, not as a generic `dev` verb.
-- Give it a section in `games/minecraft/tooling/README.md` (the operational doc) once built; this
-  file only needs the conceptual "how tools are organized" pattern, not a changelog of each one.
-
-## QA system
-
-`squinch-qa` is a data-driven QA planner and runner: given a mod and a profile, it works out which
-(target, test) combinations to run, executes them, and records the result. It's built to run
-identically locally or on GitHub Actions.
-
-### Config
-
-- **Parent config** (`.squinch/config.yml`): global defaults, including `profiles` (e.g. `dev`,
-  `default`, `pre-pr`, `release`, each optionally `extends`-ing another) and shared test defaults.
-- **Mod config** (`.squinch/games/minecraft/mods/<mod>/config.yml`, in squinchmods itself rather
-  than inside the mod's own repo, so upstream-facing fork submodules never need squinchmods-specific
-  files on a branch that might get PR'd upstream): the mod's `targets` (Minecraft version × loader ×
-  Java, each with declared `capabilities`), plus optional profile overrides and test definitions.
-  Mods are discovered dynamically by scanning this directory; adding a mod means adding a config
-  file here, not touching tooling code.
-
-A test declares which `capabilities` it needs (e.g. `server`, `command-script`); the planner skips
-any (target, test) pair where the target doesn't have them, rather than erroring. A mod's profile
-override can `add` tests to what the parent profile already lists, replace the list entirely, or
-`extend` a different profile's resolved list, and that override automatically flows into any profile
-that in turn extends it (a mod's `pre-pr` addition also applies when running `release`, since
-`release` extends `pre-pr`).
-
-Tests that differ by loader (e.g. a GameTest on Forge vs. a command-script on Fabric) declare
-per-loader `adapters`; the resolved adapter for a job's actual loader is threaded through to
-whichever executor runs that test, which can branch on it. Tests can also declare `expectations`
-(default values, optionally overridden `by_target`) and mods can register `expected_failures` (with
-a required reason and optional expiry); both are resolved per job and recorded in that job's report,
-not just present in config.
-
-### Flow
-
-```text
-plan    read parent + mod config, expand profile × targets, filter by capability → plan.json
-run     execute each planned job (build / server-smoke / pregen / command-script executor)
-        → per-job manifest.json + result.json, plus a run-level qa-manifest.json + result.json
-promote validate the run's jobs, then atomically replace games/minecraft/qa-state/current/:
-        all-or-nothing across the batch, one real failure blocks promoting any of it
-summary render a human-readable report from a completed run's already-written files
-```
-
-Promotion never deletes on failure: incoming → staging → current happens through sentinel-gated
-atomic swaps, with the previous `current/` entry moved to `trash/` rather than deleted, so a crash
-mid-promotion is always recoverable.
-
-### Storage
-
-```text
-games/minecraft/qa-state/
-  runs/<run-id>/                     everything from one plan+run: plan, manifests, logs, worlds
-  current/<mod-id>/<target>/<test>/  latest promoted output, durable until replaced
-  incoming/, staging/                 transient promotion state, cleaned up by crash recovery
-  trash/                             evicted current/ entries, pruned by retention policy
-```
-
-`qa-state/` avoids colliding with `tooling/qa/` (the planner/runner's own source, two directories up
-in the layout above) — one is the tool, the other is everything it generates.
-
-Keyed by canonical `mod.id`, not directory name, so two mods can't collide on the same target/test
-path. `runs/` and `trash/` are pruned by `squinch qa clean`; `current/` is never touched by cleanup,
-only by a new promotion.
-
-### Remote QA
-
-`squinch qa remote-run` dispatches a GitHub Actions workflow (`workflow_dispatch`), polls for
-completion via the `gh` CLI, downloads the result artifact, and then runs it through the same
-plan/manifest/promote path as a local run: there's no separate remote-specific data model. This is a
-deliberate choice: dispatch-and-poll over `gh`, not a local daemon receiving uploads.
+`third-party` uses `.squinch/games/minecraft/third-party/artifacts.toml` to acquire and verify
+runtime artifacts. Its source command creates shallow, sparse checkouts for source review. The
+acquisition guide documents catalog entries, cache paths, and commands.
 
 ## Reference material
 
-The forward-looking general Minecraft world-generation reference lives at
-[`wiki/README.md`](wiki/README.md). It contains reusable engine concepts; mod-specific mechanisms
-remain with that mod's agent docs.
+The general Minecraft world-generation reference is [`wiki/README.md`](wiki/README.md). Mod-specific
+engineering notes and active work plans live under `.agent-docs/games/minecraft/mods/<mod>/`.
 
-`games/minecraft/reference/` is gitignored, local-only, and split by content type:
+`games/minecraft/reference/` holds local source material produced by `mc-source` and
+`third-party ... source`. These checkouts are available for inspection by investigations and
+developer tools.
 
-```text
-reference/
-  sources/<version>/<mappings-type>/   decompiled vanilla source, e.g. sources/1.21.1/official/
-    manifest.json                      schema, mappings type/version, tool, source jar sha256, generated_at
-    src/                               extracted source tree (com/, net/, META-INF/)
-  sources/<version>/mods/<mod-name>/   third-party mod source, checked out at whatever branch/tag targets that Minecraft version
-  worlds/<name>/                       curated, durable reference worlds (not yet populated)
-```
+## Development environment
 
-`mc-source <minecraft-version>` decompiles and extracts Minecraft's own source into
-`sources/<version>/official/` (`official` names the mappings set — official Mojang mappings today;
-the segment exists so a different mapping set could sit alongside it later without collision), using
-a dedicated minimal Gradle wrapper (`tooling/source-worker/`) rather than depending on any
-particular mod's build, and always writes a checksummed `manifest.json` alongside the extracted
-`src/`. This is for local source inspection (understanding vanilla behavior to backport or reference
-against); extracted sources are never committed.
+`tooling/env.sh` sets the repository JDK from `tooling/.sdkmanrc` and redirects shared Gradle, npm,
+yarn, pip, and uv caches under `$XDG_CACHE_HOME/squinchmods`. `games/minecraft/.envrc` loads the
+same settings for direnv users. Local check targets select the Java version recorded in each mod
+target.
 
-`sources/<version>/mods/<mod-name>/` is the same idea extended to third-party mods: a working-tree
-checkout of that mod's own public repository, at whichever branch/tag targets the Minecraft version
-in that path segment. Use `tooling/squinch third-party minecraft source` so the checkout is shallow,
-sparse, and records its resolved commit in `source-acquisition.json`:
-
-```bash
-git clone --depth 1 --branch <branch> --filter=blob:none --no-checkout <repo-url> <mod-name>
-cd <mod-name>
-git sparse-checkout init --cone
-git sparse-checkout set <path> [<path> ...]   # only the directories actually needed
-git checkout <branch>
-```
-
-The command is equivalent to this recipe and additionally records the requested Minecraft version,
-repository, ref, resolved commit, and sparse paths. It rejects an existing destination unless
-`--replace` is explicitly supplied. This is source-review provenance, not a runtime dependency
-resolver.
-
-For runtime companion mods, use the same dispatcher to acquire a release from Modrinth rather than
-placing an untracked JAR by hand:
-
-```bash
-tooling/squinch third-party minecraft acquire \
-  --artifact-id <catalog-artifact-id>
-```
-
-The resolver reads the committed catalog, checks the exact Minecraft version and loader, verifies
-the published SHA-256 and loader metadata, and stores the JAR plus `acquisition.json` under the
-local
-`${SQINCHMODS_CACHE_HOME:-$XDG_CACHE_HOME/squinchmods}/third-party/modrinth/<version>/<loader>/`
-cache. Investigation scenarios reference catalog IDs; the runner resolves and verifies the cache
-manifest before materialization. Acquisition does not install companion mods globally or silently
-acquire required dependencies. Use `tooling/squinch third-party minecraft remove` to dry-run and
-then remove a specific cached release and any explicit source checkout when a candidate is no longer
-part of the matrix. The complete command contract is in
-[`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md).
-
-`--depth 1` matters here specifically: a full (non-shallow) `--filter=blob:none` clone still fetches
-the _entire commit/tree history_ of the branch, which for an active mod with thousands of commits
-can be tens of megabytes in `.git` alone even though almost no blob content is fetched. `--depth 1`
-keeps exactly one commit — the current tip — so `.git` stays a few hundred KB to a couple of MB
-regardless of the mod's real history length.
-
-**To update to whatever the mod has published since:** delete the mod's directory and re-run the
-clone recipe above against the same (or a new) branch — do not `git fetch`/`git pull` an existing
-shallow clone to "update" it in place. Re-cloning from scratch is just as fast (the recipe is
-already minimal) and is the only way to guarantee the old commit is fully gone rather than retained
-alongside the new one. Like `official/`, nothing under `mods/` is committed, so there is nothing to
-reconcile — delete and re-clone rather than trying to preserve or merge a local copy.
-
-`worlds/<name>/` is for curated, durable reference worlds kept around deliberately (e.g. a
-hand-verified world worth comparing future runs against) — distinct from
-`games/minecraft/qa-state/`'s `current/`, which holds the latest QA-promoted output and can be
-overwritten by the next passing run at any time. Nothing populates `worlds/` yet; the layout above
-is the intended shape once something does, so it doesn't need inventing from scratch later.
-
-`reference/sources/1.20.1/official/` and `reference/sources/1.20.4/official/` don't have a
-`manifest.json` yet; regenerate them via `mc-source` if that provenance is needed.
-
-## Dev environment
-
-`tooling/env.sh` centralizes JDK pinning (via SDKMAN, `tooling/.sdkmanrc`) and monorepo-shared cache
-directories (Gradle/npm/yarn/pip/uv, all redirected under `$XDG_CACHE_HOME/squinchmods`). Every
-script under `tooling/` (`build-mod`, `mc-source`) sources it explicitly, so they work regardless of
-shell setup; `games/minecraft/.envrc` also sources it for direnv users, so plain `./gradlew` and IDE
-tooling pick up the same JDK/caches without needing one of the wrapper scripts. QA execution itself
-uses whatever Java version a target declares, which may differ from the tooling default.
-
-Pre-commit covers shell/YAML linting and QA config schema validation, but deliberately never runs
-actual QA (builds, server launches, pregen); that stays a manual or CI concern.
-
-## Where mod-specific docs live
-
-Per-mod engineering references, active plans, and local branch references live under
-`.agent-docs/games/minecraft/mods/<mod>/`, not in this file and not in the mod's own repo (see the
-root `.agent-docs/README.md` for why). Durable concepts extracted from completed investigations live
-in the general Minecraft reference or the mod's engineering reference; historical narratives are
-outside those references.
+Pre-commit formats and checks repository files and validates centralized `.squinch` configuration.
+The `squinch-qa-pytest` pre-push hook runs the local Minecraft check-tool test suite.

@@ -6,7 +6,7 @@
 #   squinch <tool> [args...]
 #
 # Tools:
-#   qa    QA planner (uv-managed Python package)
+#   qa    Local Minecraft checks (uv-managed Python package)
 #   mc-investigate  Minecraft development investigation runner
 #   nms-investigate  No Man's Sky static and controlled-runtime investigation runner
 #   third-party  Game-specific third-party acquisition and inspection
@@ -19,7 +19,7 @@ if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     echo "Usage: squinch <tool> [args...]"
     echo ""
     echo "Tools:"
-    echo "  qa    QA planner — run 'squinch qa --help' for details"
+    echo "  qa    Local Minecraft checks — run 'squinch qa --help' for details"
     echo "  mc-investigate  Minecraft investigation tooling"
     echo "  nms-investigate  No Man's Sky investigation tooling"
     echo "  third-party  Game-specific third-party acquisition and inspection"

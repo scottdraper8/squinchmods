@@ -21,27 +21,19 @@ def _run_plan(repo_root: Path, *args: str) -> tuple[int, str]:
     return code, buf.getvalue()
 
 
-PROFILES = ["dev", "default", "pre-pr", "release"]
+PROFILES = ["quick", "default", "extended"]
 
 # Expected test counts per profile (from parent config)
 _BASE_PROFILE_TESTS = {
-    "dev": ["build", "server-smoke"],
+    "quick": ["build", "server-smoke"],
     "default": ["build", "server-smoke", "pregen"],
-    "pre-pr": ["build", "server-smoke", "pregen"],  # extends default
-    "release": ["build", "server-smoke", "pregen"],  # extends pre-pr
+    "extended": ["build", "server-smoke", "pregen"],  # extends default
 }
 
 _MOD_PROFILE_TESTS = {
     "redstone-backport": {
         **_BASE_PROFILE_TESTS,
-        "pre-pr": [
-            "build",
-            "server-smoke",
-            "pregen",
-            "tick-freeze",
-            "crafter-basic",
-        ],
-        "release": [
+        "extended": [
             "build",
             "server-smoke",
             "pregen",
@@ -128,7 +120,9 @@ class TestFreeTerraForged:
         for tid in expected_targets:
             assert tid in job_target_ids
 
-    def test_pre_pr_pregen_uses_large_preset_without_changing_default(self, fake_repo):
+    def test_extended_pregen_uses_large_preset_without_changing_default(
+        self, fake_repo
+    ):
         _, default_output = _run_plan(
             fake_repo,
             "FreeTerraForged",
@@ -137,65 +131,32 @@ class TestFreeTerraForged:
             "--target",
             "neoforge-1.21.1",
         )
-        _, pre_pr_output = _run_plan(
+        _, extended_output = _run_plan(
             fake_repo,
             "FreeTerraForged",
             "--profile",
-            "pre-pr",
+            "extended",
             "--target",
             "neoforge-1.21.1",
         )
 
         default = json.loads(default_output)
-        pre_pr = json.loads(pre_pr_output)
+        extended = json.loads(extended_output)
         default_pregen = next(j for j in default["jobs"] if j["test"]["id"] == "pregen")
-        pre_pr_pregen = next(j for j in pre_pr["jobs"] if j["test"]["id"] == "pregen")
+        extended_pregen = next(
+            j for j in extended["jobs"] if j["test"]["id"] == "pregen"
+        )
 
         assert default_pregen["test"]["config"]["preset"] == "xs"
-        assert pre_pr_pregen["test"]["config"]["preset"] == "l"
-        assert pre_pr_pregen["test"]["config"]["timeout_s"] == 7200
+        assert extended_pregen["test"]["config"]["preset"] == "l"
+        assert extended_pregen["test"]["config"]["timeout_s"] == 7200
 
     def test_mod_id_lookup_works(self, fake_repo):
         """Lookup by mod.id 'freeterraforged' (not filesystem name 'FreeTerraForged')."""
-        code, output = _run_plan(fake_repo, "freeterraforged", "--profile", "dev")
+        code, output = _run_plan(fake_repo, "freeterraforged", "--profile", "quick")
         assert code == 0
         data = json.loads(output)
         assert data["mod"]["id"] == "freeterraforged"
-
-
-class TestGametestSkip:
-    def test_gametest_requiring_test_skipped_on_fabric(self, tmp_path):
-        """Fixture with gametest-requiring test + fabric target lacking gametest capability.
-
-        The real parent config's default profile includes 'pregen' and
-        'server-smoke' but not 'tick-freeze-gametest'; use a custom parent
-        config fixture that includes it.
-        """
-        repo = _build_fake_repo(
-            tmp_path,
-            mod_configs={"unsupported-combo": FIXTURES / "unsupported-combo-mod.yml"},
-            parent_config=FIXTURES / "gametest-skip-parent.yml",
-        )
-
-        code, output = _run_plan(repo, "unsupported-combo", "--profile", "default")
-        assert code == 0
-        data = json.loads(output)
-
-        # build has no requirements, so it should be a job
-        job_test_ids = {j["test"]["id"] for j in data["jobs"]}
-        assert "build" in job_test_ids
-
-        # tick-freeze-gametest requires gametest, fabric lacks it → skipped
-        skipped_pairs = {(s["target_id"], s["test_id"]) for s in data["skipped"]}
-        assert ("fabric-1.20.1", "tick-freeze-gametest") in skipped_pairs
-
-        # Check reason mentions the missing capability
-        skipped_reason = next(
-            s["reason"]
-            for s in data["skipped"]
-            if s["test_id"] == "tick-freeze-gametest"
-        )
-        assert "gametest" in skipped_reason
 
 
 class TestExitCodes:
@@ -218,7 +179,7 @@ class TestExitCodes:
         )
         assert code == 1
 
-    def test_matrix_limit_exceeded_exits_3(self, tmp_path):
+    def test_plan_limit_exceeded_exits_3(self, tmp_path):
         repo = _build_fake_repo(
             tmp_path,
             mod_configs={"two-target-mod": FIXTURES / "two-target-mod.yml"},
@@ -280,7 +241,7 @@ class TestSubprocessSmoke:
                 "plan",
                 "redstone-backport",
                 "--profile",
-                "dev",
+                "quick",
                 "--repo-root",
                 str(fake_repo),
             ],
@@ -291,7 +252,7 @@ class TestSubprocessSmoke:
         data = json.loads(result.stdout)
         assert data["schema"] == 1
         assert data["mod"]["id"] == "redstone-backport"
-        assert data["profile"]["name"] == "dev"
+        assert data["profile"]["name"] == "quick"
         assert {(j["target"]["id"], j["test"]["id"]) for j in data["jobs"]} == {
             ("forge-1.20.1", "build"),
             ("forge-1.20.1", "server-smoke"),

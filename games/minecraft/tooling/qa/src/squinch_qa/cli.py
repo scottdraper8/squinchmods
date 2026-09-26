@@ -11,7 +11,7 @@ from squinch_qa.artifacts import default_qa_root, default_qa_runs_dir
 from squinch_qa.config import find_repo_root, load_mod_config, load_parent_config
 from squinch_qa.errors import (
     ConfigError,
-    MatrixLimitExceeded,
+    PlanLimitExceeded,
     PlanError,
     ReplaceError,
     SummaryError,
@@ -21,12 +21,6 @@ from squinch_qa.errors import (
     ValidationError,
 )
 from squinch_qa.planner import build_plan, emit_plan_json
-from squinch_qa.remote.errors import (
-    DispatchError,
-    DownloadError,
-    PollError,
-    PollTimeoutError,
-)
 from squinch_qa.resolve import resolve_profile
 
 
@@ -40,7 +34,7 @@ def _non_negative_int(value: str) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="squinch_qa",
-        description="squinchmods QA planner",
+        description="Plan and run local Minecraft checks for squinchmods",
     )
     subparsers = parser.add_subparsers(dest="subcommand", metavar="<subcommand>")
 
@@ -75,11 +69,6 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="<path>",
         default=None,
         help="Directory for run artifacts (default: <repo-root>/games/minecraft/qa-state/runs)",
-    )
-    run_p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print plan JSON and exit without creating run dirs or executing",
     )
     run_p.add_argument(
         "--profile",
@@ -144,64 +133,6 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="<path>",
         default=None,
         help="Directory the run lives under (default: <repo-root>/games/minecraft/qa-state/runs)",
-    )
-
-    remote_p = subparsers.add_parser(
-        "remote-run", help="Dispatch and collect a GitHub Actions QA run"
-    )
-    remote_p.add_argument("mod", metavar="<mod>", help="Mod slug or id")
-    remote_p.add_argument(
-        "--profile",
-        metavar="<name>",
-        default=None,
-        help="Profile name (default: parent config default_profile)",
-    )
-    remote_p.add_argument(
-        "--target", metavar="<id>", default=None, help="Restrict to a single target id"
-    )
-    remote_p.add_argument(
-        "--repo-root",
-        metavar="<path>",
-        default=None,
-        help="Path to squinchmods repo root ($SQUINCHMODS_ROOT or auto-detected)",
-    )
-    remote_p.add_argument(
-        "--qa-runs-dir",
-        metavar="<path>",
-        default=None,
-        help="Directory for downloaded run artifacts (default: <repo-root>/games/minecraft/qa-state/runs)",
-    )
-    remote_p.add_argument(
-        "--promote",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Promote passing remote pregen worlds to games/minecraft/qa-state/current after download",
-    )
-    remote_p.add_argument(
-        "--poll-interval",
-        metavar="<seconds>",
-        type=float,
-        default=5.0,
-        help="Seconds between GitHub run status checks (default: 5)",
-    )
-    remote_p.add_argument(
-        "--timeout",
-        metavar="<seconds>",
-        type=float,
-        default=1800.0,
-        help="Seconds to wait for the GitHub Actions run (default: 1800)",
-    )
-    remote_p.add_argument(
-        "--run-id",
-        metavar="<id>",
-        default=None,
-        help="External run ID to use instead of generating one",
-    )
-    remote_p.add_argument(
-        "--clean",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Prune old QA runs/trash after download/promotion (default: enabled)",
     )
 
     clean_p = subparsers.add_parser(
@@ -321,7 +252,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
         state,
         repo_root=repo_root,
         mod_dir=mod_dir,
-        dry_run=args.dry_run,
         promote=args.promote,
         clean=args.clean,
     )
@@ -368,35 +298,6 @@ def _cmd_promote(args: argparse.Namespace) -> int:
         )
     _emit({"type": "promote_done", "run_id": args.run_id})
     return 6 if any(r.is_failure for r in results) else 0
-
-
-def _cmd_remote_run(args: argparse.Namespace) -> int:
-    from squinch_qa.remote import remote_run
-
-    repo_root = _resolve_repo_root(args)
-    parent = load_parent_config(repo_root)
-    mod_config, _ = load_mod_config(repo_root, args.mod)
-    resolved = resolve_profile(parent, mod_config, args.profile)
-    build_plan(mod_config, resolved, args.target)
-
-    qa_runs_dir = (
-        Path(args.qa_runs_dir)
-        if args.qa_runs_dir is not None
-        else default_qa_runs_dir(repo_root)
-    )
-    return remote_run(
-        mod=args.mod,
-        repo_root=repo_root,
-        qa_runs_dir=qa_runs_dir,
-        target=args.target,
-        profile=args.profile,
-        promote=args.promote,
-        poll_interval=args.poll_interval,
-        timeout=args.timeout,
-        run_id=args.run_id,
-        clean=args.clean,
-        emit=_emit,
-    )
 
 
 def _cmd_clean(args: argparse.Namespace) -> int:
@@ -468,8 +369,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_run(args)
         if args.subcommand == "promote":
             return _cmd_promote(args)
-        if args.subcommand == "remote-run":
-            return _cmd_remote_run(args)
         if args.subcommand == "clean":
             return _cmd_clean(args)
         if args.subcommand == "summary":
@@ -480,8 +379,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConfigError as e:
         print(f"config error: {e}", file=sys.stderr)
         return 2
-    except MatrixLimitExceeded as e:
-        print(f"matrix limit: {e}", file=sys.stderr)
+    except PlanLimitExceeded as e:
+        print(f"plan limit: {e}", file=sys.stderr)
         return 3
     except PlanError as e:
         print(f"plan error: {e}", file=sys.stderr)
@@ -492,18 +391,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ReplaceError as e:
         print(f"replace error: {e}", file=sys.stderr)
         return 6
-    except DispatchError as e:
-        print(f"dispatch error: {e}", file=sys.stderr)
-        return 7
-    except PollTimeoutError as e:
-        print(f"poll timeout: {e}", file=sys.stderr)
-        return 8
-    except PollError as e:
-        print(f"poll error: {e}", file=sys.stderr)
-        return 8
-    except DownloadError as e:
-        print(f"download error: {e}", file=sys.stderr)
-        return 9
     except SummaryError as e:
         print(f"summary error: {e}", file=sys.stderr)
         return 10

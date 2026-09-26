@@ -25,14 +25,11 @@ MINIMAL_PLAN_BYTES = json.dumps(
         "schema": 1,
         "mod": {"id": "test-mod", "display_name": "Test Mod"},
         "profile": {
-            "name": "dev",
-            "resolved_from": ["dev"],
-            "max_parallel": 1,
+            "name": "quick",
+            "resolved_from": ["quick"],
             "max_jobs": 256,
         },
         "jobs": [],
-        "skipped": [],
-        "skipped_targets": [],
     }
 ).encode()
 
@@ -94,31 +91,15 @@ class TestParsePlanJson:
                 "schema": 99,
                 "mod": {"id": "test-mod", "display_name": ""},
                 "profile": {
-                    "name": "dev",
-                    "resolved_from": ["dev"],
-                    "max_parallel": 1,
+                    "name": "quick",
+                    "resolved_from": ["quick"],
                     "max_jobs": 256,
                 },
                 "jobs": [],
-                "skipped": [],
-                "skipped_targets": [],
             }
         ).encode()
         with pytest.raises(PlanError):
             parse_plan_json(data)
-
-    def test_supported_true_in_parsed_jobs(self, fake_repo: Path):
-        from squinch_qa.config import load_mod_config, load_parent_config
-        from squinch_qa.planner import build_plan, emit_plan_json
-        from squinch_qa.resolve import resolve_profile
-
-        parent = load_parent_config(fake_repo)
-        mod, _ = load_mod_config(fake_repo, "redstone-backport")
-        resolved = resolve_profile(parent, mod, "dev")
-        plan = build_plan(mod, resolved, None)
-        plan_bytes = emit_plan_json(plan).encode()
-        reparsed = parse_plan_json(plan_bytes)
-        assert all(j.target.supported is True for j in reparsed.jobs)
 
     def test_rich_plan_fields_round_trip(self) -> None:
         data = json.dumps(
@@ -126,9 +107,8 @@ class TestParsePlanJson:
                 "schema": 1,
                 "mod": {"id": "rich-mod", "display_name": "Rich Mod"},
                 "profile": {
-                    "name": "pre-pr",
-                    "resolved_from": ["default", "pre-pr"],
-                    "max_parallel": 2,
+                    "name": "extended",
+                    "resolved_from": ["default", "extended"],
                     "max_jobs": 16,
                 },
                 "jobs": [
@@ -139,31 +119,12 @@ class TestParsePlanJson:
                             "loader": "neoforge",
                             "loader_version": "21.1.1",
                             "java": 21,
-                            "capabilities": ["server", "worldgen"],
                         },
                         "test": {
                             "id": "pregen",
-                            "required": False,
-                            "requires": ["server"],
                             "config": {"radius": 8, "tool_preference": ["chunky"]},
                         },
-                        "adapter": "neoforge-server",
-                        "expected_failure": {
-                            "reason": "known bug",
-                            "expires": "2026-12-31",
-                            "expired": False,
-                        },
                     }
-                ],
-                "skipped": [
-                    {
-                        "target_id": "fabric-1.21.1",
-                        "test_id": "pregen",
-                        "reason": "missing server",
-                    }
-                ],
-                "skipped_targets": [
-                    {"target_id": "forge-1.20.1", "reason": "unsupported"}
                 ],
             }
         ).encode()
@@ -173,35 +134,19 @@ class TestParsePlanJson:
 
         assert plan.mod_id == "rich-mod"
         assert plan.display_name == "Rich Mod"
-        assert plan.profile.name == "pre-pr"
-        assert plan.profile.resolved_from == ["default", "pre-pr"]
-        assert plan.profile.max_parallel == 2
+        assert plan.profile.name == "extended"
+        assert plan.profile.resolved_from == ["default", "extended"]
         assert job.target.id == "neoforge-1.21.1"
         assert job.target.loader == "neoforge"
         assert job.target.java == 21
-        assert job.target.capabilities == ["server", "worldgen"]
         assert job.test_spec.id == "pregen"
-        assert job.test_spec.required is False
-        assert job.test_spec.requires == ["server"]
         assert job.test_spec.config == {"radius": 8, "tool_preference": ["chunky"]}
-        assert job.adapter == "neoforge-server"
-        assert job.expected_failure == {
-            "reason": "known bug",
-            "expires": "2026-12-31",
-            "expired": False,
-        }
-        assert plan.skipped[0].reason == "missing server"
-        assert plan.skipped_targets[0].reason == "unsupported"
 
 
 # ── Class 5: create_run_state ─────────────────────────────────────────────────
 
 
 class TestCreateRunState:
-    def test_plan_sha256_populated(self, tmp_path: Path):
-        state = create_run_state(MINIMAL_PLAN_BYTES, tmp_path / "qa-runs")
-        assert state.plan_sha256 == sha256_bytes(MINIMAL_PLAN_BYTES)
-
     def test_run_id_populated(self, tmp_path: Path):
         state = create_run_state(MINIMAL_PLAN_BYTES, tmp_path / "qa-runs")
         assert re.match(r"^\d+-[a-f0-9]{8}$", state.run_id)
@@ -259,9 +204,8 @@ class TestRunPlanWiring:
                 "schema": 1,
                 "mod": {"id": "test-mod", "display_name": "Test Mod"},
                 "profile": {
-                    "name": "dev",
-                    "resolved_from": ["dev"],
-                    "max_parallel": 1,
+                    "name": "quick",
+                    "resolved_from": ["quick"],
                     "max_jobs": 256,
                 },
                 "jobs": [
@@ -272,15 +216,10 @@ class TestRunPlanWiring:
                             "loader": "forge",
                             "loader_version": "47.0.0",
                             "java": 17,
-                            "capabilities": ["server"],
                         },
-                        "test": {"id": "build", "required": True, "config": {}},
-                        "adapter": None,
-                        "expected_failure": None,
+                        "test": {"id": "build", "config": {}},
                     }
                 ],
-                "skipped": [],
-                "skipped_targets": [],
             }
         ).encode()
 
@@ -329,7 +268,7 @@ class TestRunPlanWiring:
         assert result["status"] == "pass"
         assert result["duration_s"] == 1.0
 
-    def test_run_returns_4_on_required_failure(self, tmp_path, monkeypatch):
+    def test_run_returns_4_when_a_check_fails(self, tmp_path, monkeypatch):
         from squinch_qa.runner import create_run_state, run_plan
 
         self._stub_executor(tmp_path, monkeypatch, status="fail")
@@ -456,7 +395,7 @@ class TestRunCliDefaults:
                 "run",
                 "redstone-backport",
                 "--profile",
-                "dev",
+                "quick",
                 "--repo-root",
                 str(fake_repo),
                 "--run-id",
@@ -528,9 +467,8 @@ class TestRunPlanPromote:
                 "schema": 1,
                 "mod": {"id": "test-mod", "display_name": "Test Mod"},
                 "profile": {
-                    "name": "dev",
-                    "resolved_from": ["dev"],
-                    "max_parallel": 1,
+                    "name": "quick",
+                    "resolved_from": ["quick"],
                     "max_jobs": 256,
                 },
                 "jobs": [
@@ -541,15 +479,10 @@ class TestRunPlanPromote:
                             "loader": "forge",
                             "loader_version": "47.0.0",
                             "java": 17,
-                            "capabilities": ["server"],
                         },
-                        "test": {"id": "pregen", "required": True, "config": {}},
-                        "adapter": None,
-                        "expected_failure": None,
+                        "test": {"id": "pregen", "config": {}},
                     }
                 ],
-                "skipped": [],
-                "skipped_targets": [],
             }
         ).encode()
 
@@ -634,7 +567,7 @@ class TestPlanDeterminism:
 
         parent = load_parent_config(fake_repo)
         mod, _ = load_mod_config(fake_repo, "redstone-backport")
-        resolved = resolve_profile(parent, mod, "dev")
+        resolved = resolve_profile(parent, mod, "quick")
         plan = build_plan(mod, resolved, None)
         plan_bytes = emit_plan_json(plan).encode()
         reparsed = parse_plan_json(plan_bytes)

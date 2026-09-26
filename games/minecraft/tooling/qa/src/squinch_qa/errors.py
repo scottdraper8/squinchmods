@@ -13,15 +13,15 @@ class PlanError(SquinchQAError):
     """Planning failed (logic error after config loaded successfully)."""
 
 
-class MatrixLimitExceeded(SquinchQAError):
+class PlanLimitExceeded(SquinchQAError):
     """Planned job count exceeds the profile's max_jobs cap."""
 
     def __init__(self, count: int, cap: int) -> None:
         self.count = count
         self.cap = cap
         super().__init__(
-            f"planned {count} jobs but profile cap is {cap}; "
-            "reduce --target scope or raise max_jobs in the profile"
+            f"planned {count} jobs but profile limit is {cap}; "
+            "select fewer targets or tests, or increase max_jobs in the profile"
         )
 
 

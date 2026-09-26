@@ -8,7 +8,6 @@ import yaml
 
 from .errors import ConfigError, UnknownMod
 from .models import (
-    ExpectedFailure,
     ModConfig,
     ParentConfig,
     ProfileDef,
@@ -55,7 +54,6 @@ def _build_parent_config(data: dict) -> ParentConfig:
         name: ProfileDef(
             tests=pdef.get("tests", []),
             extends=pdef.get("extends"),
-            max_parallel=pdef.get("max_parallel"),
             max_jobs=pdef.get("max_jobs"),
         )
         for name, pdef in profiles_raw.items()
@@ -77,7 +75,6 @@ def _build_mod_config(data: dict) -> ModConfig:
     targets_raw = data["targets"]
     profiles_raw = data.get("profiles", {})
     tests_raw = data.get("tests", {})
-    expected_failures_raw = data.get("expected_failures", [])
 
     targets = [
         Target(
@@ -86,15 +83,12 @@ def _build_mod_config(data: dict) -> ModConfig:
             loader=t["loader"],
             loader_version=t.get("loader_version"),
             java=t["java"],
-            supported=t.get("supported", True),
-            capabilities=t.get("capabilities", []),
         )
         for t in targets_raw
     ]
 
     profiles = {
         name: ProfileOverride(
-            extends=pov.get("extends"),
             add=pov.get("add", []),
             tests=pov.get("tests", []),
         )
@@ -102,24 +96,8 @@ def _build_mod_config(data: dict) -> ModConfig:
     }
 
     tests = {
-        name: TestDef(
-            requires=tdef.get("requires", []),
-            adapters=tdef.get("adapters", {}),
-            config=tdef.get("config", {}),
-            expectations=tdef.get("expectations", {}),
-        )
-        for name, tdef in tests_raw.items()
+        name: TestDef(config=tdef.get("config", {})) for name, tdef in tests_raw.items()
     }
-
-    expected_failures = [
-        ExpectedFailure(
-            target=ef["target"],
-            test=ef["test"],
-            reason=ef["reason"],
-            expires=ef.get("expires"),
-        )
-        for ef in expected_failures_raw
-    ]
 
     return ModConfig(
         mod_id=mod_block["id"],
@@ -127,7 +105,6 @@ def _build_mod_config(data: dict) -> ModConfig:
         targets=targets,
         profiles=profiles,
         tests=tests,
-        expected_failures=expected_failures,
     )
 
 

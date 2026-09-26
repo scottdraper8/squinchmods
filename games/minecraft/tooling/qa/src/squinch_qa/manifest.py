@@ -27,32 +27,19 @@ def _git_head_sha(path: Path) -> str | None:
     return None
 
 
-def _effective_status(raw_status: str, planned_job: PlannedJob) -> str:
-    """Promote 'fail' → 'expected_failure' when plan carries an unexpired EF."""
-    if (
-        raw_status == "fail"
-        and planned_job.expected_failure is not None
-        and not planned_job.expected_failure.get("expired", True)
-    ):
-        return "expected_failure"
-    return raw_status
-
-
 def _compute_exit_code(
     plan: ExecutionPlan,
     job_results: dict[tuple[str, str], JobResult],
     status_overrides: dict[tuple[str, str], str] | None = None,
 ) -> int:
-    """Return 0 if all required jobs pass or expected_failure, else 4."""
+    """Return 0 when every planned job passes, otherwise return 4."""
     status_overrides = status_overrides or {}
     for job in plan.jobs:
-        if not job.test_spec.required:
-            continue
         key = (job.target.id, job.test_spec.id)
         result = job_results.get(key)
         if result is None:
             return 4
-        eff = status_overrides.get(key, _effective_status(result.status, job))
+        eff = status_overrides.get(key, result.status)
         if eff in ("fail", "error"):
             return 4
     return 0
@@ -90,11 +77,7 @@ def _build_per_job_manifest(
             "jar_sha256": result.jar_sha256,
         },
         "test": {
-            "adapter": job.adapter,
-            "expectations": job.expectations,
-            "expected_failure": job.expected_failure,
             "id": job.test_spec.id,
-            "required": job.test_spec.required,
             "status": status,
         },
         "world_sha256": world_sha256,
@@ -138,7 +121,7 @@ def emit_all(
     mod_commit = _git_head_sha(mod_dir)
 
     job_refs: list[dict] = []
-    counts: dict[str, int] = {"pass": 0, "fail": 0, "error": 0, "expected_failure": 0}
+    counts: dict[str, int] = {"pass": 0, "fail": 0, "error": 0}
     total_duration = 0.0
     status_overrides: dict[tuple[str, str], str] = {}
 
@@ -151,7 +134,7 @@ def emit_all(
         jdir = run_dir / "jobs" / job.target.id / job.test_spec.id
         jdir.mkdir(parents=True, exist_ok=True)
 
-        eff = _effective_status(result.status, job)
+        eff = result.status
         failure = result.failure
 
         world_sha256 = None

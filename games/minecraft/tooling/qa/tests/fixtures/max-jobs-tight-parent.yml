@@ -4,5 +4,4 @@ globals:
   profiles:
     tiny:
       tests: [build, server-smoke]
-      max_parallel: 1
       max_jobs: 1

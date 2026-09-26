@@ -279,8 +279,6 @@ class TestCommandScript:
                 ],
             },
         )
-        ctx.adapter = {"type": "command-script"}
-
         result = CommandScriptExecutor().run(ctx)
 
         assert result.status == "pass"
@@ -300,8 +298,6 @@ class TestCommandScript:
                 "level_seed": value,
             },
         )
-        ctx.adapter = {"type": "command-script"}
-
         result = CommandScriptExecutor().run(ctx)
 
         assert result.status == "error"
@@ -327,8 +323,6 @@ class TestCommandScript:
                 "shutdown_timeout_s": 0.2,
             },
         )
-        ctx.adapter = {"type": "command-script"}
-
         result = CommandScriptExecutor().run(ctx)
 
         assert result.status == "fail"
@@ -340,25 +334,10 @@ class TestCommandScript:
             target_id="forge-1.20.1",
             config={"commands": ["tick query"], "expect_output": []},
         )
-        ctx.adapter = {"type": "command-script"}
-
         result = CommandScriptExecutor().run(ctx)
 
         assert result.status == "error"
         assert result.failure.reason == "invalid-command-script-config"
-
-    def test_command_script_rejects_unknown_adapter_type(self, make_job_context):
-        ctx = make_job_context(
-            test_id="tick-freeze",
-            target_id="forge-1.20.1",
-            config={"commands": ["tick query"], "expect_output": ["The game"]},
-        )
-        ctx.adapter = {"type": "gametest"}
-
-        result = CommandScriptExecutor().run(ctx)
-
-        assert result.status == "error"
-        assert result.failure.reason == "unsupported-adapter"
 
     @pytest.mark.slow
     def test_forge_defaults_to_production_runtime(self, monkeypatch, make_job_context):
@@ -381,11 +360,8 @@ class TestCommandScript:
                 loader="forge",
                 loader_version="47.4.0",
                 java=17,
-                supported=True,
-                capabilities=["server", "command-script"],
             ),
         )
-        ctx.adapter = {"type": "command-script"}
 
         def _fake_forge_production(**kwargs):
             calls.append(kwargs)
@@ -683,8 +659,6 @@ class TestPregenServerRuntimeDefault:
             loader="forge",
             loader_version="47.4.0",
             java=17,
-            supported=True,
-            capabilities=[],
         )
         ctx = make_job_context(
             test_id="pregen",

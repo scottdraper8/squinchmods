@@ -9,7 +9,7 @@ from squinch_qa.errors import ReplaceError, ValidationError
 from squinch_qa.replace._pathsafe import assert_within
 from squinch_qa.replace.world_hash import world_hash
 
-PROMOTABLE_STATUSES = ("pass", "expected_failure")
+PROMOTABLE_STATUSES = ("pass",)
 
 
 @dataclass

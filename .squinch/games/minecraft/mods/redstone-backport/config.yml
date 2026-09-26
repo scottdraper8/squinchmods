@@ -10,27 +10,21 @@ targets:
     loader: forge
     loader_version: "47.4.0"
     java: 17
-    supported: true
-    capabilities: [server, worldgen, command-script, gametest]
 
   - id: fabric-1.20.1
     minecraft: "1.20.1"
     loader: fabric
     loader_version: "0.15.11"
     java: 17
-    supported: true
-    capabilities: [server, worldgen, command-script]
 
   - id: quilt-1.20.1
     minecraft: "1.20.1"
     loader: quilt
     loader_version: "0.26.0"
     java: 17
-    supported: true
-    capabilities: [server, worldgen, command-script]
 
 profiles:
-  pre-pr:
+  extended:
     add: [tick-freeze, crafter-basic]
 
 tests:
@@ -39,14 +33,6 @@ tests:
       tool_preference: [chunky]
 
   tick-freeze:
-    requires: [server, command-script]
-    adapters:
-      forge:
-        type: command-script
-      fabric:
-        type: command-script
-      quilt:
-        type: command-script
     config:
       timeout_s: 300
       commands:
@@ -62,14 +48,6 @@ tests:
         - The game runs normally
 
   crafter-basic:
-    requires: [server, command-script]
-    adapters:
-      forge:
-        type: command-script
-      fabric:
-        type: command-script
-      quilt:
-        type: command-script
     config:
       timeout_s: 300
       commands:

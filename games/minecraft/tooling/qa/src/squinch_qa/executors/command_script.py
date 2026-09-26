@@ -110,22 +110,6 @@ class CommandScriptExecutor:
         t0 = time.monotonic()
 
         cfg = dict(ctx.test_config)
-        adapter = ctx.adapter or {}
-        adapter_type = adapter.get("type")
-        if adapter_type not in (None, "command-script"):
-            return JobResult(
-                status="error",
-                started_at=started_at,
-                finished_at=_now_iso(),
-                duration_s=time.monotonic() - t0,
-                failure=FailureDetail(
-                    reason="unsupported-adapter",
-                    detail=f"{ctx.test_id} does not support adapter type {adapter_type!r}",
-                ),
-            )
-
-        cfg.update({k: v for k, v in adapter.items() if k != "type"})
-
         try:
             commands = _string_list(cfg.get("commands"), key="commands")
             expect_output = _string_list(cfg.get("expect_output"), key="expect_output")

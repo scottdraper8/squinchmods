@@ -15,9 +15,8 @@ class TestLoadParentConfig:
         parent = load_parent_config(fake_repo)
         assert parent.default_profile == "default"
         assert "default" in parent.profiles
-        assert "dev" in parent.profiles
-        assert "pre-pr" in parent.profiles
-        assert "release" in parent.profiles
+        assert "quick" in parent.profiles
+        assert "extended" in parent.profiles
 
     def test_missing_file(self, tmp_path):
         (tmp_path / ".squinch" / "schema").mkdir(parents=True)
@@ -63,7 +62,6 @@ class TestLoadParentConfig:
         assert "build" in default.tests
         assert "server-smoke" in default.tests
         assert "pregen" in default.tests
-        assert default.max_parallel == 4
         assert default.max_jobs == 32
 
     def test_test_defaults_loaded(self, fake_repo):

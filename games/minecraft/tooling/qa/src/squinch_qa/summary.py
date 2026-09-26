@@ -29,13 +29,6 @@ def _job_line(run_dir: Path, job_ref: dict[str, Any]) -> str:
         detail = f"  {failure['reason']}"
         if failure.get("detail"):
             detail += f": {failure['detail']}"
-    elif status == "expected_failure":
-        job_manifest = _read_json(run_dir / job_ref["manifest"])
-        ef = job_manifest.get("test", {}).get("expected_failure")
-        if ef:
-            expires = f" (expires {ef['expires']})" if ef.get("expires") else ""
-            detail = f"  {ef['reason']}{expires}"
-
     return f"  {matrix_id:<40} {status:<18} {duration_s:>7.1f}s{detail}"
 
 

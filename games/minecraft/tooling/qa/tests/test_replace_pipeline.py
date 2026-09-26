@@ -46,25 +46,13 @@ def _manifest_run_dir(tmp_path: Path, marker: bytes = b"manifest world") -> Path
         loader="forge",
         loader_version="47.0.0",
         java=17,
-        supported=True,
-        capabilities=["server"],
     )
     test = TestSpec(
         id="pregen",
-        required=True,
-        requires=[],
-        adapters={},
-        expectations={},
         config={},
         origin_index=0,
     )
-    job = PlannedJob(
-        target=target,
-        test_spec=test,
-        adapter=None,
-        expected_failure=None,
-        expectations={},
-    )
+    job = PlannedJob(target=target, test_spec=test)
     plan = ExecutionPlan(
         mod_id="redstone-backport",
         display_name="Redstone Backport",
@@ -72,12 +60,9 @@ def _manifest_run_dir(tmp_path: Path, marker: bytes = b"manifest world") -> Path
             name="default",
             resolved_from=["default"],
             tests=[test],
-            max_parallel=1,
             max_jobs=1,
         ),
         jobs=[job],
-        skipped=[],
-        skipped_targets=[],
     )
     world = run_dir / "jobs" / target.id / test.id / "world"
     (world / "region").mkdir(parents=True)

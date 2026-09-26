@@ -10,24 +10,18 @@ targets:
     loader: forge
     loader_version: "47.4.0"
     java: 17
-    capabilities: [command-script, server, worldgen]
   - id: forge-1.21.4
     minecraft: "1.21.4"
     loader: forge
     loader_version: "54.1.0"
     java: 21
-    capabilities: [command-script, server, worldgen]
 
 profiles:
-  pre-pr:
+  extended:
     add: [tick-freeze, crafter-basic]
 
 tests:
   tick-freeze:
-    requires: [server, command-script]
-    adapters:
-      forge:
-        type: command-script
     config:
       commands:
         - tick freeze
@@ -41,10 +35,6 @@ tests:
         - The game runs normally
 
   crafter-basic:
-    requires: [server, command-script]
-    adapters:
-      forge:
-        type: command-script
     config:
       commands:
         - setblock 0 64 0 redstone_backport:crafter

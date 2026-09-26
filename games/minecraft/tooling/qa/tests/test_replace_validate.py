@@ -37,22 +37,6 @@ class TestValidateHappyPath:
         assert result.world_dir is not None and result.world_dir.is_dir()
         assert result.jar_path is not None and result.jar_path.is_file()
 
-    def test_expected_failure_is_promotable(
-        self, tmp_path: Path, qa_run_factory
-    ) -> None:
-        run_dir = qa_run_factory(
-            jobs=[
-                {
-                    "target_id": "neoforge-1.21.1",
-                    "test_id": "pregen",
-                    "status": "expected_failure",
-                    "world_src": _world_src(tmp_path),
-                }
-            ]
-        )
-        result = validate(run_dir, "neoforge-1.21.1", "pregen")
-        assert result.status == "expected_failure"
-
     def test_no_world_artifact_returns_none_world_dir(
         self, tmp_path: Path, qa_run_factory
     ) -> None:

@@ -10,19 +10,15 @@ targets:
     loader: fabric
     loader_version: "0.16.3"
     java: 21
-    supported: true
-    capabilities: [server, worldgen, command-script]
 
   - id: neoforge-1.21.1
     minecraft: "1.21.1"
     loader: neoforge
     loader_version: "21.1.219"
     java: 21
-    supported: true
-    capabilities: [server, worldgen, command-script]
 
 profiles:
-  pre-pr:
+  extended:
     tests:
       - id: build
       - id: server-smoke

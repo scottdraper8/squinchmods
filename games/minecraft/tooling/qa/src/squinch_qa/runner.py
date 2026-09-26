@@ -14,7 +14,6 @@ from squinch_qa.artifacts import (
     make_run_id,
     job_dir,
     run_dir,
-    sha256_bytes,
 )
 from squinch_qa.errors import PlanError
 from squinch_qa.executors import get_executor
@@ -23,8 +22,6 @@ from squinch_qa.models import (
     ExecutionPlan,
     PlannedJob,
     ResolvedProfile,
-    SkippedEntry,
-    SkippedTarget,
     Target,
     TestSpec,
 )
@@ -36,7 +33,6 @@ SUPPORTED_PLAN_SCHEMA = 1
 class RunState:
     plan: ExecutionPlan
     plan_bytes: bytes
-    plan_sha256: str
     run_id: str
     qa_runs_dir: Path
 
@@ -61,10 +57,6 @@ def parse_plan_json(data: bytes) -> ExecutionPlan:
         if tid not in seen_tests:
             seen_tests[tid] = TestSpec(
                 id=tid,
-                required=j["test"]["required"],
-                requires=j["test"].get("requires", []),
-                adapters={},
-                expectations={},
                 config=j["test"].get("config", {}),
                 origin_index=0,
             )
@@ -73,7 +65,6 @@ def parse_plan_json(data: bytes) -> ExecutionPlan:
         name=profile_block["name"],
         resolved_from=profile_block["resolved_from"],
         tests=list(seen_tests.values()),
-        max_parallel=profile_block["max_parallel"],
         max_jobs=profile_block["max_jobs"],
     )
 
@@ -86,43 +77,19 @@ def parse_plan_json(data: bytes) -> ExecutionPlan:
             loader=t["loader"],
             loader_version=t.get("loader_version"),
             java=t["java"],
-            supported=True,
-            capabilities=t.get("capabilities", []),
         )
         jobs.append(
             PlannedJob(
                 target=target,
                 test_spec=seen_tests[j["test"]["id"]],
-                adapter=j.get("adapter"),
-                expected_failure=j.get("expected_failure"),
-                expectations=j["test"].get("expectations", {}),
             )
         )
-
-    skipped = [
-        SkippedEntry(
-            target_id=s["target_id"],
-            test_id=s["test_id"],
-            reason=s["reason"],
-        )
-        for s in doc.get("skipped", [])
-    ]
-
-    skipped_targets = [
-        SkippedTarget(
-            target_id=s["target_id"],
-            reason=s["reason"],
-        )
-        for s in doc.get("skipped_targets", [])
-    ]
 
     return ExecutionPlan(
         mod_id=mod_block["id"],
         display_name=mod_block.get("display_name") or None,
         profile=profile,
         jobs=jobs,
-        skipped=skipped,
-        skipped_targets=skipped_targets,
     )
 
 
@@ -138,7 +105,6 @@ def create_run_state(
     return RunState(
         plan=plan,
         plan_bytes=plan_bytes,
-        plan_sha256=sha256_bytes(plan_bytes),
         run_id=run_id or make_run_id(),
         qa_runs_dir=qa_runs_dir,
     )
@@ -157,18 +123,11 @@ def run_plan(
     state: RunState,
     repo_root: Path,
     mod_dir: Path,
-    dry_run: bool = False,
     promote: bool = False,
     clean: bool = True,
 ) -> int:
     """Execute all jobs in the plan serially. Returns exit code (0 or 4)."""
     plan = state.plan
-
-    if dry_run:
-        from squinch_qa.planner import emit_plan_json
-
-        sys.stdout.write(emit_plan_json(plan))
-        return 0
 
     rdir = run_dir(state.qa_runs_dir, state.run_id)
     rdir.mkdir(parents=True, exist_ok=True)
@@ -199,7 +158,6 @@ def run_plan(
             target_id=target_id,
             test_id=test_id,
             job_dir=jdir,
-            adapter=job.adapter,
             test_config=job.test_spec.config,
             repo_root=repo_root,
             mod_dir=mod_dir,

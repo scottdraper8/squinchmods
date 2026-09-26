@@ -15,7 +15,7 @@ class FailureDetail:
 
 @dataclass
 class JobResult:
-    status: str  # "pass" | "fail" | "error" | "expected_failure"
+    status: str  # "pass" | "fail" | "error"
     started_at: str  # ISO-8601
     finished_at: str  # ISO-8601
     duration_s: float
@@ -32,7 +32,6 @@ class JobContext:
     target_id: str
     test_id: str
     job_dir: Path
-    adapter: dict[str, Any] | None
     test_config: dict[str, Any]
     repo_root: Path
     mod_dir: Path

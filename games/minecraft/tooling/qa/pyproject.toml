@@ -1,7 +1,7 @@
 [project]
 name = "squinch-qa"
 version = "0.1.0"
-description = "QA planner for squinchmods"
+description = "Local Minecraft checks for squinchmods"
 requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6",
