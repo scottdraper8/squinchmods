@@ -18,9 +18,11 @@ Also contains the code for [squinchmods.com](https://squinchmods.com), which hou
 
 </div>
 
-> [!IMPORTANT] **If you're an agent working in this repo, look in `.agent-docs/` first** for
-> structural and implementation detail beyond what this README covers, starting with
-> `.agent-docs/README.md`. Additionally, be sure to strictly adhere to `AGENTS.md`.
+> [!IMPORTANT]
+>
+> **If you're an agent working in this repo, look in `.agent-docs/` first** for structural and
+> implementation detail beyond what this README covers, starting with `.agent-docs/README.md`.
+> Additionally, be sure to strictly adhere to `AGENTS.md`.
 
 ## Mods
 
