@@ -18,12 +18,6 @@ Also contains the code for [squinchmods.com](https://squinchmods.com), which hou
 
 </div>
 
-> [!IMPORTANT]
->
-> **If you're an agent working in this repo, look in `.agent-docs/` first** for structural and
-> implementation detail beyond what this README covers, starting with `.agent-docs/README.md`.
-> Additionally, be sure to strictly adhere to `AGENTS.md`.
-
 ## Mods
 
 <table>
@@ -74,3 +68,11 @@ noncommercial use, as long as they don't redistribute it or make it available to
 
 This is just a statement of my current enforcement intentions and does not change or add permissions
 to the license.
+
+---
+
+> [!IMPORTANT]
+>
+> **If you're an agent working in this repo, look in `.agent-docs/` first** for structural and
+> implementation detail beyond what this README covers, starting with `.agent-docs/README.md`.
+> Additionally, be sure to strictly adhere to `AGENTS.md`.
