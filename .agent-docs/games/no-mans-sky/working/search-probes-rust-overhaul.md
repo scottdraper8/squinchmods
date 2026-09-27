@@ -249,13 +249,13 @@ the exact-navigation run's obsolete-source-snapshot.
 
 ## Release state
 
-`dist/SearchProbes-0.1.0.zip` is the complete distributable. The mod repository is clean and its
-HEAD matches remote main. Runtime and asset files in the direct NMS installation and both Amethyst
-sources match the release manifest. Exact hashes and commit are in
-`20260925T040022Z-rust-table-cache-guide/release-verification.json`. No Nexus upload was performed.
-The user's subsequent ordinary launch is running the installed release. Final verification during
-that user session is read-only; no process input, cancellation, settings changes or installed-file
-replacement is permitted while the user is testing.
+The current 0.1.0 package includes the responsive Rust UI and no Hide button. It was installed with
+NMS stopped. The direct game runtime and asset links still resolve to Amethyst's `Root_Folder` and
+`overwrite` sources, and all installed files match the release manifest. The unmanifested Python
+runtime files were moved out of the live game directory into the rollback record. Exact package and
+deployment evidence is in the
+[UI release verification](../../../../games/no-mans-sky/investigation-state/runs/20260927T213746Z-search-probes-ui-release/release-verification.json).
+The install was hash-verified; the game was not launched afterward. No Nexus upload was performed.
 
 A user-initiated million-system search is separate from the bounded agent acceptance corpus. Do not
 claim that no large search has ever run; no such search was initiated by the agent. Earlier
