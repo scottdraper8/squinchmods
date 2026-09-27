@@ -17,8 +17,8 @@ const prerenderPages = Object.values(games).flatMap((game) => [
 const config = defineConfig({
   define: {
     "import.meta.env.VITE_PREVIEW_BUILD": JSON.stringify(
-      process.env.CF_PAGES === "1" &&
-        process.env.CF_PAGES_BRANCH !== (process.env.SQUINCHMODS_PRODUCTION_BRANCH ?? "main"),
+      process.env.WORKERS_CI === "1" &&
+        process.env.WORKERS_CI_BRANCH !== (process.env.SQUINCHMODS_PRODUCTION_BRANCH ?? "main"),
     ),
   },
   resolve: { tsconfigPaths: true },

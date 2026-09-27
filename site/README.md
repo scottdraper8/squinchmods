@@ -1,7 +1,8 @@
 # Squinchmods Site Plan
 
-**Status:** initial implementation slice is in place. This document records the target architecture
-and the verified first vertical slice.
+**Status:** the initial static site slice and Workers host-routing adapter are in place. Local
+Worker runtime checks have passed; the GitHub Actions deployment and custom-domain setup remain to
+be verified.
 
 This document is the working plan for the website in **site/**. It records the intended stack,
 content model, public URLs, deployment, and the first implementation checks.
@@ -35,14 +36,14 @@ overview.
 
 ## Proposed stack
 
-| Concern                     | Choice                            | Reason                                                                                                |
-| --------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| UI and routes               | TanStack Start with React         | Familiar TSX components, file-based routes, typed navigation, and static prerendering for known pages |
-| Build and local development | Vite through TanStack Start       | Fast local server with hot reload and one build pipeline                                              |
-| Language                    | TypeScript in strict mode         | Type checking for route params, game/mod metadata, and shared components                              |
-| Styles                      | SCSS                              | Shared variables, mixins, nesting, and component or page styles                                       |
-| Hosting and deploys         | Cloudflare Pages                  | Static asset hosting, Git-based builds, preview deployments, and custom domains                       |
-| Host/path adaptation        | A small Cloudflare Pages Function | Selects the pre-rendered game or mod page from the request hostname and path                          |
+| Concern                     | Choice                           | Reason                                                                                                |
+| --------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| UI and routes               | TanStack Start with React        | Familiar TSX components, file-based routes, typed navigation, and static prerendering for known pages |
+| Build and local development | Vite through TanStack Start      | Fast local server with hot reload and one build pipeline                                              |
+| Language                    | TypeScript in strict mode        | Type checking for route params, game/mod metadata, and shared components                              |
+| Styles                      | SCSS                             | Shared variables, mixins, nesting, and component or page styles                                       |
+| Hosting and deploys         | Cloudflare Workers Static Assets | Static asset hosting, Git-based builds, preview deployments, and custom domains                       |
+| Host/path adaptation        | A small Cloudflare Worker        | Selects the pre-rendered game or mod page from the request hostname and path                          |
 
 TanStack Start is used as a static site generator: file routes define page structure, and known
 pages are prerendered at build time. No always-running application server is needed.
@@ -65,33 +66,30 @@ cross-project build dependencies become a real requirement.
 ## Host routing and static delivery
 
 The same build serves the apex domain and configured game subdomains. Since the hostname changes
-which page belongs at /, a Pages Function maps the public hostname and path to the matching
-prerendered HTML file:
+which page belongs at /, a Worker maps the public hostname and path to the matching prerendered HTML
+file:
 
 1. Keep an explicit, typed catalog of games and mods.
 2. Prerender the portfolio, every registered game landing page, and every registered mod page.
-3. Use a narrow Pages Function to map the incoming host and public path to the corresponding
-   prerendered route output.
-4. Let Cloudflare Pages serve images, scripts, stylesheets, and other static files directly.
-   Configure function routing so requests for those assets do not invoke the Function.
+3. Use a Worker to map the incoming host and public path to the corresponding prerendered route
+   output.
+4. Configure Workers Static Assets to serve images, scripts, stylesheets, and other static files
+   directly. `assets.run_worker_first` sends page paths through the Worker while excluding static
+   asset paths.
 5. Use a TanStack input rewrite to translate game-host URLs to internal routes. Typed URL helpers
    produce public link destinations; cross-host links use normal browser navigation.
 
-The Function is stateless routing glue. It uses Pages' static asset binding to fetch prerendered
-pages; it does not access a database or store user data. Unknown hosts and mod slugs return a
-not-found response.
+The Worker is stateless routing glue. It uses the `ASSETS` binding to fetch prerendered pages; it
+does not access a database or store user data. Unknown hosts and mod slugs return a not-found
+response.
 
-**Cloudflare domain constraint:** Pages does not support wildcard custom domains. Add
-squinchmods.com and each active game hostname (such as minecraft.squinchmods.com) to the Pages
-project explicitly. Cloudflare currently documents a limit of 100 custom domains per Free Pages
-project. If the project approaches that limit, revisit hostname routing before adding more game
-subdomains. See
-[Pages custom domains](https://developers.cloudflare.com/pages/configuration/custom-domains/),
-[wildcard DNS records](https://developers.cloudflare.com/dns/manage-dns-records/reference/wildcard-dns-records/),
-and [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+Add squinchmods.com and each active game hostname (such as minecraft.squinchmods.com) as custom
+domains on the Worker. The DNS zone must be managed by Cloudflare; Cloudflare creates the required
+DNS records and certificates when the custom domains are attached. See
+[Workers custom domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
 
-Pages Function requests count against the Workers usage quota, so the route adapter should run only
-for page navigations. The generated \_routes.json excludes static asset paths.
+Static asset requests are served without invoking the Worker. Page requests invoke the Worker
+because `assets.run_worker_first` is configured for those paths.
 
 ## Site structure
 
@@ -105,11 +103,9 @@ for page navigations. The generated \_routes.json excludes static asset paths.
     ├── vite.config.ts
     ├── biome.json
     ├── wrangler.jsonc
+    ├── worker.ts
     ├── public/
-    │   ├── _routes.json
     │   └── favicon.svg
-    ├── functions/
-    │   └── _middleware.ts
     └── src/
         ├── router.tsx
         ├── routeTree.gen.ts
@@ -170,53 +166,54 @@ The website lives in site/, but repository-wide tooling stays at the repository 
   the repository instructions. This README is the site architecture and contributor plan.
 
 The site provides `dev`, `build`, `typecheck`, `lint`, `format`, `format:check`, `check`, and
-`pages:dev` scripts. Vite writes the static Pages output to `site/dist/client`, which is confirmed
-by the first build.
+`workers:dev` scripts. Vite writes the static output to `site/dist/client`.
 
-## Cloudflare Pages CI/CD
+## GitHub Actions deployment
 
-Connect the GitHub repository to one Cloudflare Pages project. Set the project root to `site/`, use
-pnpm with `pnpm-lock.yaml`, run `pnpm build`, and publish `dist/client`. The site pins Node 24.21.0
-in `.node-version` and pnpm 12.6.0 in `package.json`. Set the Pages build variable
-`PNPM_VERSION=12.6.0` because the current Pages build image does not infer pnpm's version from the
-lockfile. Cloudflare Pages supports `.node-version` for Node selection. Git integration can build
-production commits and create preview deployments for other branches without a separate GitHub
-Actions workflow or a Cloudflare API token. Configure the apex domain and each game hostname as
-custom domains on that same project.
+Production deployments run from `.github/workflows/deploy-site.yml` when changes to `site/` or the
+workflow are pushed to `main`. The workflow checks out the repository without initializing Git
+submodules, installs pnpm 12.6.0 and Node 24.21.0, builds the site, then runs `wrangler deploy` from
+`site/`. The Worker name is `squinchmods`, as set in `wrangler.jsonc`.
 
-The Wrangler configuration in `wrangler.jsonc` records the output directory and local Pages
-settings. Avoid checking generated output into source control. See
-[Cloudflare's build image documentation](https://developers.cloudflare.com/pages/configuration/build-image/)
+Add these GitHub Actions repository secrets:
+
+- `CLOUDFLARE_API_TOKEN`: an account API token with the `Editor` role scoped to the existing
+  `squinchmods` Worker.
+- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account that owns the Worker.
+
+The Worker is created separately in Cloudflare; GitHub Actions updates it on deployment. This setup
+does not use Cloudflare Workers Builds or its GitHub integration. Add the apex and game hostnames as
+custom domains on the Worker after deployment; Cloudflare creates the corresponding DNS records and
+certificates.
+
+The Wrangler configuration in `wrangler.jsonc` records the Worker entry point, static asset output
+directory, binding, and local development settings. Avoid checking generated output into source
+control. See
+[Workers Builds image documentation](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)
 for runtime version selection and
-[Pages local development](https://developers.cloudflare.com/pages/functions/local-development/) for
-the local Functions runtime.
+[Workers Static Assets local development](https://developers.cloudflare.com/workers/static-assets/)
+for the local runtime.
 
 References:
-[Cloudflare Pages Git integration](https://developers.cloudflare.com/pages/get-started/git-integration/)
-and
-[build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
+[Workers Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)
+and [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/).
 
-## First implementation check
+## Workers migration check
 
-The first vertical slice covers the portfolio, one game hostname, and one mod page. Local Pages
-checks confirm that direct requests return the right pre-rendered HTML, canonical trailing-slash
-redirects work, unknown hosts/mods return 404, and static assets bypass the Function. The generated
-HTML links use the public hostname/path scheme. Browser interaction and hydration have not been
-checked yet.
-
-Route-specific SEO metadata and a deployed Cloudflare preview still need verification before the
-site grows beyond this initial slice. This check validates the host-aware routing boundary and
-static output layout locally.
+The first vertical slice covers the portfolio, one game hostname, and one mod page. Local Worker
+runtime checks confirmed that direct requests return the expected prerendered HTML, canonical
+trailing-slash redirects work, unknown hosts/mods return 404, and static assets bypass the Worker.
+The GitHub Actions production deployment and custom-domain behavior still need verification. Browser
+interaction and hydration have not been checked yet.
 
 ## Reference documentation
 
 - [TanStack Start static prerendering](https://tanstack.com/start/latest/docs/framework/react/guide/static-prerendering)
 - [TanStack Router file-based routing](https://tanstack.com/router/latest/docs/routing/file-naming-conventions)
 - [TanStack Router URL rewrites](https://tanstack.com/router/latest/docs/guide/url-rewrites)
-- [Cloudflare Pages Functions routing](https://developers.cloudflare.com/pages/functions/routing/)
-- [Cloudflare Pages Functions middleware](https://developers.cloudflare.com/pages/functions/middleware/)
-- [Cloudflare Pages custom domains](https://developers.cloudflare.com/pages/configuration/custom-domains/)
-- [Cloudflare Pages limits](https://developers.cloudflare.com/pages/platform/limits/)
+- [Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
+- [Cloudflare Workers custom domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+- [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)
 - [pnpm installation and version management](https://pnpm.io/installation/)
 - [direnv](https://direnv.net/)
 - [SDKMAN! usage](https://sdkman.io/usage/)
