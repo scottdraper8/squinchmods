@@ -1,11 +1,11 @@
 # Configurable Strata
 
-Status: `feat/configurable-strata` requires deliberate integration with the current
-`upstream/1.21.1` baseline. Product QA and the deepslate policy remain open.
-
 The reusable material-layer and surface-rule model is described in
-[`surface-rules-and-materials.md`](../wiki/concepts/surface-rules-and-materials.md). This plan keeps
-the feature-specific open decisions and acceptance work.
+[`surface-rules-and-materials.md`](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/surface-rules-and-materials.md).
+This plan keeps the feature-specific open decisions and acceptance work.
+
+Refresh upstream refs, then integrate and validate on a clean worktree based on current
+`upstream/1.21.1_unstable`.
 
 ## Remaining decisions
 

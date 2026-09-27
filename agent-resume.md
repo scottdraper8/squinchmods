@@ -1,21 +1,13 @@
 # Unfinished agent pickup
 
-The FreeTerraForged compatibility runtime remains ongoing. Configurable strata, configurable
-shorelines are parked. No Man's Sky Search Probes has a deployed Rust release under user QA. Live
-Git, source, dependency, host, and runtime state supersede this routing note.
+FreeTerraForged work is in these plans:
 
-## FreeTerraForged compatibility runtime
+- [Configurable shorelines](.agent-docs/games/minecraft/mods/FreeTerraForged/plans/configurable-shorelines.md)
+- [Configurable strata](.agent-docs/games/minecraft/mods/FreeTerraForged/plans/configurable-strata.md)
+- [Current-target compatibility qualification](.agent-docs/games/minecraft/mods/FreeTerraForged/plans/current-target-compatibility-qualification.md)
 
-The complete current-tip acceptance matrix remains unfinished. Start with the
-[canonical compatibility plan](.agent-docs/games/minecraft/mods/FreeTerraForged/plans/worldgen-compatibility.md)
-and
-[acceptance record](.agent-docs/games/minecraft/mods/FreeTerraForged/refs/compatibility-runtime-acceptance.md).
-Use a clean worktree at the live upstream `1.21.1` tip for new evidence.
-
-The active implementation worktree is
-`games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility`. Inspect its live Git
-state before acting; preserve its current contents. Do not make production changes until the
-canonical plan's acceptance gates are supported.
+Live Git and source are authoritative for branch state. No Man's Sky Search Probes has a deployed
+Rust release under user QA.
 
 ## No Man's Sky Search Probes
 

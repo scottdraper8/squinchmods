@@ -1,17 +1,17 @@
 # Configurable Shorelines
 
-Status: `feat/configurable-shorelines` requires deliberate integration with the current
-`upstream/1.21.1` baseline. Visual tuning and product QA remain open.
-
 The reusable shoreline data model and its surface-material consumer are described in
-[`hydrology-and-shore-geometry.md`](../wiki/concepts/hydrology-and-shore-geometry.md),
-[`cell-tile-and-lookup-pipeline.md`](../wiki/concepts/cell-tile-and-lookup-pipeline.md), and
-[`surface-rules-and-materials.md`](../wiki/concepts/surface-rules-and-materials.md). This plan keeps
-the feature-specific integration boundary and acceptance work.
+[`hydrology-and-shore-geometry.md`](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/hydrology-and-shore-geometry.md),
+[`cell-tile-and-lookup-pipeline.md`](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/cell-tile-and-lookup-pipeline.md),
+and
+[`surface-rules-and-materials.md`](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/surface-rules-and-materials.md).
+This plan keeps the feature-specific integration boundary and acceptance work.
 
 ## Current integration boundary
 
-- Preserve the current `1.21.1` uplift-river and wetland terrain implementations.
+- Refresh upstream refs, then integrate and validate on a clean worktree based on current
+  `upstream/1.21.1_unstable`.
+- Preserve the current uplift-river and wetland terrain implementations.
 - Emit river shoreline metadata from the final river-zone geometry.
 - Derive wetland water surfaces through current complex continental hydrology.
 - Store absolute normalized water levels and convert normalized height deltas through active

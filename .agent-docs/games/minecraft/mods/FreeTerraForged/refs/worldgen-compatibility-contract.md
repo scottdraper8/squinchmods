@@ -1,11 +1,10 @@
 # FreeTerraForged worldgen compatibility
 
-This is the product and architecture contract for the compatibility runtime. Implementation and
-evidence sequencing are retained in `../refs/compatibility-runtime-acceptance.md`. Read the
-companion concept and invariant documents completely:
+This is the architecture contract for future compatibility changes. Read the companion concept and
+invariant documents completely:
 
-- `../wiki/concepts/biome-selection-and-compatibility-runtime.md`
-- `../wiki/concepts/compatibility-invariants.md`
+- [Biome selection and compatibility runtime](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/biome-selection-and-compatibility-runtime.md)
+- [Compatibility invariants](../../../../../../games/minecraft/mods/FreeTerraForged.wiki/concepts/compatibility-invariants.md)
 
 ## Product contract
 
@@ -207,8 +206,8 @@ selected by graph semantics, not a mod or namespace.
 
 ## Requalification contract
 
-A release is qualified only when the acceptance record proves all of the following with current
-exact-version artifacts under catalog policy:
+Release qualification requires evidence for all of the following with current exact-version
+artifacts under catalog policy:
 
 - deterministic extraction, ordering, owner isolation, reload, cancellation, and narrow failures;
 - preview/server separation and actual Fabric/NeoForge world-creation UI behavior;
@@ -222,5 +221,6 @@ exact-version artifacts under catalog policy:
 - cross-loader production builds whose JARs contain no probes, sentinels, stale Mixins, deleted
   implementations, or bundled optional dependencies.
 
-Retain exact run IDs, manifests, hashes, inputs, logs, outputs, profiles, and cleanup state under
-the investigation artifact tree. Do not turn this contract into a run diary.
+Store exact inputs, logs, outputs, profiles, and cleanup state with their run artifacts while an
+active release or regression decision relies on them. Keep this document as a contract, not a run
+diary.
