@@ -69,7 +69,11 @@ It proves scheduling headroom and identifies private-context candidates; it does
 safety. Existing runtime is the comparison oracle only, not the foundation for a compatibility
 layer.
 
-## Current implementation
+## Historical 7.04 implementation
+
+The implementation and acceptance records through the scheduler section below describe the 7.04
+release. Current 7.06 identity, qualification and deployment are tracked in Release state and the
+focused compatibility review. Historical timing and independent-oracle claims are not 7.06 results.
 
 The Cargo workspace contains Rust model, native runtime, GUI, WinMM bootstrap and packaging crates.
 Host tests and Windows GNU product builds work with Rust 1.98.1 and the Fedora 44 / MinGW 16
@@ -175,7 +179,7 @@ runs under Proton; screenshots verify the powers-of-ten budget dropdown and cach
 fixture does not control the game. Live UI integration is covered by subsequent standalone evidence.
 |
 
-## Current standalone acceptance
+## Historical 7.04 standalone acceptance
 
 | Gate                                   | Evidence and scope                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,7 +209,7 @@ slot/epoch request for gameplay. Guide definitions have no scan requests or stag
 saved preset is read at launch; results/error/cache completion uses a distinct forced-show UI
 counter.
 
-## Accepted scheduler and table cache
+## Historical 7.04 scheduler and table cache
 
 Candidate 08 is installed transactionally in `20260925T034103Z-rust-scheduler-pages`. Its worker
 matrix preserves all nine matches at every worker count. Minimum one system per requested worker
@@ -249,13 +253,28 @@ the exact-navigation run's obsolete-source-snapshot.
 
 ## Release state
 
-The current 0.1.0 package includes the responsive Rust UI and no Hide button. It was installed with
-NMS stopped. The direct game runtime and asset links still resolve to Amethyst's `Root_Folder` and
-`overwrite` sources, and all installed files match the release manifest. The unmanifested Python
-runtime files were moved out of the live game directory into the rollback record. Exact package and
-deployment evidence is in the
-[UI release verification](../../../../games/no-mans-sky/investigation-state/runs/20260927T213746Z-search-probes-ui-release/release-verification.json).
-The install was hash-verified; the game was not launched afterward. No Nexus upload was performed.
+### Current game update review
+
+The live Steam installation is No Man's Sky 7.06. Search Probes 0.1.1 updates the exact-build guard,
+native entry points, moved process globals and scan-event layouts. Bounded Steam Proton acceptance
+passes searches and worker parity, resource ownership, cache bounds/continuation, Guide opening and
+errors, exact remote navigation, save reload and native shutdown. Current-host evidence supports
+semantic and hash claims only; historical performance and independent native-oracle coverage above
+are explicitly 7.04 results. Native Windows desktop remains untested.
+
+The review also corrected two previously incomplete behaviors: Guide completion now forces the
+results UI open, and the destination definition lives in the nonprocedural Wiki mission table. The
+game forcibly enables procedural titles for NPC table entries, overriding the authored false flag.
+Actual merged metadata and live labels confirm the corrected definition. See the focused
+[7.06 compatibility review](../investigations/analysis/search-probes-7.06-compatibility.md) for
+current coverage, limitations and exact release evidence.
+
+The production archive is deployed transactionally to the direct game installation and Amethyst's
+root-file and overwrite sources with NMS stopped. Direct game links resolve to the same verified
+Amethyst files. Original saves and settings are restored exactly after acceptance, temporary debug
+metadata exports are removed from the game, and the stale-bootstrap candidate is quarantined. The
+accepted mod source is committed and pushed. Source and deployment identity are retained in the
+focused release-verification artifact. No Nexus upload was performed.
 
 A user-initiated million-system search is separate from the bounded agent acceptance corpus. Do not
 claim that no large search has ever run; no such search was initiated by the agent. Earlier

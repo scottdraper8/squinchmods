@@ -19,6 +19,10 @@ screenshot, and select only the permitted **Galaxies 1-50** save (`save.hg` or `
 the loaded universe address against that save pair before running probes. Save filenames do not
 identify menu rows. Automatic latest-save and named-save loading options are rejected.
 
+Keep interactive helpers attached to a terminal with open stdin (use `tty: true` with the execution
+tool). EOF closes the virtual controller. For a fresh connection, run `control-running.py` in its
+own terminal session; feeding its source through stdin prevents subsequent interactive commands.
+
 `--screenshot PATH` retains the startup checkpoint; a failure screenshot defaults to
 `/tmp/squinch-nms-launch-failure.png`.
 
