@@ -257,15 +257,14 @@ the exact-navigation run's obsolete-source-snapshot.
 
 The live Steam installation is No Man's Sky 7.06. Search Probes 0.1.1 updates the exact-build guard,
 native entry points, moved process globals and scan-event layouts. Bounded Steam Proton acceptance
-passes searches and worker parity, resource ownership, cache bounds/continuation, Guide opening and
+passes searches and worker parity, resource ownership, cache bounds/continuation, Guide searches and
 errors, exact remote navigation, save reload and native shutdown. Current-host evidence supports
 semantic and hash claims only; historical performance and independent native-oracle coverage above
 are explicitly 7.04 results. Native Windows desktop remains untested.
 
-The review also corrected two previously incomplete behaviors: Guide completion now forces the
-results UI open, and the destination definition lives in the nonprocedural Wiki mission table. The
-game forcibly enables procedural titles for NPC table entries, overriding the authored false flag.
-Actual merged metadata and live labels confirm the corrected definition. See the focused
+The destination definition lives in the nonprocedural Wiki mission table. The game forcibly enables
+procedural titles for NPC table entries, overriding the authored false flag. Actual merged metadata
+and live labels confirm the corrected definition. See the focused
 [7.06 compatibility review](../investigations/analysis/search-probes-7.06-compatibility.md) for
 current coverage, limitations and exact release evidence.
 
