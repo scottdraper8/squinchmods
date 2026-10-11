@@ -29,13 +29,28 @@ express. Use explicit names and typed records instead of explanatory comments ab
   cheap fields before costly fields; acquire each required planet once where native seams permit.
 - Use compact owned values, bounded result/cache/command storage, and session continuation across
   disjoint regions. Unknown cached fields cannot be interpreted as negative matches.
+- Terrain choices describe enabled generated formations: mountains, plateaus, canyons, craters,
+  arches, caves and floating islands. Acquire inline geometry first and selected positive island
+  spawns only when still needed. A partial geometry observation can reject an impossible choice or
+  establish an ordinary formation; absence of islands remains unknown until object acquisition.
+  Subtype labels describe the selected biome's visible archetype and group equivalent variants.
+  Colour predicates require acquired appearance sets rather than raw palette hue indices. Weather
+  predicates describe storm occurrence, cadence, added extreme storm hazards and storm families.
+  Query facts settle storm absence and normal intensity; unresolved positive severity candidates
+  acquire owned loaded hazard profiles. System and planet filters share this definition. See the
+  [weather contract](../refs/search-probes-weather-contract.md) and product VALIDATION.md for
+  current evidence and pending fresh visual qualification.
 - Independent solar and planet contexts require real constructor, resource, and release contracts. A
   private context must pass serial parity before any worker call. Shared dependencies must have a
   proven lifetime and synchronization contract. If the native boundary cannot support workers,
   document the concrete limitation and retain a Rust gameplay-thread execution backend.
-- UI selection favors a Rust native GUI without a webview. Preserve F7, criteria/preset editing,
-  progress/cancellation, 100 results, Guide integration, and native navigation. Condense related
-  controls with explicit OR-within-field and AND-across-field semantics.
+- The UI is an egui library rendered into NMS’s Vulkan swapchain, with Windows/Proton input
+  integration. Gameplay controls stay in-process. A standalone development host shares the UI,
+  live-reloads source changes while NMS is stopped and uses isolated preview state. The standalone
+  preview suspends while the NMS process is running to preserve gameplay focus. Preserve F7 as the
+  in-game visibility toggle, criteria/preset editing, progress/cancellation, 100 results, Guide
+  integration and native navigation. Use a bounded in-process command queue and move persistence off
+  the render callback. Current overlay qualification is in the product’s VALIDATION.md.
 - Native hooks, resource release, callbacks, and shutdown are owned by the new runtime. Do not
   retain Python or pyMHF through a compatibility shim.
 
@@ -97,6 +112,11 @@ claiming unrequested properties. Complete cached evaluations avoid native genera
 can supplement a later query. Cached matches pause before live work and offer continuation. A cache
 result may lack a generated name; its validated address remains a usable identity. Facts and history
 are invalidated on the inspected native epoch/configuration changes; live reload verifies clearing.
+The configuration identity excludes the generator's pending-task vector and RNG. Same-system planet
+loading changes that task queue without changing the borrowed generation resources; captured flight
+replay and resource-change regression controls verify this distinction. Lifecycle, resource,
+language, difficulty and generation-option changes retain their invalidation checks. Fresh active
+search continuity during flight remains a live acceptance gate in the product's VALIDATION.md.
 
 Continuation stores the most recent 128 compiled-filter/galaxy combinations. A matching filter
 resumes its existing region and system cursor even if the player's position changed within that
@@ -120,6 +140,14 @@ old mission evaluator's additional visited-station exclusion is not a property o
 not used. The enum remains native one-based, like biome subtype. Current positive runtime controls
 cover Atlas and black holes; the other exposed native anomaly values currently have only negative
 controls.
+
+## Special planetary resources
+
+Unique resources selects Ancient bones, Salvageable scrap or Swarm debris from the generated
+resource-hint list, with independent All selected / Any selected matching. Vile Brood is an
+independent creature feature using its discovery hint. The query builds these owned observations
+before destruction, without additional asset acquisition. Evidence and current qualification are in
+the [unique-resource contract](../refs/search-probes-unique-resources-contract.md).
 
 ## Native ownership contracts
 
@@ -196,13 +224,17 @@ fixture does not control the game. Live UI integration is covered by subsequent 
 
 ## Current destination contract
 
-The native SQN_SP_NAV mission seed carries the complete validated planet address. A hook on the
-verified scan dispatcher reconstructs the owned FromList address from that seed. The native local
-building resolver and its planet predicate are scoped to the exact owned event and mission context;
-only the chosen planet qualifies. A fallback on a different planet is rejected before publication.
-All other native missions retain their ordinary selection logic. The native mission owns
-save/reload, route, completion and abandonment. No external target file or Python mission
-implementation remains.
+Search results carry an address and a planet or system target kind. With no planet predicates, each
+matching system produces one system result for every population type. System addresses use native
+planet index zero. Portal export chooses the first planet as entry into the system. Result cards
+show generated names. System naming runs on the gameplay thread only for unnamed visible matches and
+retains names in the bounded fact cache.
+
+The two native missions carry the validated address in their seed. The scan dispatcher restores the
+owned FromList address from that seed. Planet targets scope the native local building resolver and
+planet predicate to the selected planet and reject fallback on another planet. System completion
+requires the native local scan-event condition. These changes are scoped to the owned event and
+mission context. Native missions own save/reload, routes, completion and abandonment.
 
 Guide launch intercepts the exact nine owned IDs at the native mission starter and queues a bounded
 slot/epoch request for gameplay. Guide definitions have no scan requests or stages. The current
@@ -277,11 +309,18 @@ focused release-verification artifact. No Nexus upload was performed.
 
 A user-initiated million-system search is separate from the bounded agent acceptance corpus. Do not
 claim that no large search has ever run; no such search was initiated by the agent. Earlier
-billion-system throughput limitations remain. System-location changes alone do not redirect the
-stored frontier, but a warp or teleport may trigger native resource/lifecycle invalidation. An
-actual warp during an active search has not been validated and uninterrupted continuation must not
-be promised. Configuration invalidation is supported by inspected native fields and actual reload,
-not a live language/difficulty-change experiment.
+billion-system throughput limitations remain. Searches retain their starting origin and publish
+matches while running. Temporary resource unavailability suspends native calls without discarding
+progress; changed resource identities clear acquired facts and object summaries while retaining the
+frontier. Application state transitions are separate from loaded-save session boundaries. Save
+selection, title, shutdown and global loading reset the search session; language and combat
+difficulty changes also invalidate it. A search pauses when the player leaves its galaxy and resumes
+on return. Native queries read live application/root state as well as their explicit address, so
+cross-galaxy generation is outside the qualified ownership contract. Passive native capture confirms
+an operator-initiated galaxy round trip preserves the search origin and progress, pauses while away
+and during destination-system loading, and resumes on return. Remaining interaction and session
+boundary checks are identified in the product's VALIDATION.md. Raw observations remain in the
+ignored live-results-travel investigation run.
 
 ## Measurement boundaries and retained failures
 

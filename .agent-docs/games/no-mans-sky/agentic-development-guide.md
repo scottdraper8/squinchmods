@@ -60,6 +60,12 @@ Catalogue/Guide page remains data-driven and is the practical supported surface.
 
 ## Runtime safety
 
+For Search Probes, use the standalone live-reloading UI only while the NMS process is stopped.
+Suspend or close the preview before collecting live game evidence or asking the operator to travel;
+preview rebuilds must not open a window or take focus while NMS is running. The preview launcher
+automatically suspends on NMS process detection and resumes after the game exits. Keep the in-game
+overlay available during gameplay.
+
 Develop outside the live installation. `stage` is dry-run by default and `--apply` owns exactly one
 uniquely named child under `GAMEDATA/MODS`; it does not launch, enable, reorder, or clean another
 mod. Always inspect `stage-status` before removal. Do not automate Steam/Proton client QA until a

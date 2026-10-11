@@ -26,16 +26,18 @@ own terminal session; feeding its source through stdin prevents subsequent inter
 `--screenshot PATH` retains the startup checkpoint; a failure screenshot defaults to
 `/tmp/squinch-nms-launch-failure.png`.
 
-For the form itself, use the bounded evdev pointer helper after visually confirming the form window
-and target:
+For Search Probes, open the in-game overlay with F7 and visually confirm the pointer target. The
+bounded evdev pointer helper requires NMS to already have focus and fresh diagnostics to show that
+the overlay is visible and capturing input:
 
 ```bash
-games/no-mans-sky/tooling/client/form-control.py click 6500 1300
+games/no-mans-sky/tooling/client/overlay-control.py click 6500 1300
 ```
 
-It accepts only a visible `Search Probes` window, requires the target to remain inside that window,
-checks focus while converging, waits for a stable pointer position, and releases the button after a
-bounded click. Use `move` or `scroll` when selection needs separate confirmation.
+It requires the target to remain inside the visible NMS window, checks focus and overlay capture
+while converging, waits for a stable pointer position, and releases the button after a bounded
+click. It never raises or activates a window. Use `move` or `scroll` when selection needs separate
+confirmation. `--diagnostics PATH` overrides the current host’s Proton diagnostic path.
 
 The route fails closed when NMS is already running, the save profile is ambiguous, or the NMS window
 is not 3840×2160. It never uses the right-stick click bound to save deletion. After the save menu is

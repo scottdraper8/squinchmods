@@ -66,6 +66,21 @@ The exact current MBINCompiler source snapshot identifies these fixed fields in
 `0x1E48`, `0x1E50`, and `0x1E54`. The retained source evidence is
 `games/no-mans-sky/investigation-state/runs/20260912T192340Z-source-snapshot-65488937/`.
 
+The native classification in 7.06 distinguishes intensity from the extreme-weather query flag:
+
+- `ExtremeHazard` is exactly `WeatherIntensity == Extreme`; it is not an independent hazard scale.
+- `ExtremeWeather` requires Extreme intensity, an effective biome other than Lush, an original biome
+  other than Barren, and a weather type other than Clear, Dust, Humid, Bubble, Weird, or ClearCold.
+  Swamp and Lava subtypes substitute their own effective biome for this check.
+- Neither flag checks storm frequency. A no-storm result can still carry the extreme-weather flag.
+
+This relationship was traced in the installed executable and checked by emulating only its
+classification instructions over synthetic inputs, without launching the game. The reproducible
+script and raw result remain in
+`games/no-mans-sky/investigation-state/runtime/search-probes-ui-preview/validation/native-weather-classification.py`
+and the adjacent JSON artifact. This establishes flag computation, not loaded-planet hazard-drain
+rates or visual weather behavior.
+
 Current-runtime validation then copied those fields during the temporary planet destructor without
 retaining a pointer. The authoritative complete local graph covered 15,053 remote systems and 71,730
 planets. Every copied value was inside the current enum domain. Storm frequency was None on 30,862
@@ -76,9 +91,10 @@ deliberately absent Always-frequency query completed the full window without a f
 retained summary is
 `games/no-mans-sky/tooling/runtime/.resident-search/sessions/1789283539387536500-f8012cc566284ebeb53c66390b085448/results/matrix-full-1789283540088867715-summary.json`.
 
-The form exposes only positively observed current values. `Always`, `RedWeather`, `GreenWeather`,
-and `BlueWeather` remain valid diagnostic enum values but are withheld until a positive current
-runtime sample proves their generated use.
+The earlier raw-enum form withheld `Always`, `RedWeather`, `GreenWeather` and `BlueWeather`. The
+current user-facing controls derive storm behavior and warning families; see the
+[weather contract](../search-probes-weather-contract.md). The retained raw-enum audit distinguishes
+ordinary generation from seasonal overrides.
 
 The current `GcPlanetInfo` schema also has a 128-byte `Weather` localization-ID field. It does not
 provide the missing crosswalk in the offscreen search path: a current runtime probe found that field
