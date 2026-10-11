@@ -2,30 +2,31 @@
 
 ## Public criteria
 
-Fauna contains Quantity, Player-attacking fauna, Vile Brood, Titan worms and Sandworms. Quantity
-selects generated CreatureLife abundance, rather than a species count or animals visible on screen.
-Current referenced role tables use Dead, Medium and Full; the public choices omit Low.
+Fauna Criteria is a top-level peer of System Criteria and Planet Criteria. It has no overall match
+mode. General temporarily holds Quantity, Player-attacking fauna, Vile Brood, Titan worms and
+Sandworms, with its own All/Any mode. Quantity selects generated CreatureLife abundance, rather than
+a species count or animals visible on screen. Current referenced role tables use Dead, Medium and
+Full; the public choices omit Low.
 
-Aquatic Fauna, Land Fauna and Airborne Fauna are independent, initially collapsed subsections. Each
+Aquatic Fauna, Land Fauna and Airborne Fauna are independent, initially expanded subsections. Each
 offers Has <domain> fauna (Any/Require/Exclude), body family, category, activity time, rarity and
 discovery height bounds in metres. Land additionally offers Surface and Cave habitat. Choices within
-one field are alternatives. In All mode, at least one species must satisfy all the subsection's
-active criteria: a surface cat plus an unrelated cave rodent cannot satisfy Cats + Cave. In Any
-mode, a species meeting any active criterion is sufficient. Each active subsection counts as one
-criterion of its parent Fauna section, alongside Quantity, Player-attacking fauna and the encounter
-controls. The parent All mode requires every active direct criterion and subsection; Any mode
-accepts any one of them. Parent Any combined with subsection Any can therefore accept a planet
-meeting only one field in that subsection. Other planet sections remain conjunctive with the whole
-Fauna section. Empty subsections impose no requirement or species acquisition. Presence exclusions
-use completed domain observations; unavailable species facts never establish absence. A settled
-parent avoids acquiring otherwise unresolved child facts.
+one field are alternatives. In All mode, at least one species must satisfy all active species
+criteria: a surface cat plus an unrelated cave rodent cannot satisfy Cats + Cave. In Any mode, a
+species meeting any active criterion is sufficient.
 
-The presence control is one ordinary criterion inside its subsection. Require establishes that the
+Every active subsection must pass, including General, alongside the other active planet and system
+sections. Different fauna subsections can match different creatures. General Any cannot bypass
+another subsection. Empty subsections impose no requirement or species acquisition. There is no
+parent aggregation, parent match-mode preset key or compatibility mapping for the removed mode. A
+settled subsection avoids only its own remaining acquisitions.
+
+The presence control is one ordinary criterion inside its subsection. Require establishes that its
 domain exists; Exclude establishes that it is absent; Any adds no requirement. In subsection Any
-mode, another matching field can satisfy the subsection even when its presence criterion fails. For
-example, Land Exclude + Cats accepts a planet with cats in Any mode, and rejects it in All mode. To
-require aquatic, land and airborne populations together, select Require in all three subsections and
-All in the parent Fauna section.
+mode, another matching field can satisfy the subsection even when its presence criterion fails. Land
+Exclude + Cats accepts a planet with cats in Any mode, and rejects it in All mode. Require in each
+of Aquatic, Land and Airborne selects a planet with all three populations. Presence exclusions use
+completed observations; unavailable species facts never establish absence.
 
 The four discovery/taming suitability controls have no public model, native query readers, UI,
 preset parser or authored mission leaves. Their native mission-placement flags are unsuitable
@@ -182,3 +183,9 @@ The existing Player-attacking fauna control has operator acceptance. The domain 
 is installed in NMS and Amethyst but has no fresh in-game acceptance. Candidate searches with
 positive/negative species and worm controls, cache parity and visible labels remain required. The
 standalone preview stays closed while NMS runs, following the development guide.
+
+The installed checkpoint precedes the independent Fauna Criteria layout. That layout and the move of
+development tooling to the parent repository are source changes displayed in the standalone preview
+for operator review; they have not been installed. Their focused qualification and retained checks
+are in
+`games/no-mans-sky/investigation-state/runtime/search-probes-ui-preview/validation/fauna-criteria-layout/`.
