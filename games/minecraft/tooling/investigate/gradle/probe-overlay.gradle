@@ -200,8 +200,11 @@ gradle.beforeProject { project ->
         def probeSourceSet = project.sourceSets.create("squinchProbe") {
             java.srcDirs(sourceRoots)
             resources.srcDirs(resourceRoots)
-            compileClasspath += project.sourceSets.main.output + project.configurations.compileClasspath
+            compileClasspath += project.sourceSets.main.output.classesDirs + project.configurations.compileClasspath
             runtimeClasspath += output + compileClasspath + project.configurations.runtimeClasspath
+        }
+        project.tasks.named(probeSourceSet.compileJavaTaskName).configure { task ->
+            task.dependsOn(project.tasks.named(project.sourceSets.main.classesTaskName))
         }
         project.tasks.named(probeSourceSet.processResourcesTaskName).configure { task ->
             def archivesName = project.archivesBaseName.toString().toLowerCase(Locale.ROOT)
@@ -264,9 +267,9 @@ displayName = "Squinch Investigation Probe"
             from(probeSourceSet.output)
             dependsOn(project.tasks.named(probeSourceSet.classesTaskName))
         }
-        if (loaderProperty == "neoforge" && productionProperty) {
-            if (clientRunDirProperty == null || neoForgeClientHomeProperty == null
-                    || launcherProfileTemplateProperty == null) {
+        if (loaderProperty == "neoforge" && productionProperty
+                && clientRunDirProperty != null) {
+            if (neoForgeClientHomeProperty == null || launcherProfileTemplateProperty == null) {
                 throw new GradleException("NeoForge production client requires run, client-home, and profile-template paths")
             }
             def clientHome = new File(neoForgeClientHomeProperty).canonicalFile
@@ -339,6 +342,24 @@ displayName = "Squinch Investigation Probe"
                 task.runDir.set(new File(clientRunDirProperty).canonicalFile)
 			task.jvmArgs.add("-Xmx24G")
                 task.jvmArgs.add("-XX:ActiveProcessorCount=8")
+            }
+        }
+        if (loaderProperty == "fabric" && productionProperty) {
+            project.afterEvaluate {
+                if (project.tasks.findByName("prodServer") == null) {
+                    def loomPlugin = project.plugins.findPlugin("dev.architectury.loom")
+                            ?: project.plugins.findPlugin("fabric-loom")
+                    def productionServerType = loomPlugin.class.classLoader.loadClass(
+                            "net.fabricmc.loom.task.prod.ServerProductionRunTask")
+                    project.tasks.register("prodServer", productionServerType) { task ->
+                        task.group = "squinch"
+                        task.description = "Runs an isolated production-mapped Fabric server"
+                        task.loaderVersion = project.rootProject.property("fabric_loader_version").toString()
+                        task.minecraftVersion = project.rootProject.property("minecraft_version").toString()
+                        task.runDir = project.file("run")
+                        task.jvmArgs.add("-Xmx4G")
+                    }
+                }
             }
         }
         def attachProbe = { names, selectedProbeJar ->

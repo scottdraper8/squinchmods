@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import probe_overlay
 from squinch_minecraft_investigate.errors import InvestigationError
 
 
-def _pack(root: Path, *, source: str = "src/main/java", resource: str = "src/main/resources") -> None:
+def _pack(
+    root: Path, *, source: str = "src/main/java", resource: str = "src/main/resources"
+) -> None:
     (root / source).mkdir(parents=True, exist_ok=True)
     (root / resource).mkdir(parents=True, exist_ok=True)
     (root / "probe-pack.toml").write_text(
@@ -68,19 +69,39 @@ def test_probe_pack_required_source_paths_defaults_to_empty(tmp_path: Path) -> N
     assert details["required_source_paths"] == []
 
 
-def test_validate_required_source_paths_rejects_missing_directory(tmp_path: Path) -> None:
+def test_validate_required_source_paths_rejects_missing_directory(
+    tmp_path: Path,
+) -> None:
     project = tmp_path / "project"
     project.mkdir()
-    packs = [{"id": "test-pack", "required_source_paths": ["common/src/missing/package"]}]
+    packs = [
+        {"id": "test-pack", "required_source_paths": ["common/src/missing/package"]}
+    ]
     with pytest.raises(InvestigationError, match="does not exist"):
         probe_overlay._validate_required_source_paths(project, packs)
 
 
-def test_validate_required_source_paths_passes_when_directory_exists(tmp_path: Path) -> None:
+def test_validate_required_source_paths_passes_when_directory_exists(
+    tmp_path: Path,
+) -> None:
     project = tmp_path / "project"
     (project / "common/src/existing/package").mkdir(parents=True)
-    packs = [{"id": "test-pack", "required_source_paths": ["common/src/existing/package"]}]
+    packs = [
+        {"id": "test-pack", "required_source_paths": ["common/src/existing/package"]}
+    ]
     probe_overlay._validate_required_source_paths(project, packs)
+
+
+def test_production_probe_overlay_sets_gradle_production_flag() -> None:
+    arguments, _details = probe_overlay.probe_overlay_command("fabric", production=True)
+    assert "-PsquinchProbeProduction=true" in arguments
+
+
+def test_development_probe_overlay_omits_gradle_production_flag() -> None:
+    arguments, _details = probe_overlay.probe_overlay_command(
+        "fabric", production=False
+    )
+    assert "-PsquinchProbeProduction=true" not in arguments
 
 
 def test_probe_pack_rejects_input_directory_outside_its_root(tmp_path: Path) -> None:

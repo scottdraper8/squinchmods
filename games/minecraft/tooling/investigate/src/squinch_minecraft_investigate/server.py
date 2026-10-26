@@ -47,7 +47,7 @@ from .processes import (
     stop_service,
 )
 from .rcon import RconError, execute
-from .state import atomic_write_json, project_lock, read_json
+from .state import atomic_write_json, blocking_lock, project_lock, read_json
 
 OWNERSHIP = "squinch-minecraft-investigate"
 DEVELOPMENT_PROBE_JAR = "squinch-investigate-probe.jar"
@@ -58,9 +58,15 @@ PRODUCTION_SERVER_JARS = (
 )
 STARTUP_TERMINAL_LOG_MARKERS = (
     "Failed to start the minecraft server",
+    "Encountered an unexpected exception",
+    "Description: Exception generating new chunk",
+    "net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible",
+    "Unable to initialise RCON",
+    "FTF generator stage PLACED_FEATURES is unavailable",
+    "Feature order cycle found",
     "FAILURE: Build failed with an exception.",
     "BUILD FAILED",
-    "Exception in thread \"main\"",
+    'Exception in thread "main"',
     "finished with non-zero exit value",
 )
 STARTUP_LOG_TAIL_BYTES = 128 * 1024
@@ -68,6 +74,75 @@ STARTUP_LOG_EXCERPT_LINES = 40
 PROTOCOL_READY_PATTERN = re.compile(
     r"\[squinch-investigate] protocol ready run=([A-Za-z0-9-]+) pid=(\d+)"
 )
+
+
+def _reserved_server_ports() -> set[int]:
+    reserved: set[int] = set()
+    for path in (RUNS_ROOT.parent / "active").glob("*.json"):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            if value.get("ownership") != OWNERSHIP:
+                continue
+            reserved.update(int(port) for port in value.get("ports", {}).values())
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    reservations_root = RUNS_ROOT.parent / "locks" / "server-port-reservations"
+    reservations_root.mkdir(parents=True, exist_ok=True)
+    for path in reservations_root.glob("*.json"):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            owner = value["process"]
+            if value.get("ownership") != OWNERSHIP or not identity_matches(owner):
+                path.unlink(missing_ok=True)
+                continue
+            reserved.update(int(port) for port in value.get("ports", {}).values())
+        except (OSError, KeyError, ValueError, TypeError, json.JSONDecodeError):
+            with contextlib.suppress(OSError):
+                path.unlink()
+    return reserved
+
+
+def _reserve_server_ports(
+    run_id: str,
+    owner: dict,
+    server_port: int | None,
+    rcon_port: int | None,
+) -> tuple[int, int, Path]:
+    locks_root = RUNS_ROOT.parent / "locks"
+    reservation = locks_root / "server-port-reservations" / f"{run_id}.json"
+    with blocking_lock(locks_root / "server-port-allocation.lock"):
+        reserved = _reserved_server_ports()
+
+        def choose(requested: int | None) -> int:
+            if requested is not None:
+                if requested in reserved or not port_is_available(requested):
+                    raise InvestigationError(
+                        "port_in_use", f"port is already reserved: {requested}"
+                    )
+                return requested
+            while True:
+                candidate = free_port()
+                if candidate not in reserved and port_is_available(candidate):
+                    return candidate
+
+        chosen_server_port = choose(server_port)
+        reserved.add(chosen_server_port)
+        chosen_rcon_port = choose(rcon_port)
+        atomic_write_json(
+            reservation,
+            {
+                "ownership": OWNERSHIP,
+                "run_id": run_id,
+                "process": owner,
+                "ports": {"server": chosen_server_port, "rcon": chosen_rcon_port},
+            },
+        )
+    return chosen_server_port, chosen_rcon_port, reservation
+
+
+def _release_server_port_reservation(path: Path) -> None:
+    with contextlib.suppress(FileNotFoundError):
+        path.unlink()
 
 
 def new_run_id() -> str:
@@ -96,6 +171,15 @@ def sourced_environment() -> dict[str, str]:
     return environment
 
 
+def gradle_project_cache_arguments() -> list[str]:
+    value = os.environ.get("SQUINCH_GRADLE_PROJECT_CACHE_DIR")
+    if not value:
+        return []
+    path = Path(value).expanduser().resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return ["--project-cache-dir", str(path)]
+
+
 def _backup_file(
     path: Path, artifact_dir: Path, backup_relative: Path | None = None
 ) -> dict:
@@ -114,7 +198,8 @@ def _backup_file(
         backup = (managed_root / relative).resolve()
         if backup == managed_root or not backup.is_relative_to(managed_root):
             raise InvestigationError(
-                "unsafe_managed_file", f"managed backup escapes its artifact directory: {backup}"
+                "unsafe_managed_file",
+                f"managed backup escapes its artifact directory: {backup}",
             )
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, backup)
@@ -144,9 +229,15 @@ def _restore_managed_files(state: dict) -> list[str]:
             if record["existed"]:
                 backup = Path(record["backup"]).resolve()
                 if "artifact_dir" in state:
-                    managed_root = (Path(state["artifact_dir"]) / "managed-files").resolve()
-                    if backup == managed_root or not backup.is_relative_to(managed_root):
-                        raise ValueError("managed backup is outside the artifact directory")
+                    managed_root = (
+                        Path(state["artifact_dir"]) / "managed-files"
+                    ).resolve()
+                    if backup == managed_root or not backup.is_relative_to(
+                        managed_root
+                    ):
+                        raise ValueError(
+                            "managed backup is outside the artifact directory"
+                        )
                 if backup.is_symlink() or not backup.is_file():
                     raise FileNotFoundError(f"backup missing: {backup}")
                 shutil.copy2(backup, path)
@@ -169,13 +260,18 @@ def _remove_protocol_files(state: dict) -> list[str]:
     for directory in allowed_directories:
         if directory.exists():
             if directory.is_symlink() or not directory.is_dir():
-                failures.append(f"{directory}: protocol child is not a regular directory")
+                failures.append(
+                    f"{directory}: protocol child is not a regular directory"
+                )
                 continue
             candidates.extend(sorted(directory.iterdir()))
     for path in candidates:
         try:
             relative = path.relative_to(root)
-            if len(relative.parts) != 2 or root / relative.parts[0] not in allowed_directories:
+            if (
+                len(relative.parts) != 2
+                or root / relative.parts[0] not in allowed_directories
+            ):
                 raise ValueError("unexpected protocol path shape")
             if path.is_symlink() or not path.is_file():
                 raise ValueError("protocol target is not a regular file")
@@ -235,7 +331,9 @@ def _remove_development_probe_jar(run_dir: Path) -> list[str]:
         try:
             with zipfile.ZipFile(path) as archive:
                 if DEVELOPMENT_PROBE_MARKER not in archive.namelist():
-                    raise ValueError("reserved probe artifact lacks the ownership marker")
+                    raise ValueError(
+                        "reserved probe artifact lacks the ownership marker"
+                    )
         except zipfile.BadZipFile as exc:
             raise ValueError("reserved probe artifact is not a valid JAR") from exc
         path.unlink()
@@ -272,7 +370,9 @@ def _remove_launch_artifacts(state: dict) -> list[str]:
 def _property_text(properties: dict[str, str]) -> str:
     for key, value in properties.items():
         if not key or "=" in key or any(character in key for character in "\r\n"):
-            raise InvestigationError("invalid_property", f"invalid server property key: {key!r}")
+            raise InvestigationError(
+                "invalid_property", f"invalid server property key: {key!r}"
+            )
         if any(character in str(value) for character in "\r\n"):
             raise InvestigationError(
                 "invalid_property", f"server property {key!r} contains a newline"
@@ -291,7 +391,9 @@ def load_owned_active(project: Path, loader: str) -> dict:
     if operation not in {"server", "client", "cell-scan", "preset-fixture"}:
         raise InvestigationError("invalid_state", "active state operation is invalid")
     if Path(state.get("project", "")) != project or state.get("loader") != loader:
-        raise InvestigationError("invalid_state", "active state identity does not match request")
+        raise InvestigationError(
+            "invalid_state", "active state identity does not match request"
+        )
     run_id = state.get("run_id")
     if not isinstance(run_id, str) or not run_id or Path(run_id).name != run_id:
         raise InvestigationError("invalid_state", "active state has an invalid run ID")
@@ -321,32 +423,53 @@ def load_owned_active(project: Path, loader: str) -> dict:
         not isinstance(service, dict)
         or service.get("unit") != expected_unit
         or not isinstance(service.get("cgroup"), str)
-        or not (service["cgroup"].startswith("/") or (launching and not service["cgroup"]))
         or not (
-            launching and wrapper is None
-            or isinstance(wrapper, dict) and _valid_process_identity(wrapper)
+            service["cgroup"].startswith("/") or (launching and not service["cgroup"])
+        )
+        or not (
+            launching
+            and wrapper is None
+            or isinstance(wrapper, dict)
+            and _valid_process_identity(wrapper)
         )
     ):
-        raise InvestigationError("invalid_state", "active state process service is invalid")
+        raise InvestigationError(
+            "invalid_state", "active state process service is invalid"
+        )
     launcher = state.get("launcher")
     if not isinstance(launcher, dict) or not _valid_process_identity(launcher):
-        raise InvestigationError("invalid_state", "active state launcher identity is invalid")
+        raise InvestigationError(
+            "invalid_state", "active state launcher identity is invalid"
+        )
     process = state.get("process")
     if not (
-        launching and process is None
-        or isinstance(process, dict) and _valid_process_identity(process)
+        launching
+        and process is None
+        or isinstance(process, dict)
+        and _valid_process_identity(process)
     ):
-        raise InvestigationError("invalid_state", "active state process identity is invalid")
+        raise InvestigationError(
+            "invalid_state", "active state process identity is invalid"
+        )
     owned_processes = state.get("owned_processes")
     if (
         not isinstance(owned_processes, list)
         or (not launching and not owned_processes)
-        or not all(isinstance(item, dict) and _valid_process_identity(item) for item in owned_processes)
+        or not all(
+            isinstance(item, dict) and _valid_process_identity(item)
+            for item in owned_processes
+        )
     ):
-        raise InvestigationError("invalid_state", "active state owned process identities are invalid")
+        raise InvestigationError(
+            "invalid_state", "active state owned process identities are invalid"
+        )
     if operation == "client":
         display = state.get("display")
-        display_root = Path(display.get("runtime_root", "")) if isinstance(display, dict) else Path()
+        display_root = (
+            Path(display.get("runtime_root", ""))
+            if isinstance(display, dict)
+            else Path()
+        )
         expected_display = display_root / f"squinch-{run_id[-10:]}"
         if (
             not isinstance(display, dict)
@@ -355,7 +478,9 @@ def load_owned_active(project: Path, loader: str) -> dict:
             or display.get("backend") != "headless"
             or display.get("wayland_display") != expected_display.name
         ):
-            raise InvestigationError("invalid_state", "active client display ownership is invalid")
+            raise InvestigationError(
+                "invalid_state", "active client display ownership is invalid"
+            )
     return state
 
 
@@ -363,14 +488,17 @@ def load_active(project: Path, loader: str) -> dict:
     state = load_owned_active(project, loader)
     if state["operation"] != "server":
         raise InvestigationError(
-            "operation_mismatch", f"active operation is {state['operation']}, not server"
+            "operation_mismatch",
+            f"active operation is {state['operation']}, not server",
         )
     expected_level_name = f"squinch-{state['run_id'].lower()}"
     expected_world = Path(state["run_dir"]) / expected_level_name
     if state.get("level_name") != expected_level_name:
         raise InvestigationError("invalid_state", "active state level name is invalid")
     if Path(state.get("world_dir", "")) != expected_world:
-        raise InvestigationError("invalid_state", "active state world directory is invalid")
+        raise InvestigationError(
+            "invalid_state", "active state world directory is invalid"
+        )
     if state.get("retention") not in {"discard", "keep-on-failure", "keep"}:
         raise InvestigationError("invalid_state", "active state retention is invalid")
     return state
@@ -381,8 +509,11 @@ def _valid_process_identity(value: dict) -> bool:
         isinstance(value.get(field), int) and not isinstance(value.get(field), bool)
         for field in ("pid", "ppid", "pgrp", "session", "start_ticks")
     )
-    return typed and value["pid"] > 0 and value["start_ticks"] > 0 and all(
-        value[field] >= 0 for field in ("ppid", "pgrp", "session")
+    return (
+        typed
+        and value["pid"] > 0
+        and value["start_ticks"] > 0
+        and all(value[field] >= 0 for field in ("ppid", "pgrp", "session"))
     )
 
 
@@ -440,7 +571,10 @@ def uninterruptible_owned_processes(
                 raise InvestigationError(
                     "host_health_inconclusive",
                     "owned-process health scan exceeded its global time budget",
-                    details={"active_root": str(active_root), "timeout_seconds": timeout},
+                    details={
+                        "active_root": str(active_root),
+                        "timeout_seconds": timeout,
+                    },
                 )
             actual = proc_identity(int(expected["pid"]))
             if actual is None or actual["state"] != "D":
@@ -449,13 +583,15 @@ def uninterruptible_owned_processes(
                 actual.get(field) == expected.get(field)
                 for field in ("pid", "start_ticks", "pgrp", "session")
             ):
-                blocked.append({
-                    "active_path": str(path),
-                    "run_id": state.get("run_id"),
-                    "project": state.get("project"),
-                    "loader": state.get("loader"),
-                    "process": actual,
-                })
+                blocked.append(
+                    {
+                        "active_path": str(path),
+                        "run_id": state.get("run_id"),
+                        "project": state.get("project"),
+                        "loader": state.get("loader"),
+                        "process": actual,
+                    }
+                )
     return blocked
 
 
@@ -474,7 +610,9 @@ def _signal_owned_processes(
         raise service_failure
 
 
-def _wait_owned_exit(state: dict, timeout: float, *, signal_new: signal.Signals | None = None) -> bool:
+def _wait_owned_exit(
+    state: dict, timeout: float, *, signal_new: signal.Signals | None = None
+) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         before = len(state.get("owned_processes", []))
@@ -521,6 +659,17 @@ def _wait_graceful_server_exit(state: dict, timeout: float) -> bool:
     return not _refresh_owned_processes(state, timeout=0.0)
 
 
+def _startup_log_excerpt(log_path: Path) -> str | None:
+    try:
+        with log_path.open("rb") as log_file:
+            size = log_file.seek(0, os.SEEK_END)
+            log_file.seek(max(0, size - STARTUP_LOG_TAIL_BYTES))
+            tail = log_file.read().decode("utf-8", errors="replace")
+    except (FileNotFoundError, OSError):
+        return None
+    return "\n".join(tail.splitlines()[-STARTUP_LOG_EXCERPT_LINES:])
+
+
 def _startup_terminal_log(log_path: Path) -> str | None:
     try:
         with log_path.open("rb") as log_file:
@@ -529,10 +678,32 @@ def _startup_terminal_log(log_path: Path) -> str | None:
             tail = log_file.read().decode("utf-8", errors="replace")
     except (FileNotFoundError, OSError):
         return None
-    if not any(marker in tail for marker in STARTUP_TERMINAL_LOG_MARKERS):
-        return None
     lines = tail.splitlines()
-    return "\n".join(lines[-STARTUP_LOG_EXCERPT_LINES:])
+    marker_index = next(
+        (
+            index
+            for index in range(len(lines) - 1, -1, -1)
+            if any(marker in lines[index] for marker in STARTUP_TERMINAL_LOG_MARKERS)
+        ),
+        None,
+    )
+    if marker_index is None:
+        return None
+    before = min(5, marker_index)
+    start = marker_index - before
+    end = min(len(lines), start + STARTUP_LOG_EXCERPT_LINES)
+    return "\n".join(lines[start:end])
+
+
+def _startup_diagnostic_log(log_path: Path) -> list[str]:
+    try:
+        with log_path.open("rb") as log_file:
+            size = log_file.seek(0, os.SEEK_END)
+            log_file.seek(max(0, size - STARTUP_LOG_TAIL_BYTES))
+            lines = log_file.read().decode("utf-8", errors="replace").splitlines()
+    except (FileNotFoundError, OSError):
+        return []
+    return [line for line in lines if "SQUINCH_" in line][-200:]
 
 
 def _protocol_process_pid(log_path: Path, run_id: str) -> int | None:
@@ -544,7 +715,10 @@ def _protocol_process_pid(log_path: Path, run_id: str) -> int | None:
     except (FileNotFoundError, OSError):
         return None
     matches = PROTOCOL_READY_PATTERN.findall(tail)
-    return next((int(pid) for marker_run, pid in reversed(matches) if marker_run == run_id), None)
+    return next(
+        (int(pid) for marker_run, pid in reversed(matches) if marker_run == run_id),
+        None,
+    )
 
 
 def _rollback_server_files(
@@ -565,13 +739,17 @@ def _rollback_server_files(
             target.unlink(missing_ok=True)
         except OSError as failure:
             failures.append(f"companion {target}: {failure}")
-    failures.extend(_restore_managed_files({
-        "run_dir": str(run_dir),
-        "artifact_dir": str(artifact_dir),
-        "managed_files": managed_files,
-        "runtime_files": runtime_files,
-        "runtime_absent_files": runtime_absent_files,
-    }))
+    failures.extend(
+        _restore_managed_files(
+            {
+                "run_dir": str(run_dir),
+                "artifact_dir": str(artifact_dir),
+                "managed_files": managed_files,
+                "runtime_files": runtime_files,
+                "runtime_absent_files": runtime_absent_files,
+            }
+        )
+    )
     if world_dir.exists():
         try:
             if world_dir.is_symlink() or not world_dir.is_dir():
@@ -630,12 +808,19 @@ def start_server(
             "process_identity_failed", "could not retain server launcher identity"
         )
     compile_artifacts = probe_compile_artifacts or []
-    if any(mapping not in {"named", "loader"} for _artifact, mapping in compile_artifacts):
+    if any(
+        mapping not in {"named", "loader"} for _artifact, mapping in compile_artifacts
+    ):
         raise InvestigationError(
-            "probe_compile_artifact_invalid", "probe compile artifact mapping must be named or loader"
+            "probe_compile_artifact_invalid",
+            "probe compile artifact mapping must be named or loader",
         )
     overlay_arguments, overlay_details = probe_overlay_command(
-        loader, probe_packs, tuple(compile_artifacts), project=probe_source_project or project,
+        loader,
+        probe_packs,
+        tuple(compile_artifacts),
+        project=probe_source_project or project,
+        production=launch_task == "prodServer",
     )
     tracked_status_before = git_status(project)
     with project_lock(lock_path(project, loader)):
@@ -643,7 +828,8 @@ def start_server(
             existing = load_owned_active(project, loader)
             process = existing["process"]
             if (
-                isinstance(process, dict) and identity_matches(process)
+                isinstance(process, dict)
+                and identity_matches(process)
                 or service_members(existing["service"])
             ):
                 raise InvestigationError(
@@ -675,14 +861,71 @@ def start_server(
         level_name = f"squinch-{run_id.lower()}"
         world_dir = run_dir / level_name
         log_path = artifact_dir / "server.log"
-        chosen_server_port = server_port or free_port()
-        chosen_rcon_port = rcon_port or free_port()
-        if chosen_server_port == chosen_rcon_port:
-            chosen_rcon_port = free_port()
-        for port in (chosen_server_port, chosen_rcon_port):
-            if not port_is_available(port):
-                raise InvestigationError("port_in_use", f"port is already bound: {port}")
+        resolved_datapacks = [source.expanduser().resolve() for source in datapacks]
+        missing = [source for source in resolved_datapacks if not source.is_file()]
+        if missing:
+            raise InvestigationError(
+                "datapack_not_found", f"datapack not found: {missing[0]}"
+            )
+        names = [source.name for source in resolved_datapacks]
+        if len(names) != len(set(names)):
+            raise InvestigationError(
+                "duplicate_datapack", "two datapacks have the same filename"
+            )
+        resolved_runtime_files: list[dict[str, str]] = []
+        config_root = (run_dir / "config").resolve()
+        for source_value, target_value in runtime_files or []:
+            source = source_value.expanduser().resolve()
+            target = (run_dir / target_value).resolve()
+            if not source.is_file() or source.is_symlink():
+                raise InvestigationError(
+                    "runtime_file_not_found",
+                    f"runtime file is not a regular file: {source}",
+                )
+            if not target.is_relative_to(config_root) or target == config_root:
+                raise InvestigationError(
+                    "unsafe_runtime_file",
+                    f"runtime file target escapes config directory: {target_value}",
+                )
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise InvestigationError(
+                    "unsafe_runtime_file",
+                    f"runtime file target is not a regular file: {target}",
+                )
+            resolved_runtime_files.append(
+                {
+                    "source": str(source),
+                    "target": str(target),
+                    "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                }
+            )
+        resolved_runtime_absent_files: list[str] = []
+        for target_value in runtime_absent_files or []:
+            target = (run_dir / target_value).resolve()
+            if not target.is_relative_to(config_root) or target == config_root:
+                raise InvestigationError(
+                    "unsafe_runtime_file",
+                    f"absent runtime file target escapes config directory: {target_value}",
+                )
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise InvestigationError(
+                    "unsafe_runtime_file",
+                    f"absent runtime file target is not a regular file: {target}",
+                )
+            resolved_runtime_absent_files.append(str(target))
+        managed_targets = [record["target"] for record in resolved_runtime_files]
+        managed_targets.extend(resolved_runtime_absent_files)
+        if len(set(managed_targets)) != len(managed_targets):
+            raise InvestigationError(
+                "duplicate_runtime_file", "runtime file targets must be unique"
+            )
 
+        chosen_server_port, chosen_rcon_port, port_reservation = _reserve_server_ports(
+            run_id,
+            launcher,
+            server_port,
+            rcon_port,
+        )
         password = secrets.token_hex(24)
         effective_properties = {
             "enable-rcon": "true",
@@ -707,58 +950,14 @@ def start_server(
             }
         )
         property_text = _property_text(effective_properties)
-        resolved_datapacks = [source.expanduser().resolve() for source in datapacks]
-        missing = [source for source in resolved_datapacks if not source.is_file()]
-        if missing:
-            raise InvestigationError("datapack_not_found", f"datapack not found: {missing[0]}")
-        names = [source.name for source in resolved_datapacks]
-        if len(names) != len(set(names)):
-            raise InvestigationError("duplicate_datapack", "two datapacks have the same filename")
-        resolved_runtime_files: list[dict[str, str]] = []
-        config_root = (run_dir / "config").resolve()
-        for source_value, target_value in runtime_files or []:
-            source = source_value.expanduser().resolve()
-            target = (run_dir / target_value).resolve()
-            if not source.is_file() or source.is_symlink():
-                raise InvestigationError(
-                    "runtime_file_not_found", f"runtime file is not a regular file: {source}"
-                )
-            if not target.is_relative_to(config_root) or target == config_root:
-                raise InvestigationError(
-                    "unsafe_runtime_file", f"runtime file target escapes config directory: {target_value}"
-                )
-            if target.is_symlink() or (target.exists() and not target.is_file()):
-                raise InvestigationError(
-                    "unsafe_runtime_file", f"runtime file target is not a regular file: {target}"
-                )
-            resolved_runtime_files.append({
-                "source": str(source),
-                "target": str(target),
-                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-            })
-        resolved_runtime_absent_files: list[str] = []
-        for target_value in runtime_absent_files or []:
-            target = (run_dir / target_value).resolve()
-            if not target.is_relative_to(config_root) or target == config_root:
-                raise InvestigationError(
-                    "unsafe_runtime_file", f"absent runtime file target escapes config directory: {target_value}"
-                )
-            if target.is_symlink() or (target.exists() and not target.is_file()):
-                raise InvestigationError(
-                    "unsafe_runtime_file", f"absent runtime file target is not a regular file: {target}"
-                )
-            resolved_runtime_absent_files.append(str(target))
-        managed_targets = [record["target"] for record in resolved_runtime_files]
-        managed_targets.extend(resolved_runtime_absent_files)
-        if len(set(managed_targets)) != len(managed_targets):
-            raise InvestigationError("duplicate_runtime_file", "runtime file targets must be unique")
-
-        artifact_dir.mkdir(parents=True, exist_ok=False)
         managed_files: list[dict] = []
         installed_companion_artifacts: list[dict[str, str]] = []
         try:
+            artifact_dir.mkdir(parents=True, exist_ok=False)
             managed_files.append(_backup_file(run_dir / "eula.txt", artifact_dir))
-            managed_files.append(_backup_file(run_dir / "server.properties", artifact_dir))
+            managed_files.append(
+                _backup_file(run_dir / "server.properties", artifact_dir)
+            )
             for record in resolved_runtime_files:
                 target = Path(record["target"])
                 managed_files.append(
@@ -802,6 +1001,7 @@ def start_server(
                     installed_companion_artifacts.append(installed)
                     shutil.copy2(source, target)
         except BaseException as original:
+            _release_server_port_reservation(port_reservation)
             cleanup_failures = _rollback_server_files(
                 run_dir=run_dir,
                 world_dir=world_dir,
@@ -830,6 +1030,7 @@ def start_server(
             f":{loader}:{launch_task}",
             "--console=plain",
             "--no-daemon",
+            *gradle_project_cache_arguments(),
             *overlay_arguments,
         ]
         started_at = timestamp()
@@ -868,7 +1069,9 @@ def start_server(
                 "process": wrapper_identity,
                 "service": launched_service,
                 "launcher": launcher,
-                "owned_processes": [wrapper_identity] if wrapper_identity is not None else [],
+                "owned_processes": [wrapper_identity]
+                if wrapper_identity is not None
+                else [],
                 "managed_files": managed_files,
                 "runtime_files": resolved_runtime_files,
                 "runtime_absent_files": resolved_runtime_absent_files,
@@ -889,12 +1092,22 @@ def start_server(
                 "cleanup": {"complete": False, "failures": []},
             }
             launch_owned = True
-            _write_active(state)
+            try:
+                _write_active(state)
+            finally:
+                _release_server_port_reservation(port_reservation)
 
         try:
             with log_path.open("wb") as log_file:
                 launch_environment = sourced_environment()
                 launch_environment["SQUINCH_INVESTIGATE_RUN_ID"] = run_id
+                # Managed investigation servers are unattended. Force AWT headless mode so a
+                # subject project's development run configuration cannot open a Swing server
+                # window and steal focus after removing Loom's ordinary `nogui` argument.
+                java_options = launch_environment.get("JAVA_TOOL_OPTIONS", "").strip()
+                launch_environment["JAVA_TOOL_OPTIONS"] = (
+                    f"{java_options} -Djava.awt.headless=true".strip()
+                )
                 process, service, identity = launch_service(
                     unit=f"squinch-mc-{run_id.lower()}.service",
                     command=command,
@@ -910,6 +1123,7 @@ def start_server(
             state["owned_processes"] = [identity, service["wrapper"]]
             _write_active(state)
         except BaseException as original:
+            _release_server_port_reservation(port_reservation)
             cleanup_failures: list[str] = []
             owned_process_alive = False
             if launch_owned and state is not None:
@@ -928,16 +1142,18 @@ def start_server(
                         active.unlink()
                     except OSError as failure:
                         cleanup_failures.append(f"active state {active}: {failure}")
-                cleanup_failures.extend(_rollback_server_files(
-                    run_dir=run_dir,
-                    world_dir=world_dir,
-                    artifact_dir=artifact_dir,
-                    managed_files=managed_files,
-                    runtime_files=resolved_runtime_files,
-                    runtime_absent_files=resolved_runtime_absent_files,
-                    companion_artifacts=installed_companion_artifacts,
-                    remove_artifact_dir=not cleanup_failures,
-                ))
+                cleanup_failures.extend(
+                    _rollback_server_files(
+                        run_dir=run_dir,
+                        world_dir=world_dir,
+                        artifact_dir=artifact_dir,
+                        managed_files=managed_files,
+                        runtime_files=resolved_runtime_files,
+                        runtime_absent_files=resolved_runtime_absent_files,
+                        companion_artifacts=installed_companion_artifacts,
+                        remove_artifact_dir=not cleanup_failures,
+                    )
+                )
             elif state is not None:
                 state["lifecycle"] = "cleanup_failed"
                 state["failure"] = str(original)
@@ -945,7 +1161,9 @@ def start_server(
                 try:
                     _write_active(state)
                 except OSError as failure:
-                    cleanup_failures.append(f"could not retain active recovery state: {failure}")
+                    cleanup_failures.append(
+                        f"could not retain active recovery state: {failure}"
+                    )
                     with contextlib.suppress(OSError):
                         _write_manifest(state)
             if cleanup_failures:
@@ -973,14 +1191,21 @@ def start_server(
                 raise InvestigationError(
                     "startup_exited",
                     f"server process exited with code {process.returncode} before RCON readiness",
-                    details={"log_path": str(log_path)},
+                    details={
+                        "log_path": str(log_path),
+                        "log_excerpt": _startup_log_excerpt(log_path),
+                    },
                 )
             terminal_log = _startup_terminal_log(log_path)
             if terminal_log is not None:
                 raise InvestigationError(
                     "startup_exited",
                     "launch output reported a terminal failure before RCON readiness",
-                    details={"log_path": str(log_path), "terminal_log": terminal_log},
+                    details={
+                        "log_path": str(log_path),
+                        "terminal_log": terminal_log,
+                        "diagnostic_log": _startup_diagnostic_log(log_path),
+                    },
                 )
             uninterruptible = [
                 confirmed
@@ -1009,7 +1234,9 @@ def start_server(
                     )
                 state["protocol_process"] = protocol_process
                 _write_active(state)
-            elif protocol_process is not None and not identity_matches(protocol_process):
+            elif protocol_process is not None and not identity_matches(
+                protocol_process
+            ):
                 raise InvestigationError(
                     "startup_exited",
                     "Minecraft initialized the probe boundary and exited before RCON readiness",
@@ -1042,7 +1269,11 @@ def start_server(
             raise InvestigationError(
                 "startup_timeout",
                 f"server did not authenticate over RCON within {timeout:g}s",
-                details={"log_path": str(log_path)},
+                details={
+                    "log_path": str(log_path),
+                    "log_excerpt": _startup_log_excerpt(log_path),
+                    "diagnostic_log": _startup_diagnostic_log(log_path),
+                },
             )
 
         owned = {item["pid"]: item for item in state["owned_processes"]}
@@ -1054,7 +1285,9 @@ def start_server(
         state["owned_processes"] = list(owned.values())
         state["lifecycle"] = "ready"
         state["ready_at"] = timestamp()
-        state.setdefault("timings", {})["startup_seconds"] = time.monotonic() - startup_started
+        state.setdefault("timings", {})["startup_seconds"] = (
+            time.monotonic() - startup_started
+        )
         tracked_status_after = git_status(project)
         state["probe_overlay"]["tracked_status_after_build"] = tracked_status_after
         state["probe_overlay"]["tracked_source_unchanged"] = (
@@ -1079,16 +1312,36 @@ def start_server(
         try:
             stop_server(project, loader, successful=False, timeout=15.0)
         except InvestigationError as cleanup:
-            if cleanup.code == "interrupted" and cleanup.details.get("cleanup_complete") is True:
+            if (
+                cleanup.code == "interrupted"
+                and cleanup.details.get("cleanup_complete") is True
+            ):
                 raise cleanup from original
+            startup_details = (
+                original.details if isinstance(original, InvestigationError) else {}
+            )
             raise CleanupError(
                 f"startup failed and cleanup was incomplete: {original}",
                 details={
-                    "startup_error": str(original),
-                    "cleanup_error": str(cleanup),
+                    "startup_error": {
+                        "code": (
+                            original.code
+                            if isinstance(original, InvestigationError)
+                            else type(original).__name__
+                        ),
+                        "message": str(original),
+                        "details": startup_details,
+                    },
+                    "cleanup_error": {
+                        "code": cleanup.code,
+                        "message": cleanup.message,
+                        "details": cleanup.details,
+                    },
                     "run_id": run_id,
                     "artifact_dir": str(artifact_dir),
                     "log_path": str(log_path),
+                    "log_excerpt": startup_details.get("log_excerpt"),
+                    "diagnostic_log": startup_details.get("diagnostic_log", []),
                     "cleanup_complete": False,
                 },
             ) from original
@@ -1142,7 +1395,9 @@ def _cleanup_world(state: dict, successful: bool) -> str | None:
     if keep or not world.exists():
         return str(world) if world.exists() else None
     if world.is_symlink() or not world.is_dir():
-        raise CleanupError(f"refusing to recursively remove non-directory world: {world}")
+        raise CleanupError(
+            f"refusing to recursively remove non-directory world: {world}"
+        )
     shutil.rmtree(world)
     return None
 
@@ -1155,7 +1410,9 @@ def _remove_forceload_regions(
     for region in reversed(list(state.get("forceload_regions", []))):
         remaining = min(10.0, max(0.0, deadline.remaining() - reserve_seconds))
         if remaining <= 0:
-            failures.append("shutdown timeout expired before owned forceload cleanup completed")
+            failures.append(
+                "shutdown timeout expired before owned forceload cleanup completed"
+            )
             break
         command = (
             f"forceload remove {region['block_min_x']} {region['block_min_z']} "
@@ -1172,7 +1429,12 @@ def _remove_forceload_regions(
 
 
 def _stop_server(
-    project: Path, loader: str, *, successful: bool, timeout: float, allow_orphaned_starting: bool = False
+    project: Path,
+    loader: str,
+    *,
+    successful: bool,
+    timeout: float,
+    allow_orphaned_starting: bool = False,
 ) -> dict:
     active = active_path(project, loader)
     with project_lock(lock_path(project, loader)):
@@ -1209,7 +1471,9 @@ def _stop_server(
                 run_commands(state, ["save-all flush"], remaining)
             except InvestigationError as exc:
                 failures.append(f"world save: {exc}")
-        state.setdefault("timings", {})["save_seconds"] = time.monotonic() - save_started
+        state.setdefault("timings", {})["save_seconds"] = (
+            time.monotonic() - save_started
+        )
         shutdown_started = time.monotonic()
         try:
             remaining = min(
@@ -1227,9 +1491,7 @@ def _stop_server(
 
         _refresh_owned_processes(state, timeout=deadline.remaining(1.0))
         remaining = deadline.remaining()
-        escalation_reserve = (
-            remaining if timeout < 1.0 else min(5.0, remaining / 2.0)
-        )
+        escalation_reserve = remaining if timeout < 1.0 else min(5.0, remaining / 2.0)
         graceful = _wait_graceful_server_exit(
             state, max(0.0, remaining - escalation_reserve)
         )
@@ -1269,9 +1531,7 @@ def _stop_server(
                 )
 
         try:
-            stop_service(
-                state["service"], timeout=min(0.1, deadline.remaining() / 2.0)
-            )
+            stop_service(state["service"], timeout=min(0.1, deadline.remaining() / 2.0))
         except InvestigationError as exc:
             diagnostics.append(f"service stop: {exc}")
 
@@ -1287,7 +1547,9 @@ def _stop_server(
                 try:
                     signal_recorded_process(expected, signal.SIGTERM)
                 except OSError as exc:
-                    failures.append(f"failed to signal listener pid {owner['pid']}: {exc}")
+                    failures.append(
+                        f"failed to signal listener pid {owner['pid']}: {exc}"
+                    )
 
         bound: list[int] = []
         ports_verified = False
@@ -1304,10 +1566,14 @@ def _stop_server(
         if bound:
             failures.append(f"ports remain bound: {bound}")
         elif not ports_verified:
-            failures.append("shutdown timeout expired before listener cleanup was verified")
+            failures.append(
+                "shutdown timeout expired before listener cleanup was verified"
+            )
         remaining = service_members(state["service"], timeout=deadline.remaining(1.0))
         if remaining:
-            failures.append(f"owned cgroup remains alive: {[item['pid'] for item in remaining]}")
+            failures.append(
+                f"owned cgroup remains alive: {[item['pid'] for item in remaining]}"
+            )
         remaining_owned = [
             item["pid"]
             for item in state.get("owned_processes", [])
@@ -1394,8 +1660,8 @@ def status(project: Path, loader: str) -> dict | None:
     state = load_owned_active(project, loader)
     state = dict(state)
     process = state["process"]
-    state["leader_identity_valid"] = (
-        isinstance(process, dict) and identity_matches(process)
+    state["leader_identity_valid"] = isinstance(process, dict) and identity_matches(
+        process
     )
     state["owned_pids"] = [item["pid"] for item in service_members(state["service"])]
     state["bound_ports"] = [
@@ -1416,9 +1682,9 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         from .cell_scan import recover_standalone
 
         return recover_standalone(project, loader, timeout)
-    process_alive = any(identity_matches(item) for item in state.get("owned_processes", [])) or bool(
-        service_members(state["service"])
-    )
+    process_alive = any(
+        identity_matches(item) for item in state.get("owned_processes", [])
+    ) or bool(service_members(state["service"]))
     ports_bound = any(not port_is_free(int(port)) for port in state["ports"].values())
     if process_alive or ports_bound:
         if state["lifecycle"] == "starting":
@@ -1437,9 +1703,9 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         return stop_server(project, loader, successful=False, timeout=timeout)
     with project_lock(lock_path(project, loader)):
         state = load_active(project, loader)
-        if any(identity_matches(item) for item in state.get("owned_processes", [])) or any(
-            not port_is_free(int(port)) for port in state["ports"].values()
-        ):
+        if any(
+            identity_matches(item) for item in state.get("owned_processes", [])
+        ) or any(not port_is_free(int(port)) for port in state["ports"].values()):
             raise InvestigationError(
                 "recovery_state_changed",
                 "process or listener state changed while recovery acquired its lock; retry doctor",
@@ -1464,7 +1730,9 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         _write_manifest(state)
         if failures:
             _write_active(state)
-            raise CleanupError("recovery was incomplete", details={"failures": failures})
+            raise CleanupError(
+                "recovery was incomplete", details={"failures": failures}
+            )
         Path(state["active_path"]).unlink()
         return state
 

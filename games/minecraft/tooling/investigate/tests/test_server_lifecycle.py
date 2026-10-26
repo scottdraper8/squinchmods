@@ -11,10 +11,48 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import processes, server
 from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
 from squinch_minecraft_investigate.processes import port_is_free
+
+
+def test_server_port_reservations_exclude_unbound_active_and_pending_ports(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active_root = tmp_path / "active"
+    active_root.mkdir()
+    monkeypatch.setattr(server, "RUNS_ROOT", tmp_path / "runs")
+    active_port = processes.free_port()
+    (active_root / "launching.json").write_text(
+        json.dumps(
+            {
+                "ownership": server.OWNERSHIP,
+                "ports": {"server": active_port},
+            }
+        )
+    )
+    owner = processes.proc_identity(os.getpid())
+    assert owner is not None
+
+    first_server, first_rcon, first = server._reserve_server_ports(
+        "run-one",
+        owner,
+        None,
+        None,
+    )
+    second_server, second_rcon, second = server._reserve_server_ports(
+        "run-two",
+        owner,
+        None,
+        None,
+    )
+
+    assert len({active_port, first_server, first_rcon, second_server, second_rcon}) == 5
+    with pytest.raises(InvestigationError, match="already reserved"):
+        server._reserve_server_ports("run-three", owner, first_rcon, None)
+    server._release_server_port_reservation(first)
+    server._release_server_port_reservation(second)
 
 
 def test_development_probe_cleanup_requires_marker_and_removes_owned_jar(
@@ -49,7 +87,9 @@ def test_unexpected_run_mods_reports_every_undeclared_entry(tmp_path: Path) -> N
     assert server._unexpected_run_mods(tmp_path) == [first, second]
 
 
-def test_production_launch_cleanup_removes_only_reserved_outputs(tmp_path: Path) -> None:
+def test_production_launch_cleanup_removes_only_reserved_outputs(
+    tmp_path: Path,
+) -> None:
     mods = tmp_path / "mods"
     mods.mkdir()
     probe = mods / server.DEVELOPMENT_PROBE_JAR
@@ -59,15 +99,19 @@ def test_production_launch_cleanup_removes_only_reserved_outputs(tmp_path: Path)
     for path in production:
         path.write_bytes(b"owned")
 
-    assert server._remove_launch_artifacts(
-        {"run_dir": str(tmp_path), "launch_task": "prodServer"}
-    ) == []
+    assert (
+        server._remove_launch_artifacts(
+            {"run_dir": str(tmp_path), "launch_task": "prodServer"}
+        )
+        == []
+    )
     assert not probe.exists()
     assert all(not path.exists() for path in production)
 
 
 def test_owned_service_enumerates_nested_cgroup_members(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "cgroup"
     service = root / "user.slice" / "squinch.service"
@@ -76,8 +120,22 @@ def test_owned_service_enumerates_nested_cgroup_members(
     (service / "cgroup.procs").write_text("41\n")
     (child / "cgroup.procs").write_text("42\n")
     identities = {
-        41: {"pid": 41, "ppid": 1, "pgrp": 41, "session": 41, "start_ticks": 1, "state": "S"},
-        42: {"pid": 42, "ppid": 41, "pgrp": 41, "session": 41, "start_ticks": 2, "state": "S"},
+        41: {
+            "pid": 41,
+            "ppid": 1,
+            "pgrp": 41,
+            "session": 41,
+            "start_ticks": 1,
+            "state": "S",
+        },
+        42: {
+            "pid": 42,
+            "ppid": 41,
+            "pgrp": 41,
+            "session": 41,
+            "start_ticks": 2,
+            "state": "S",
+        },
     }
     monkeypatch.setattr(processes, "CGROUP_ROOT", root)
     monkeypatch.setattr(processes, "proc_identity", lambda pid: identities.get(pid))
@@ -88,15 +146,20 @@ def test_owned_service_enumerates_nested_cgroup_members(
 
 
 def test_owned_service_resolves_a_launching_cgroup_from_its_unit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "cgroup"
     cgroup = root / "user.slice" / "squinch.service"
     cgroup.mkdir(parents=True)
     (cgroup / "cgroup.procs").write_text("41\n")
     identity = {
-        "pid": 41, "ppid": 1, "pgrp": 41, "session": 41,
-        "start_ticks": 2, "state": "S",
+        "pid": 41,
+        "ppid": 1,
+        "pgrp": 41,
+        "session": 41,
+        "start_ticks": 2,
+        "state": "S",
     }
     service = {"unit": "squinch-mc-test.service", "cgroup": ""}
     monkeypatch.setattr(processes, "CGROUP_ROOT", root)
@@ -112,7 +175,8 @@ def test_owned_service_resolves_a_launching_cgroup_from_its_unit(
 
 
 def test_service_launch_owns_command_environment_and_cgroup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     invocations: list[list[str]] = []
     published: list[dict] = []
@@ -129,12 +193,20 @@ def test_service_launch_owns_command_environment_and_cgroup(
         return Process()
 
     identity = {
-        "pid": 91, "ppid": 1, "pgrp": 91, "session": 91,
-        "start_ticks": 10, "state": "S",
+        "pid": 91,
+        "ppid": 1,
+        "pgrp": 91,
+        "session": 91,
+        "start_ticks": 10,
+        "state": "S",
     }
     wrapper_identity = {
-        "pid": 90, "ppid": 1, "pgrp": 90, "session": 90,
-        "start_ticks": 9, "state": "S",
+        "pid": 90,
+        "ppid": 1,
+        "pgrp": 90,
+        "session": 90,
+        "start_ticks": 9,
+        "state": "S",
     }
     monkeypatch.setattr(processes.subprocess, "Popen", launch)
     monkeypatch.setattr(
@@ -159,9 +231,12 @@ def test_service_launch_owns_command_environment_and_cgroup(
         cwd=tmp_path,
         environment={"JAVA_HOME": "/jdk", "EMPTY": ""},
         output=io.BytesIO(),
-        publish_start=lambda _process, service, wrapper: published.append({
-            "service": service.copy(), "wrapper": wrapper,
-        }),
+        publish_start=lambda _process, service, wrapper: published.append(
+            {
+                "service": service.copy(),
+                "wrapper": wrapper,
+            }
+        ),
     )
 
     assert process.pid == 90
@@ -197,7 +272,8 @@ def test_service_launch_owns_command_environment_and_cgroup(
 
 
 def test_service_launch_waits_through_initial_inactive_unit_observation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class Process:
         returncode = None
@@ -207,25 +283,40 @@ def test_service_launch_waits_through_initial_inactive_unit_observation(
             return None
 
     wrapper_identity = {
-        "pid": 90, "ppid": 1, "pgrp": 90, "session": 90,
-        "start_ticks": 9, "state": "S",
+        "pid": 90,
+        "ppid": 1,
+        "pgrp": 90,
+        "session": 90,
+        "start_ticks": 9,
+        "state": "S",
     }
     main_identity = {
-        "pid": 91, "ppid": 1, "pgrp": 91, "session": 91,
-        "start_ticks": 10, "state": "S",
+        "pid": 91,
+        "ppid": 1,
+        "pgrp": 91,
+        "session": 91,
+        "start_ticks": 10,
+        "state": "S",
     }
-    observations = iter((
-        {
-            "MainPID": "0", "ControlGroup": "",
-            "ActiveState": "inactive", "SubState": "dead",
-        },
-        {
-            "MainPID": "91",
-            "ControlGroup": "/user.slice/squinch-mc-test.service",
-            "ActiveState": "active", "SubState": "running",
-        },
-    ))
-    monkeypatch.setattr(processes.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+    observations = iter(
+        (
+            {
+                "MainPID": "0",
+                "ControlGroup": "",
+                "ActiveState": "inactive",
+                "SubState": "dead",
+            },
+            {
+                "MainPID": "91",
+                "ControlGroup": "/user.slice/squinch-mc-test.service",
+                "ActiveState": "active",
+                "SubState": "running",
+            },
+        )
+    )
+    monkeypatch.setattr(
+        processes.subprocess, "Popen", lambda *_args, **_kwargs: Process()
+    )
     monkeypatch.setattr(processes, "_unit_properties", lambda _unit: next(observations))
     monkeypatch.setattr(
         processes,
@@ -248,7 +339,8 @@ def test_service_launch_waits_through_initial_inactive_unit_observation(
 
 
 def test_service_launch_publishes_recovery_intent_before_wrapper_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     published: list[dict] = []
     killed: list[bool] = []
@@ -259,7 +351,9 @@ def test_service_launch_publishes_recovery_intent_before_wrapper_identity(
         def kill(self) -> None:
             killed.append(True)
 
-    monkeypatch.setattr(processes.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+    monkeypatch.setattr(
+        processes.subprocess, "Popen", lambda *_args, **_kwargs: Process()
+    )
     monkeypatch.setattr(processes, "proc_identity", lambda _pid: None)
 
     with pytest.raises(InvestigationError, match="wrapper identity"):
@@ -269,19 +363,24 @@ def test_service_launch_publishes_recovery_intent_before_wrapper_identity(
             cwd=tmp_path,
             environment={},
             output=io.BytesIO(),
-            publish_start=lambda _process, service, wrapper: published.append({
-                "service": service.copy(), "wrapper": wrapper,
-            }),
+            publish_start=lambda _process, service, wrapper: published.append(
+                {
+                    "service": service.copy(),
+                    "wrapper": wrapper,
+                }
+            ),
         )
 
-    assert published == [{
-        "service": {
-            "unit": "squinch-mc-test.service",
-            "cgroup": "",
+    assert published == [
+        {
+            "service": {
+                "unit": "squinch-mc-test.service",
+                "cgroup": "",
+                "wrapper": None,
+            },
             "wrapper": None,
-        },
-        "wrapper": None,
-    }]
+        }
+    ]
     assert killed == [True]
 
 
@@ -314,8 +413,12 @@ def test_transient_uninterruptible_state_is_not_reported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     identity = {
-        "pid": 41, "ppid": 1, "pgrp": 41, "session": 41,
-        "start_ticks": 2, "state": "D",
+        "pid": 41,
+        "ppid": 1,
+        "pgrp": 41,
+        "session": 41,
+        "start_ticks": 2,
+        "state": "D",
     }
     observations = iter((identity, {**identity, "state": "S"}))
     monkeypatch.setattr(processes, "proc_identity", lambda _pid: next(observations))
@@ -328,8 +431,12 @@ def test_kernel_diagnostics_never_reads_unsafe_procfs_stack(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     identity = {
-        "pid": 41, "ppid": 1, "pgrp": 41, "session": 41,
-        "start_ticks": 2, "state": "D",
+        "pid": 41,
+        "ppid": 1,
+        "pgrp": 41,
+        "session": 41,
+        "start_ticks": 2,
+        "state": "D",
     }
     reads: list[str] = []
     monkeypatch.setattr(processes, "identity_matches", lambda _identity: True)
@@ -349,22 +456,29 @@ def test_kernel_diagnostics_never_reads_unsafe_procfs_stack(
 
 
 def test_owned_process_health_scan_has_one_global_budget(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     active_root = tmp_path / "active"
     active_root.mkdir()
     for index in range(2):
-        (active_root / f"run-{index}.json").write_text(json.dumps({
-            "ownership": server.OWNERSHIP,
-            "run_id": f"run-{index}",
-            "owned_processes": [{
-                "pid": 40 + index,
-                "ppid": 1,
-                "pgrp": 40 + index,
-                "session": 40 + index,
-                "start_ticks": index + 1,
-            }],
-        }))
+        (active_root / f"run-{index}.json").write_text(
+            json.dumps(
+                {
+                    "ownership": server.OWNERSHIP,
+                    "run_id": f"run-{index}",
+                    "owned_processes": [
+                        {
+                            "pid": 40 + index,
+                            "ppid": 1,
+                            "pgrp": 40 + index,
+                            "session": 40 + index,
+                            "start_ticks": index + 1,
+                        }
+                    ],
+                }
+            )
+        )
     clock = iter((0.0, 0.05, 0.2))
     monkeypatch.setattr(server.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(server, "proc_identity", lambda _pid: None)
@@ -394,15 +508,27 @@ def test_start_refuses_globally_tracked_uninterruptible_process(
         "start_ticks": 123,
         "state": "S",
     }
-    (active_root / "other-project.json").write_text(json.dumps({
-        "ownership": server.OWNERSHIP,
-        "run_id": "blocked-run",
-        "project": "/other/project",
-        "loader": "fabric",
-        "owned_processes": [identity],
-    }))
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: active_root / "requested-project.json")
-    monkeypatch.setattr(server, "proc_identity", lambda pid: {**identity, "state": "D"} if pid == 44 else None)
+    (active_root / "other-project.json").write_text(
+        json.dumps(
+            {
+                "ownership": server.OWNERSHIP,
+                "run_id": "blocked-run",
+                "project": "/other/project",
+                "loader": "fabric",
+                "owned_processes": [identity],
+            }
+        )
+    )
+    monkeypatch.setattr(
+        server,
+        "active_path",
+        lambda _project, _loader: active_root / "requested-project.json",
+    )
+    monkeypatch.setattr(
+        server,
+        "proc_identity",
+        lambda pid: {**identity, "state": "D"} if pid == 44 else None,
+    )
 
     with pytest.raises(InvestigationError, match="uninterruptible sleep") as failure:
         server.start_server(
@@ -431,12 +557,18 @@ def test_server_preparation_failure_restores_files_and_removes_unlaunched_artifa
     artifact_dir = state_root / "runs" / "fixed-run"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
     monkeypatch.setattr(server, "new_run_id", lambda: "fixed-run")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     original_backup = server._backup_file
     calls = 0
 
-    def fail_second_backup(path: Path, target: Path, relative: Path | None = None) -> dict:
+    def fail_second_backup(
+        path: Path, target: Path, relative: Path | None = None
+    ) -> dict:
         nonlocal calls
         calls += 1
         if calls == 2:
@@ -460,6 +592,7 @@ def test_server_preparation_failure_restores_files_and_removes_unlaunched_artifa
     assert not (run_dir / "eula.txt").exists()
     assert not artifact_dir.exists()
     assert not (state_root / "active.json").exists()
+    assert not list((state_root / "locks/server-port-reservations").glob("*.json"))
 
 
 def test_server_launcher_identity_is_required_before_files_are_mutated(
@@ -472,7 +605,9 @@ def test_server_launcher_identity_is_required_before_files_are_mutated(
     properties.write_text("motd=preserve\n")
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
     monkeypatch.setattr(server, "proc_identity", lambda _pid: None)
 
     with pytest.raises(InvestigationError) as failure:
@@ -503,16 +638,28 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
     state_root = tmp_path / "state"
     recorded: list[dict] = []
     launcher = {
-        "pid": 40, "ppid": 1, "pgrp": 40, "session": 40,
-        "start_ticks": 1, "state": "S",
+        "pid": 40,
+        "ppid": 1,
+        "pgrp": 40,
+        "session": 40,
+        "start_ticks": 1,
+        "state": "S",
     }
     identity = {
-        "pid": 41, "ppid": 40, "pgrp": 41, "session": 41,
-        "start_ticks": 2, "state": "S",
+        "pid": 41,
+        "ppid": 40,
+        "pgrp": 41,
+        "session": 41,
+        "start_ticks": 2,
+        "state": "S",
     }
     wrapper = {
-        "pid": 42, "ppid": 40, "pgrp": 42, "session": 42,
-        "start_ticks": 3, "state": "S",
+        "pid": 42,
+        "ppid": 40,
+        "pgrp": 42,
+        "session": 42,
+        "start_ticks": 3,
+        "state": "S",
     }
 
     class Process:
@@ -520,12 +667,24 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
 
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
     monkeypatch.setattr(server, "new_run_id", lambda: "fixed-run")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     monkeypatch.setattr(server, "proc_identity", lambda _pid: launcher)
     monkeypatch.setattr(server, "git_status", lambda _project: "clean")
-    monkeypatch.setattr(server, "sourced_environment", dict)
+    monkeypatch.setattr(
+        server,
+        "sourced_environment",
+        lambda: {"JAVA_TOOL_OPTIONS": "-XX:+UseG1GC"},
+    )
+
     def launch(**kwargs):
+        assert kwargs["environment"]["JAVA_TOOL_OPTIONS"] == (
+            "-XX:+UseG1GC -Djava.awt.headless=true"
+        )
         process = Process()
         service = {
             "unit": "squinch-mc-fixed-run.service",
@@ -536,6 +695,7 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
         return process, service, identity
 
     monkeypatch.setattr(server, "launch_service", launch)
+
     def retain_process(state: dict, *_args, **_kwargs) -> list[str]:
         state["remaining_owned_processes"] = [wrapper]
         return ["owned server processes remain alive"]
@@ -570,6 +730,7 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
     assert properties.read_text() != "motd=preserve\n"
     assert (run_dir / "eula.txt").exists()
     assert (state_root / "runs" / "fixed-run").exists()
+    assert not list((state_root / "locks/server-port-reservations").glob("*.json"))
 
 
 def test_forceload_removal_is_persisted_per_acknowledged_region(
@@ -636,8 +797,12 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
 
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     state = server.start_server(
         project.resolve(),
@@ -656,7 +821,9 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
     assert gradlew.stat().st_mode & 0o111 == 0
     assert not port_is_free(state["ports"]["server"])
     assert not port_is_free(state["ports"]["rcon"])
-    assert sorted(path.name for path in (Path(state["world_dir"]) / "datapacks").iterdir()) == [
+    assert sorted(
+        path.name for path in (Path(state["world_dir"]) / "datapacks").iterdir()
+    ) == [
         "first.zip",
         "second.zip",
     ]
@@ -664,7 +831,9 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
     assert second_config_target.read_text() == second_runtime_config.read_text()
     assert not absent_config_target.exists()
 
-    result = server.stop_server(project.resolve(), "fabric", successful=True, timeout=0.5)
+    result = server.stop_server(
+        project.resolve(), "fabric", successful=True, timeout=0.5
+    )
 
     assert result["cleanup"]["complete"] is True
     assert port_is_free(state["ports"]["server"])
@@ -691,8 +860,12 @@ def test_startup_timeout_cleans_process_and_provisional_state(
 
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     with pytest.raises(InvestigationError, match="authenticate over RCON") as failure:
         server.start_server(
@@ -724,8 +897,12 @@ def test_rcon_ready_without_probe_boundary_fails_and_cleans_up(
     gradlew.chmod(0o644)
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     with pytest.raises(InvestigationError) as caught:
         server.start_server(
@@ -753,19 +930,25 @@ def test_probe_boundary_without_listeners_detects_crashed_minecraft_before_wrapp
     gradlew = project / "gradlew"
     gradlew.write_text(
         "#!/usr/bin/env bash\n"
-        "bash -c 'printf \"[squinch-investigate] protocol ready run=%s pid=%s\\n\" "
-        "\"$SQUINCH_INVESTIGATE_RUN_ID\" \"$BASHPID\"'\n"
+        'bash -c \'printf "[squinch-investigate] protocol ready run=%s pid=%s\\n" '
+        '"$SQUINCH_INVESTIGATE_RUN_ID" "$BASHPID"\'\n'
         "sleep 60\n"
     )
     gradlew.chmod(0o644)
 
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     started = time.monotonic()
-    with pytest.raises(InvestigationError, match="exited before RCON readiness") as failure:
+    with pytest.raises(
+        InvestigationError, match="exited before RCON readiness"
+    ) as failure:
         server.start_server(
             project.resolve(),
             "fabric",
@@ -783,9 +966,36 @@ def test_probe_boundary_without_listeners_detects_crashed_minecraft_before_wrapp
     assert not (state_root / "active.json").exists()
 
 
+def test_terminal_launch_log_searches_beyond_the_display_excerpt(
+    tmp_path: Path,
+) -> None:
+    log_path = tmp_path / "server.log"
+    log_path.write_text(
+        "Feature order cycle found\n"
+        + "\n".join(f"crash detail {i}" for i in range(100)),
+        encoding="utf-8",
+    )
+
+    terminal = server._startup_terminal_log(log_path)
+
+    assert terminal is not None
+    assert "Feature order cycle found" in terminal
+    assert len(terminal.splitlines()) <= server.STARTUP_LOG_EXCERPT_LINES
+
+
 @pytest.mark.slow
+@pytest.mark.parametrize(
+    "terminal_message",
+    [
+        "Failed to start the minecraft server",
+        "Encountered an unexpected exception",
+        "Description: Exception generating new chunk",
+        "net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible",
+        "Unable to initialise RCON",
+    ],
+)
 def test_terminal_launch_log_detects_crashed_minecraft_before_wrapper_exit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, terminal_message: str
 ) -> None:
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
@@ -793,15 +1003,19 @@ def test_terminal_launch_log_detects_crashed_minecraft_before_wrapper_exit(
     gradlew = project / "gradlew"
     gradlew.write_text(
         "#!/usr/bin/env bash\n"
-        "printf '[main/ERROR] (Minecraft) Failed to start the minecraft server\\n'\n"
+        f"printf '[Server thread/ERROR] (Minecraft) {terminal_message}\\n'\n"
         "sleep 60\n"
     )
     gradlew.chmod(0o644)
 
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     started = time.monotonic()
     with pytest.raises(InvestigationError, match="terminal failure") as failure:
@@ -818,7 +1032,7 @@ def test_terminal_launch_log_detects_crashed_minecraft_before_wrapper_exit(
 
     assert elapsed < 10
     assert failure.value.code == "startup_exited"
-    assert "Failed to start the minecraft server" in failure.value.details["terminal_log"]
+    assert terminal_message in failure.value.details["terminal_log"]
     assert failure.value.details["cleanup_complete"] is True
     assert not (state_root / "active.json").exists()
 
@@ -836,8 +1050,12 @@ def test_listener_free_gradle_boundary_does_not_consume_full_shutdown_timeout(
     gradlew.chmod(0o644)
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     state = server.start_server(
         project.resolve(),
         "fabric",
@@ -852,7 +1070,9 @@ def test_listener_free_gradle_boundary_does_not_consume_full_shutdown_timeout(
     )
 
     started = time.monotonic()
-    result = server.stop_server(project.resolve(), "fabric", successful=True, timeout=30)
+    result = server.stop_server(
+        project.resolve(), "fabric", successful=True, timeout=30
+    )
     elapsed = time.monotonic() - started
 
     assert elapsed < 15
@@ -877,16 +1097,24 @@ def test_probe_overlay_tracked_source_mutation_fails_and_cleans_up(
     gradlew.chmod(0o644)
     (project / "tracked.txt").write_text("original\n")
     subprocess.run(["git", "init", "-q"], cwd=project, check=True)
-    subprocess.run(["git", "config", "user.name", "Overlay Test"], cwd=project, check=True)
     subprocess.run(
-        ["git", "config", "user.email", "overlay@example.invalid"], cwd=project, check=True
+        ["git", "config", "user.name", "Overlay Test"], cwd=project, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "overlay@example.invalid"],
+        cwd=project,
+        check=True,
     )
     subprocess.run(["git", "add", "gradlew", "tracked.txt"], cwd=project, check=True)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     with pytest.raises(InvestigationError) as caught:
         server.start_server(
@@ -906,7 +1134,9 @@ def test_probe_overlay_tracked_source_mutation_fails_and_cleans_up(
     assert '"complete": true' in manifest.read_text()
 
 
-def test_recover_stops_an_orphaned_starting_run(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_recover_stops_an_orphaned_starting_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     state = {
         "operation": "server",
         "lifecycle": "starting",
@@ -934,10 +1164,16 @@ def test_recover_stops_an_orphaned_starting_run(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(server, "stop_server", stop)
 
     assert server.recover(Path("project"), "fabric", 30) == {"recovered": True}
-    assert observed == {"successful": False, "timeout": 30, "allow_orphaned_starting": True}
+    assert observed == {
+        "successful": False,
+        "timeout": 30,
+        "allow_orphaned_starting": True,
+    }
 
 
-def test_recover_refuses_a_starting_run_with_live_launcher(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_recover_refuses_a_starting_run_with_live_launcher(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     state = {
         "operation": "server",
         "lifecycle": "starting",
@@ -987,7 +1223,9 @@ def test_recover_without_live_process_removes_companion_artifacts(
     monkeypatch.setattr(server, "identity_matches", lambda _identity: False)
     monkeypatch.setattr(server, "service_members", lambda _service: [])
     monkeypatch.setattr(server, "port_is_free", lambda _port: True)
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: tmp_path / "lock")
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: tmp_path / "lock"
+    )
     monkeypatch.setattr(server, "_remove_protocol_files", lambda _state: [])
     monkeypatch.setattr(server, "_restore_managed_files", lambda _state: [])
     monkeypatch.setattr(server, "_cleanup_world", lambda _state, successful: None)
