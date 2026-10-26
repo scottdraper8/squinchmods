@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 import squinch_minecraft_investigate.scenario as scenario_module
 from squinch_minecraft_investigate import server
 from squinch_minecraft_investigate.errors import InvestigationError
@@ -14,6 +13,7 @@ from squinch_minecraft_investigate.scenario import (
     _candidate_coordinates,
     _fatal_log_pattern,
     _java_seed,
+    _log_diagnostics,
     _measurement_summary,
     load_scenario,
     parse_mod_list,
@@ -21,15 +21,49 @@ from squinch_minecraft_investigate.scenario import (
 )
 
 
-def test_fatal_log_policy_distinguishes_terminal_failures_from_recoverable_errors() -> None:
-    assert _fatal_log_pattern(
-        "[Server thread/ERROR] Too many chained neighbor updates. Skipping the rest."
-    ) is None
+def test_fatal_log_policy_distinguishes_terminal_failures_from_recoverable_errors() -> (
+    None
+):
+    assert (
+        _fatal_log_pattern(
+            "[Server thread/ERROR] Too many chained neighbor updates. Skipping the rest."
+        )
+        is None
+    )
     assert _fatal_log_pattern("Exception in server tick loop") is not None
     assert _fatal_log_pattern("---- Minecraft Crash Report ----") is not None
 
 
-def test_cell_scan_candidates_become_unique_floor_correct_chunks(tmp_path: Path) -> None:
+def test_log_diagnostics_count_and_group_warning_error_and_exception_lines(
+    tmp_path: Path,
+) -> None:
+    log_path = tmp_path / "server.log"
+    log_path.write_text(
+        "[12:00:00] [main/WARN] [example/]: repeated warning\n"
+        "[12:00:01] [main/WARN] [example/]: repeated warning\n"
+        "[12:00:02] [main/ERROR] [example/]: failed resource\n"
+        "java.lang.IllegalStateException: broken\n"
+        "ordinary output",
+        encoding="utf-8",
+    )
+
+    diagnostics = _log_diagnostics(log_path)
+
+    assert diagnostics["warning_lines"] == 2
+    assert diagnostics["error_lines"] == 1
+    assert diagnostics["fatal_lines"] == 0
+    assert diagnostics["exception_lines"] == 1
+    assert diagnostics["top_messages"]["warning"] == [
+        {"count": 2, "message": "[example/]: repeated warning"}
+    ]
+    assert diagnostics["top_messages"]["error"] == [
+        {"count": 1, "message": "[example/]: failed resource"}
+    ]
+
+
+def test_cell_scan_candidates_become_unique_floor_correct_chunks(
+    tmp_path: Path,
+) -> None:
     """Catches negative-coordinate truncation and duplicate shortlist generation."""
     path = tmp_path / "cell-scan-result.json"
     path.write_text(
@@ -52,7 +86,12 @@ def test_cell_scan_candidates_become_unique_floor_correct_chunks(tmp_path: Path)
     ]
 
 
-def _write_scenario(path: Path, project: str = "games/minecraft/project", *, authority: str = "generation") -> None:
+def _write_scenario(
+    path: Path,
+    project: str = "games/minecraft/project",
+    *,
+    authority: str = "generation",
+) -> None:
     path.write_text(
         f'''schema_version = 1
 name = "relative-path-control"
@@ -138,12 +177,67 @@ def test_production_launch_task_is_explicit_and_loader_scoped(
 
     assert load_scenario(scenario_path).launch_task == "prodServer"
 
-    scenario_path.write_text(scenario_path.read_text().replace('loader = "fabric"', 'loader = "neoforge"'))
+    scenario_path.write_text(
+        scenario_path.read_text().replace('loader = "fabric"', 'loader = "neoforge"')
+    )
     assert load_scenario(scenario_path).launch_task == "prodServer"
 
-    scenario_path.write_text(scenario_path.read_text().replace('loader = "neoforge"', 'loader = "forge"'))
+    scenario_path.write_text(
+        scenario_path.read_text().replace('loader = "neoforge"', 'loader = "forge"')
+    )
     with pytest.raises(InvestigationError, match="requires Fabric or NeoForge"):
         load_scenario(scenario_path)
+
+
+def test_command_step_accepts_monitored_outputs_and_typed_metrics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "measured-command.toml"
+    path.write_text(
+        """schema_version = 1
+name = "measured-command"
+project = "games/minecraft/project"
+loader = "fabric"
+seed = 1
+
+[[steps]]
+id = "benchmark"
+type = "command"
+command = "profiler run"
+wait_for_log = "benchmark complete"
+fail_on_log = ["benchmark failed"]
+capture_files = ["reports/result.txt"]
+
+[[steps.metrics]]
+id = "wall_seconds"
+source = "reports/result.txt"
+pattern = "wall_seconds=([0-9.]+)"
+group = 1
+value_type = "float"
+unit = "seconds"
+required = false
+match = "all"
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+
+    loaded = load_scenario(path)
+
+    values = loaded.steps[0].values
+    assert values["wait_for_log"] == "benchmark complete"
+    assert values["capture_files"] == ["reports/result.txt"]
+    assert values["metrics"][0]["id"] == "wall_seconds"
+    assert values["metrics"][0]["required"] is False
+    assert values["metrics"][0]["match"] == "all"
+
+    path.write_text(
+        path.read_text().replace(
+            'source = "reports/result.txt"', 'source = "other.txt"'
+        )
+    )
+    with pytest.raises(InvestigationError, match="listed capture_files"):
+        load_scenario(path)
 
 
 def test_expected_startup_failure_requires_diagnostic_and_no_server_steps(
@@ -151,7 +245,7 @@ def test_expected_startup_failure_requires_diagnostic_and_no_server_steps(
 ) -> None:
     (tmp_path / "games/minecraft/project").mkdir(parents=True)
     path = tmp_path / "startup-failure.toml"
-    path.write_text('''schema_version = 1
+    path.write_text("""schema_version = 1
 name = "unsupported-injector-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -160,19 +254,23 @@ seed = 1
 [expectations]
 required_mods = ["freeterraforged", "lithostitched"]
 startup_failure = { code = "startup_exited", log_contains = ["lithostitched_injector_type_unsupported", "squinch:unknown_injector_entry"] }
-''')
+""")
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
 
     loaded = load_scenario(path)
     assert loaded.steps == ()
     assert loaded.expectations["startup_failure"]["code"] == "startup_exited"
 
-    path.write_text(path.read_text().replace('"squinch:unknown_injector_entry"]', '""]'))
+    path.write_text(
+        path.read_text().replace('"squinch:unknown_injector_entry"]', '""]')
+    )
     with pytest.raises(InvestigationError, match="nonempty log_contains"):
         load_scenario(path)
 
-    path.write_text(path.read_text().replace('""]', '"squinch:unknown_injector_entry"]') +
-                    '\n[[steps]]\nid = "list"\ntype = "command"\ncommand = "list"\n')
+    path.write_text(
+        path.read_text().replace('""]', '"squinch:unknown_injector_entry"]')
+        + '\n[[steps]]\nid = "list"\ntype = "command"\ncommand = "list"\n'
+    )
     with pytest.raises(InvestigationError, match="cannot contain probes or steps"):
         load_scenario(path)
 
@@ -186,7 +284,7 @@ def test_packaged_subject_can_generate_fixture_from_ftf_project(
     fixture = tmp_path / "games/minecraft/fixture.toml"
     fixture.write_text("schema_version = 2\n")
     path = tmp_path / "packaged.toml"
-    path.write_text('''schema_version = 1
+    path.write_text("""schema_version = 1
 name = "packaged-fixture-control"
 project = "games/minecraft/vanilla-control"
 loader = "fabric"
@@ -199,15 +297,19 @@ subject_source_project = "games/minecraft/ftf-source"
 id = "list"
 type = "command"
 command = "list"
-''')
+""")
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
 
     loaded = load_scenario(path)
     assert loaded.project == (tmp_path / "games/minecraft/vanilla-control").resolve()
     assert loaded.subject_source_project == ftf_project.resolve()
 
-    path.write_text(path.read_text().replace('ftf_fixture = "games/minecraft/fixture.toml"\n', ''))
-    with pytest.raises(InvestigationError, match="requires ftf_fixture and subject_artifact"):
+    path.write_text(
+        path.read_text().replace('ftf_fixture = "games/minecraft/fixture.toml"\n', "")
+    )
+    with pytest.raises(
+        InvestigationError, match="requires ftf_fixture and subject_artifact"
+    ):
         load_scenario(path)
 
 
@@ -230,8 +332,8 @@ def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
     _write_scenario(scenario_path)
     scenario_path.write_text(
         scenario_path.read_text().replace(
-            'seed = 12345',
-            'seed = 12345\n'
+            "seed = 12345",
+            "seed = 12345\n"
             'subject_artifact = "games/minecraft/project/build/libs/subject.jar"\n'
             'subject_compile_artifact = "games/minecraft/project/build/libs/subject-named.jar"\n'
             'probe_compile_artifacts = [{ id = "api", loader = "neoforge", mapping = "named" }]',
@@ -246,8 +348,12 @@ def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
     assert loaded.probe_compile_artifacts[0].loader == "neoforge"
     assert loaded.probe_compile_artifacts[0].mapping == "named"
 
-    scenario_path.write_text(scenario_path.read_text().replace("subject.jar", "subject.zip"))
-    with pytest.raises(InvestigationError, match="must be a repository-root-relative JAR"):
+    scenario_path.write_text(
+        scenario_path.read_text().replace("subject.jar", "subject.zip")
+    )
+    with pytest.raises(
+        InvestigationError, match="must be a repository-root-relative JAR"
+    ):
         load_scenario(scenario_path)
 
 
@@ -263,7 +369,7 @@ def test_runtime_files_are_repository_inputs_confined_to_run_config(
     scenario_path = tmp_path / ".squinch/runtime-file.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 name = "runtime-file-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -278,7 +384,7 @@ target = "config/terrablender.toml"
 id = "list"
 type = "command"
 command = "list"
-'''
+"""
     )
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
 
@@ -295,11 +401,13 @@ command = "list"
         load_scenario(scenario_path)
 
 
-def test_finished_chunk_authority_requires_selected_terminal_probe(tmp_path: Path) -> None:
+def test_finished_chunk_authority_requires_selected_terminal_probe(
+    tmp_path: Path,
+) -> None:
     """Negative control: force-load acknowledgment must not be mislabeled finished-chunk proof."""
     scenario_path = tmp_path / "scenario.toml"
     scenario_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 name = "invalid-authority"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -311,7 +419,7 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
 authority = "finished-chunk"
-'''
+"""
     )
 
     with pytest.raises(InvestigationError, match="requires a selected terminal_probe"):
@@ -331,7 +439,7 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
     _write_scenario(scenario_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     text = scenario_path.read_text().replace(
-        "terminal_probe = \"finished-chunk\"",
+        'terminal_probe = "finished-chunk"',
         'terminal_probe = "finished-chunk"\nrepeat = 3\noffset = [17, 0]\njfr = true',
     )
     scenario_path.write_text(text)
@@ -344,7 +452,13 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
     assert values["release_after_observation"] is False
     summary = _measurement_summary(
         [
-            {"timing": {"generation_seconds": value, "probe_seconds": 0.1, "total_seconds": value + 0.1}}
+            {
+                "timing": {
+                    "generation_seconds": value,
+                    "probe_seconds": 0.1,
+                    "total_seconds": value + 0.1,
+                }
+            }
             for value in (1.0, 9.0, 2.0)
         ]
     )
@@ -360,8 +474,12 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
     with pytest.raises(InvestigationError, match="overlapping windows"):
         load_scenario(scenario_path)
 
-    scenario_path.write_text(text.replace("jfr = true", 'release_after_observation = "yes"'))
-    with pytest.raises(InvestigationError, match="release_after_observation must be a boolean"):
+    scenario_path.write_text(
+        text.replace("jfr = true", 'release_after_observation = "yes"')
+    )
+    with pytest.raises(
+        InvestigationError, match="release_after_observation must be a boolean"
+    ):
         load_scenario(scenario_path)
 
 
@@ -385,6 +503,16 @@ def test_real_loader_log_shapes_produce_exact_runtime_mod_identities() -> None:
 \t- freeterraforged 0.0.6005
 [02:03:33] [main/INFO]: Starting minecraft server version 1.21.1
 """
+    fabric_datagen_then_production = """[main/INFO] (FabricLoader) Loading 2 mods:
+\t- minecraft 1.21.1
+\t- freeterraforged 0.0.6005
+[main/INFO] (FabricDataGenHelper) Running data generator
+[02:03:32] [main/INFO]: Loading 3 mods:
+\t- biomesoplenty 21.1.0.14
+\t- minecraft 1.21.1
+\t- freeterraforged 0.0.6005
+[02:03:33] [main/INFO]: Starting minecraft server version 1.21.1
+"""
     neoforge = """[main/INFO] (ModDiscoverer)
      Mod List:
         Name Version (Mod Id)
@@ -398,6 +526,11 @@ def test_real_loader_log_shapes_produce_exact_runtime_mod_identities() -> None:
         {"id": "freeterraforged", "version": "0.0.6005"},
     ]
     assert parse_mod_list(fabric_production, "fabric") == [
+        {"id": "minecraft", "version": "1.21.1"},
+        {"id": "freeterraforged", "version": "0.0.6005"},
+    ]
+    assert parse_mod_list(fabric_datagen_then_production, "fabric") == [
+        {"id": "biomesoplenty", "version": "21.1.0.14"},
         {"id": "minecraft", "version": "1.21.1"},
         {"id": "freeterraforged", "version": "0.0.6005"},
     ]
@@ -424,9 +557,13 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
     gradlew.write_text(f"#!/usr/bin/env bash\nexec python3 {fixture!s}\n")
     gradlew.chmod(0o644)
     subprocess.run(["git", "init", "-q"], cwd=project, check=True)
-    subprocess.run(["git", "config", "user.name", "Scenario Test"], cwd=project, check=True)
     subprocess.run(
-        ["git", "config", "user.email", "scenario@example.invalid"], cwd=project, check=True
+        ["git", "config", "user.name", "Scenario Test"], cwd=project, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "scenario@example.invalid"],
+        cwd=project,
+        check=True,
     )
     subprocess.run(["git", "add", "gradlew"], cwd=project, check=True)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
@@ -435,7 +572,7 @@ def test_failed_scenario_assertion_runs_finally_cleanup_and_preserves_evidence(
     scenario_path = tmp_path / ".squinch/failure.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 name = "assertion-cleanup-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -453,12 +590,16 @@ type = "command"
 command = "list"
 jfr = true
 expect = { response_contains = "deliberately absent" }
-'''
+"""
     )
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     with pytest.raises(InvestigationError) as caught:
         run_scenario(load_scenario(scenario_path))
 
@@ -503,9 +644,13 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
     gradlew.write_text(f"#!/usr/bin/env bash\nexec python3 {fixture!s}\n")
     gradlew.chmod(0o644)
     subprocess.run(["git", "init", "-q"], cwd=project, check=True)
-    subprocess.run(["git", "config", "user.name", "Timeout Test"], cwd=project, check=True)
     subprocess.run(
-        ["git", "config", "user.email", "timeout@example.invalid"], cwd=project, check=True
+        ["git", "config", "user.name", "Timeout Test"], cwd=project, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "timeout@example.invalid"],
+        cwd=project,
+        check=True,
     )
     subprocess.run(["git", "add", "gradlew"], cwd=project, check=True)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
@@ -513,7 +658,7 @@ def test_generation_timeout_runs_finally_without_leaking_world_or_listener(
     scenario_path = tmp_path / ".squinch/generation-timeout.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 name = "generation-timeout-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -536,12 +681,16 @@ type = "generate"
 unit = "chunk"
 bounds = [0, 0, 0, 0]
 jfr = true
-'''
+"""
     )
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     with pytest.raises(InvestigationError) as caught:
         run_scenario(load_scenario(scenario_path))
@@ -579,9 +728,13 @@ def test_cleanup_failure_with_succeeded_steps_returns_data_not_error(
     gradlew.write_text(f"#!/usr/bin/env bash\nexec python3 {fixture!s}\n")
     gradlew.chmod(0o644)
     subprocess.run(["git", "init", "-q"], cwd=project, check=True)
-    subprocess.run(["git", "config", "user.name", "Cleanup Test"], cwd=project, check=True)
     subprocess.run(
-        ["git", "config", "user.email", "cleanup@example.invalid"], cwd=project, check=True
+        ["git", "config", "user.name", "Cleanup Test"], cwd=project, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "cleanup@example.invalid"],
+        cwd=project,
+        check=True,
     )
     subprocess.run(["git", "add", "gradlew"], cwd=project, check=True)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=project, check=True)
@@ -589,7 +742,7 @@ def test_cleanup_failure_with_succeeded_steps_returns_data_not_error(
     scenario_path = tmp_path / ".squinch/cleanup-failure.toml"
     scenario_path.parent.mkdir()
     scenario_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 name = "cleanup-failure-control"
 project = "games/minecraft/project"
 loader = "fabric"
@@ -610,12 +763,16 @@ step = 2
 id = "passing-list"
 type = "command"
 command = "list"
-'''
+"""
     )
     state_root = tmp_path / "state"
     monkeypatch.setattr(server, "RUNS_ROOT", state_root / "runs")
-    monkeypatch.setattr(server, "active_path", lambda _project, _loader: state_root / "active.json")
-    monkeypatch.setattr(server, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        server, "active_path", lambda _project, _loader: state_root / "active.json"
+    )
+    monkeypatch.setattr(
+        server, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
 
     result = run_scenario(load_scenario(scenario_path))
 
@@ -623,7 +780,10 @@ command = "list"
     assert result["cleanup_failed"]["code"] == "cleanup_failed"
     assert len(result["steps"]) == 1
     assert result["steps"][0]["state"] == "succeeded"
-    assert result["world_identity"]["actual_seed"] == result["world_identity"]["expected_seed"]
+    assert (
+        result["world_identity"]["actual_seed"]
+        == result["world_identity"]["expected_seed"]
+    )
     artifact_dir = Path(result["state"]["artifact_dir"])
     summary = json.loads((artifact_dir / "scenario-summary.json").read_text())
     assert summary["state"] == "failed"

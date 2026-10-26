@@ -5,15 +5,16 @@ import json
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import catalog
 from squinch_minecraft_investigate.errors import InvestigationError
 
 
-def test_catalog_resolution_verifies_manifest_and_hash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_catalog_resolution_verifies_manifest_and_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     catalog_path = tmp_path / "artifacts.toml"
     catalog_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 catalog_version = 1
 
 [[artifacts]]
@@ -30,21 +31,35 @@ status = "approved"
 reason = "test"
 required_dependencies = []
 source_id = "source-example"
-'''.format(sha256=hashlib.sha256(b"jar").hexdigest()),
+""".format(sha256=hashlib.sha256(b"jar").hexdigest()),
         encoding="utf-8",
     )
     monkeypatch.setattr(catalog, "CATALOG_PATH", catalog_path)
     monkeypatch.setenv("SQINCHMODS_CACHE_HOME", str(tmp_path / "cache"))
-    artifact_dir = tmp_path / "cache" / "third-party" / "modrinth" / "1.21.1" / "fabric" / "example-mod" / "1.0.0"
+    artifact_dir = (
+        tmp_path
+        / "cache"
+        / "third-party"
+        / "modrinth"
+        / "1.21.1"
+        / "fabric"
+        / "example-mod"
+        / "1.0.0"
+    )
     artifact_dir.mkdir(parents=True)
     (artifact_dir / "example.jar").write_bytes(b"jar")
-    (artifact_dir / "acquisition.json").write_text(json.dumps({
-        "project": {"slug": "example-mod", "id": "project-id"},
-        "version": {"id": "version-id", "version_number": "1.0.0"},
-        "requested": {"minecraft_version": "1.21.1", "loader": "fabric"},
-        "selected_file": {"filename": "example.jar"},
-        "sha256": hashlib.sha256(b"jar").hexdigest(),
-    }), encoding="utf-8")
+    (artifact_dir / "acquisition.json").write_text(
+        json.dumps(
+            {
+                "project": {"slug": "example-mod", "id": "project-id"},
+                "version": {"id": "version-id", "version_number": "1.0.0"},
+                "requested": {"minecraft_version": "1.21.1", "loader": "fabric"},
+                "selected_file": {"filename": "example.jar"},
+                "sha256": hashlib.sha256(b"jar").hexdigest(),
+            }
+        ),
+        encoding="utf-8",
+    )
 
     resolved = catalog.resolve_artifacts(("example",), expected_loader="fabric")
 
@@ -52,10 +67,12 @@ source_id = "source-example"
     assert resolved[0].path == artifact_dir / "example.jar"
 
 
-def test_catalog_resolution_rejects_tampered_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_catalog_resolution_rejects_tampered_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     catalog_path = tmp_path / "artifacts.toml"
     catalog_path.write_text(
-        '''schema_version = 1
+        """schema_version = 1
 [[artifacts]]
 id = "example"
 project_slug = "example-mod"
@@ -70,12 +87,21 @@ status = "approved"
 reason = "test"
 required_dependencies = []
 source_id = "source-example"
-'''.format(sha256="0" * 64),
+""".format(sha256="0" * 64),
         encoding="utf-8",
     )
     monkeypatch.setattr(catalog, "CATALOG_PATH", catalog_path)
     monkeypatch.setenv("SQINCHMODS_CACHE_HOME", str(tmp_path / "cache"))
-    artifact_dir = tmp_path / "cache" / "third-party" / "modrinth" / "1.21.1" / "fabric" / "example-mod" / "1.0.0"
+    artifact_dir = (
+        tmp_path
+        / "cache"
+        / "third-party"
+        / "modrinth"
+        / "1.21.1"
+        / "fabric"
+        / "example-mod"
+        / "1.0.0"
+    )
     artifact_dir.mkdir(parents=True)
     (artifact_dir / "example.jar").write_bytes(b"tampered")
 
@@ -84,7 +110,8 @@ source_id = "source-example"
 
 
 def test_runtime_closure_expands_and_deduplicates_dependencies(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     values = {
         "root": {"required_dependencies": ["api", "library"]},
@@ -92,16 +119,25 @@ def test_runtime_closure_expands_and_deduplicates_dependencies(
         "api": {},
     }
     for value in values.values():
-        value.update({"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"})
+        value.update(
+            {"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"}
+        )
     resolved = {
         key: catalog.ResolvedArtifact(
-            key, key, "1.21.1", "fabric", f"{key}.jar", key[0] * 64, tmp_path / f"{key}.jar"
+            key,
+            key,
+            "1.21.1",
+            "fabric",
+            f"{key}.jar",
+            key[0] * 64,
+            tmp_path / f"{key}.jar",
         )
         for key in values
     }
     monkeypatch.setattr(catalog, "_catalog", lambda: values)
     monkeypatch.setattr(
-        catalog, "resolve_artifacts",
+        catalog,
+        "resolve_artifacts",
         lambda ids, **_kwargs: tuple(resolved[item] for item in ids),
     )
 
@@ -110,14 +146,56 @@ def test_runtime_closure_expands_and_deduplicates_dependencies(
     assert [item.id for item in result] == ["api", "library", "root"]
 
 
-def test_runtime_closure_rejects_dependency_cycles(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_runtime_closure_rejects_dependency_cycles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     values = {
         "one": {"required_dependencies": ["two"]},
         "two": {"required_dependencies": ["one"]},
     }
     for value in values.values():
-        value.update({"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"})
+        value.update(
+            {"status": "approved", "loader": "fabric", "minecraft_version": "1.21.1"}
+        )
     monkeypatch.setattr(catalog, "_catalog", lambda: values)
 
     with pytest.raises(InvestigationError, match="dependency cycle"):
         catalog.resolve_artifact_closure(("one",), expected_loader="fabric")
+
+
+@pytest.mark.parametrize(
+    "loader,filename,valid",
+    [
+        ("datapack", "official.zip", True),
+        ("fabric", "official.zip", False),
+        ("datapack", "official.jar", False),
+        ("datapack", "../official.zip", False),
+    ],
+)
+def test_datapack_catalog_is_not_a_companion_mod(
+    tmp_path, monkeypatch, loader, filename, valid
+):
+    path = tmp_path / "catalog.toml"
+    path.write_text(f'''schema_version = 1
+[[artifacts]]
+id = "pack"
+project_slug = "example"
+project_id = "project"
+minecraft_version = "1.21.1"
+loader = "{loader}"
+version_number = "1"
+version_id = "version"
+filename = "{filename}"
+sha256 = "{"0" * 64}"
+status = "diagnostic-only"
+''')
+    monkeypatch.setattr(catalog, "CATALOG_PATH", path)
+    if valid:
+        assert catalog._catalog()["pack"]["filename"] == filename
+        with pytest.raises(
+            InvestigationError, match="does not match scenario loader/version"
+        ):
+            catalog.resolve_artifact_closure(("pack",), expected_loader="fabric")
+    else:
+        with pytest.raises(InvestigationError, match="invalid filename"):
+            catalog._catalog()

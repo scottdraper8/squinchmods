@@ -37,7 +37,9 @@ def read_json(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
-        raise InvestigationError("state_not_found", f"state file not found: {path}") from exc
+        raise InvestigationError(
+            "state_not_found", f"state file not found: {path}"
+        ) from exc
     except (OSError, json.JSONDecodeError) as exc:
         raise InvestigationError(
             "invalid_state", f"cannot read state file {path}: {exc}"
@@ -57,6 +59,18 @@ def project_lock(path: Path) -> Iterator[None]:
             raise InvestigationError(
                 "project_locked", f"another investigation command holds {path}"
             ) from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
+def blocking_lock(path: Path) -> Iterator[None]:
+    """Serialize a short cross-project operation without surfacing a retry to callers."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield
         finally:

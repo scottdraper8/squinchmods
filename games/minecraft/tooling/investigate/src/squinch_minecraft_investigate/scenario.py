@@ -10,18 +10,26 @@ import statistics
 import struct
 import subprocess
 import time
-import tomllib
 import uuid
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .catalog import ResolvedArtifact, resolve_artifacts
+import tomllib
+
+from .catalog import ResolvedArtifact, resolve_artifact_closure, resolve_artifacts
 from .errors import CleanupError, InvestigationError
 from .fixtures import archive_generated_fixture, load_fixture
 from .generation import generate_regions, release_regions
+from .measurement import (
+    capture_measurement_files,
+    extract_metrics,
+    snapshot_measurement_files,
+    wait_for_measurement,
+)
 from .output import timestamp
 from .paths import REPOSITORY_ROOT, STATE_ROOT
 from .probe_requests import submit_probe
@@ -45,6 +53,11 @@ FATAL_LOG_PATTERNS = (
     re.compile(r"Exception in server tick loop", re.IGNORECASE),
     re.compile(r"Failed to start the minecraft server", re.IGNORECASE),
 )
+LOG_LEVEL_PATTERN = re.compile(r"\[[^\]\n]*/(WARN|ERROR|FATAL)\]")
+EXCEPTION_LINE_PATTERN = re.compile(
+    r"(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*(?:Exception|Error)(?::|\b)"
+)
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 
 @dataclass(frozen=True)
@@ -212,7 +225,9 @@ def load_scenario(path: str | Path) -> Scenario:
     subject_source_project = None
     if "subject_source_project" in raw:
         if ftf_fixture is None or "subject_artifact" not in raw:
-            raise _error("subject_source_project requires ftf_fixture and subject_artifact")
+            raise _error(
+                "subject_source_project requires ftf_fixture and subject_artifact"
+            )
         subject_source_project = _scenario_path(
             scenario_path, raw["subject_source_project"], "subject_source_project"
         )
@@ -297,7 +312,9 @@ def load_scenario(path: str | Path) -> Scenario:
             scenario_path, raw["subject_compile_artifact"], "subject_compile_artifact"
         )
         if subject_compile_artifact.suffix != ".jar":
-            raise _error("subject_compile_artifact must be a repository-root-relative JAR path")
+            raise _error(
+                "subject_compile_artifact must be a repository-root-relative JAR path"
+            )
     probe_compile_values = raw.get("probe_compile_artifacts", [])
     if not isinstance(probe_compile_values, list):
         raise _error("probe_compile_artifacts must be an array of tables")
@@ -305,17 +322,31 @@ def load_scenario(path: str | Path) -> Scenario:
     for index, value in enumerate(probe_compile_values):
         if not isinstance(value, dict):
             raise _error(f"probe_compile_artifacts[{index}] must be a table")
-        _known_keys(value, {"id", "loader", "mapping"}, f"probe_compile_artifacts[{index}]")
+        _known_keys(
+            value, {"id", "loader", "mapping"}, f"probe_compile_artifacts[{index}]"
+        )
         artifact_id = value.get("id")
         compile_loader = value.get("loader")
         mapping = value.get("mapping")
-        if not isinstance(artifact_id, str) or not artifact_id or Path(artifact_id).name != artifact_id:
-            raise _error(f"probe_compile_artifacts[{index}].id must be a catalog artifact ID")
+        if (
+            not isinstance(artifact_id, str)
+            or not artifact_id
+            or Path(artifact_id).name != artifact_id
+        ):
+            raise _error(
+                f"probe_compile_artifacts[{index}].id must be a catalog artifact ID"
+            )
         if compile_loader not in {"fabric", "neoforge"}:
-            raise _error(f"probe_compile_artifacts[{index}].loader must be fabric or neoforge")
+            raise _error(
+                f"probe_compile_artifacts[{index}].loader must be fabric or neoforge"
+            )
         if mapping not in {"named", "loader"}:
-            raise _error(f"probe_compile_artifacts[{index}].mapping must be named or loader")
-        probe_compile_artifacts.append(ProbeCompileSelection(artifact_id, compile_loader, mapping))
+            raise _error(
+                f"probe_compile_artifacts[{index}].mapping must be named or loader"
+            )
+        probe_compile_artifacts.append(
+            ProbeCompileSelection(artifact_id, compile_loader, mapping)
+        )
     probe_pack_values = raw.get("probe_packs", [])
     if not isinstance(probe_pack_values, list):
         raise _error("probe_packs must be an array of paths")
@@ -353,7 +384,9 @@ def load_scenario(path: str | Path) -> Scenario:
     for index, probe in enumerate(probes_raw):
         if not isinstance(probe, dict):
             raise _error(f"probes[{index}] must be a table")
-        _known_keys(probe, {"id", "version", "config", "config_file"}, f"probes[{index}]")
+        _known_keys(
+            probe, {"id", "version", "config", "config_file"}, f"probes[{index}]"
+        )
         probe_id, version = probe.get("id"), probe.get("version")
         if not isinstance(probe_id, str) or not probe_id:
             raise _error(f"probes[{index}].id must be a nonempty string")
@@ -364,7 +397,9 @@ def load_scenario(path: str | Path) -> Scenario:
         if "config" in probe and "config_file" in probe:
             raise _error(f"probes[{index}] cannot set both config and config_file")
         if "config_file" in probe:
-            config_path = _scenario_path(scenario_path, probe["config_file"], "probe config_file")
+            config_path = _scenario_path(
+                scenario_path, probe["config_file"], "probe config_file"
+            )
             try:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
@@ -386,25 +421,50 @@ def load_scenario(path: str | Path) -> Scenario:
     if startup_failure is not None:
         if not isinstance(startup_failure, dict):
             raise _error("expectations.startup_failure must be a table")
-        _known_keys(startup_failure, {"code", "log_contains"}, "expectations.startup_failure")
+        _known_keys(
+            startup_failure, {"code", "log_contains"}, "expectations.startup_failure"
+        )
         fragments = startup_failure.get("log_contains")
-        if startup_failure.get("code") != "startup_exited" or not isinstance(fragments, list) or not fragments or any(
-            not isinstance(fragment, str) or not fragment for fragment in fragments
+        if (
+            startup_failure.get("code") != "startup_exited"
+            or not isinstance(fragments, list)
+            or not fragments
+            or any(
+                not isinstance(fragment, str) or not fragment for fragment in fragments
+            )
         ):
-            raise _error("expectations.startup_failure requires code=startup_exited and nonempty log_contains strings")
+            raise _error(
+                "expectations.startup_failure requires code=startup_exited and nonempty log_contains strings"
+            )
     steps_raw = raw.get("steps", [])
     if not isinstance(steps_raw, list) or (not steps_raw and startup_failure is None):
-        raise _error("steps must be a nonempty array of tables unless startup_failure is expected")
+        raise _error(
+            "steps must be a nonempty array of tables unless startup_failure is expected"
+        )
     if startup_failure is not None and (steps_raw or probes_raw):
         raise _error("startup_failure controls cannot contain probes or steps")
     steps: list[ScenarioStep] = []
     seen_steps: set[str] = set()
     common = {"id", "type", "timeout", "expect", "jfr"}
     kind_keys = {
-        "command": {"command", "commands"},
+        "command": {
+            "command",
+            "commands",
+            "wait_for_log",
+            "fail_on_log",
+            "capture_files",
+            "metrics",
+        },
         "generate": {
-            "unit", "bounds", "candidate_file", "candidate_limit",
-            "authority", "terminal_probe", "repeat", "offset", "release_after_observation",
+            "unit",
+            "bounds",
+            "candidate_file",
+            "candidate_limit",
+            "authority",
+            "terminal_probe",
+            "repeat",
+            "offset",
+            "release_after_observation",
         },
         "probe": {"probe"},
     }
@@ -429,13 +489,140 @@ def load_scenario(path: str | Path) -> Scenario:
         values = {key: value for key, value in step.items() if key not in common}
         if kind == "command":
             if ("command" in values) == ("commands" in values):
-                raise _error(f"steps[{index}] must set exactly one of command or commands")
+                raise _error(
+                    f"steps[{index}] must set exactly one of command or commands"
+                )
             commands = values.get("commands", [values.get("command")])
-            if not isinstance(commands, list) or not commands or any(
-                not isinstance(item, str) or not item for item in commands
+            if (
+                not isinstance(commands, list)
+                or not commands
+                or any(not isinstance(item, str) or not item for item in commands)
             ):
                 raise _error(f"steps[{index}] commands must be nonempty strings")
-            values = {"commands": commands}
+            wait_for_log = values.get("wait_for_log")
+            if wait_for_log is not None:
+                if not isinstance(wait_for_log, str) or not wait_for_log:
+                    raise _error(
+                        f"steps[{index}].wait_for_log must be a nonempty regex"
+                    )
+                try:
+                    re.compile(wait_for_log)
+                except re.error as exc:
+                    raise _error(
+                        f"steps[{index}].wait_for_log is invalid: {exc}"
+                    ) from exc
+            fail_on_log = values.get("fail_on_log", [])
+            if not isinstance(fail_on_log, list) or any(
+                not isinstance(item, str) or not item for item in fail_on_log
+            ):
+                raise _error(f"steps[{index}].fail_on_log must be an array of regexes")
+            for expression in fail_on_log:
+                try:
+                    re.compile(expression)
+                except re.error as exc:
+                    raise _error(
+                        f"steps[{index}].fail_on_log contains an invalid regex: {exc}"
+                    ) from exc
+            capture_files = values.get("capture_files", [])
+            if not isinstance(capture_files, list) or any(
+                not isinstance(item, str)
+                or not item
+                or Path(item).is_absolute()
+                or ".." in Path(item).parts
+                or item in {".", "server.log"}
+                for item in capture_files
+            ):
+                raise _error(
+                    f"steps[{index}].capture_files must contain paths inside the loader run directory"
+                )
+            if len(set(capture_files)) != len(capture_files):
+                raise _error(f"steps[{index}].capture_files contains duplicates")
+            metrics = values.get("metrics", [])
+            if not isinstance(metrics, list):
+                raise _error(f"steps[{index}].metrics must be an array of tables")
+            normalized_metrics: list[dict[str, Any]] = []
+            metric_ids: set[str] = set()
+            for metric_index, metric in enumerate(metrics):
+                context = f"steps[{index}].metrics[{metric_index}]"
+                if not isinstance(metric, dict):
+                    raise _error(f"{context} must be a table")
+                _known_keys(
+                    metric,
+                    {
+                        "id",
+                        "source",
+                        "pattern",
+                        "group",
+                        "value_type",
+                        "unit",
+                        "required",
+                        "match",
+                    },
+                    context,
+                )
+                metric_id = metric.get("id")
+                source = metric.get("source")
+                pattern = metric.get("pattern")
+                group = metric.get("group", 1)
+                value_type = metric.get("value_type", "float")
+                unit = metric.get("unit")
+                required = metric.get("required", True)
+                match_mode = metric.get("match", "first")
+                if not isinstance(metric_id, str) or not metric_id:
+                    raise _error(f"{context}.id must be a nonempty string")
+                if metric_id in metric_ids:
+                    raise _error(f"duplicate metric ID in step {step_id}: {metric_id}")
+                metric_ids.add(metric_id)
+                if source != "server.log" and source not in capture_files:
+                    raise _error(
+                        f"{context}.source must be server.log or a listed capture_files path"
+                    )
+                if not isinstance(pattern, str) or not pattern:
+                    raise _error(f"{context}.pattern must be a nonempty regex")
+                try:
+                    compiled_pattern = re.compile(pattern)
+                except re.error as exc:
+                    raise _error(f"{context}.pattern is invalid: {exc}") from exc
+                if (
+                    isinstance(group, bool)
+                    or not isinstance(group, int)
+                    or group < 0
+                    or group > compiled_pattern.groups
+                ):
+                    raise _error(
+                        f"{context}.group must select an available numeric capture group"
+                    )
+                if value_type not in {"int", "float", "string"}:
+                    raise _error(f"{context}.value_type must be int, float, or string")
+                if unit is not None and (not isinstance(unit, str) or not unit):
+                    raise _error(f"{context}.unit must be a nonempty string")
+                if not isinstance(required, bool):
+                    raise _error(f"{context}.required must be true or false")
+                if match_mode not in {"first", "all"}:
+                    raise _error(f"{context}.match must be first or all")
+                normalized_metrics.append(
+                    {
+                        "id": metric_id,
+                        "source": source,
+                        "pattern": pattern,
+                        "group": group,
+                        "value_type": value_type,
+                        "unit": unit,
+                        "required": required,
+                        "match": match_mode,
+                    }
+                )
+            if normalized_metrics and wait_for_log is None and not capture_files:
+                raise _error(
+                    f"steps[{index}] metrics require wait_for_log or capture_files completion"
+                )
+            values = {
+                "commands": commands,
+                "wait_for_log": wait_for_log,
+                "fail_on_log": fail_on_log,
+                "capture_files": capture_files,
+                "metrics": normalized_metrics,
+            }
         elif kind == "generate":
             if values.get("unit") not in {"block", "chunk"}:
                 raise _error(f"steps[{index}].unit must be block or chunk")
@@ -450,16 +637,25 @@ def load_scenario(path: str | Path) -> Scenario:
                 if (
                     not isinstance(bounds, list)
                     or len(bounds) != 4
-                    or any(isinstance(item, bool) or not isinstance(item, int) for item in bounds)
+                    or any(
+                        isinstance(item, bool) or not isinstance(item, int)
+                        for item in bounds
+                    )
                 ):
                     raise _error(f"steps[{index}].bounds must contain four integers")
                 if "candidate_limit" in values:
-                    raise _error(f"steps[{index}].candidate_limit requires candidate_file")
+                    raise _error(
+                        f"steps[{index}].candidate_limit requires candidate_file"
+                    )
             else:
                 if values["unit"] != "block":
-                    raise _error(f"steps[{index}] candidate_file generation uses block coordinates")
+                    raise _error(
+                        f"steps[{index}] candidate_file generation uses block coordinates"
+                    )
                 candidate_file = _scenario_path(
-                    scenario_path, values["candidate_file"], f"steps[{index}].candidate_file"
+                    scenario_path,
+                    values["candidate_file"],
+                    f"steps[{index}].candidate_file",
                 )
                 candidate_limit = values.get("candidate_limit", 4)
                 if (
@@ -471,20 +667,29 @@ def load_scenario(path: str | Path) -> Scenario:
                     raise _error(f"steps[{index}].candidate_limit must be 1..64")
             authority = values.get("authority", "generation")
             if authority not in {"generation", "finished-chunk"}:
-                raise _error(f"steps[{index}].authority must be generation or finished-chunk")
+                raise _error(
+                    f"steps[{index}].authority must be generation or finished-chunk"
+                )
             terminal_probe = values.get("terminal_probe")
             if authority == "finished-chunk" and terminal_probe not in probes:
                 raise _error(
                     f"steps[{index}] finished-chunk authority requires a selected terminal_probe"
                 )
             repeat = values.get("repeat", 1)
-            if isinstance(repeat, bool) or not isinstance(repeat, int) or not 1 <= repeat <= 20:
+            if (
+                isinstance(repeat, bool)
+                or not isinstance(repeat, int)
+                or not 1 <= repeat <= 20
+            ):
                 raise _error(f"steps[{index}].repeat must be 1..20")
             offset = values.get("offset")
             if offset is not None and (
                 not isinstance(offset, list)
                 or len(offset) != 2
-                or any(isinstance(item, bool) or not isinstance(item, int) for item in offset)
+                or any(
+                    isinstance(item, bool) or not isinstance(item, int)
+                    for item in offset
+                )
             ):
                 raise _error(f"steps[{index}].offset must contain two integers")
             if repeat > 1:
@@ -576,9 +781,12 @@ def _candidate_coordinates(path: Path, limit: int) -> list[dict[str, int]]:
             raise _error(f"candidate {index} is not an object: {path}")
         x, z = item.get("x"), item.get("z")
         if (
-            isinstance(x, bool) or not isinstance(x, (int, float))
-            or isinstance(z, bool) or not isinstance(z, (int, float))
-            or not math.isfinite(float(x)) or not math.isfinite(float(z))
+            isinstance(x, bool)
+            or not isinstance(x, (int, float))
+            or isinstance(z, bool)
+            or not isinstance(z, (int, float))
+            or not math.isfinite(float(x))
+            or not math.isfinite(float(z))
         ):
             raise _error(f"candidate {index} lacks finite x/z coordinates: {path}")
         block_x, block_z = math.floor(x), math.floor(z)
@@ -587,7 +795,12 @@ def _candidate_coordinates(path: Path, limit: int) -> list[dict[str, int]]:
             continue
         seen_chunks.add(chunk)
         selected.append(
-            {"block_x": block_x, "block_z": block_z, "chunk_x": chunk[0], "chunk_z": chunk[1]}
+            {
+                "block_x": block_x,
+                "block_z": block_z,
+                "chunk_x": chunk[0],
+                "chunk_z": chunk[1],
+            }
         )
         if len(selected) == limit:
             break
@@ -596,7 +809,9 @@ def _candidate_coordinates(path: Path, limit: int) -> list[dict[str, int]]:
     return selected
 
 
-def _run_capture(command: list[str], *, cwd: Path, environment: dict[str, str]) -> bytes:
+def _run_capture(
+    command: list[str], *, cwd: Path, environment: dict[str, str]
+) -> bytes:
     try:
         return subprocess.run(
             command,
@@ -617,7 +832,11 @@ def capture_provenance(
     scenario: Scenario, environment: dict[str, str]
 ) -> tuple[dict[str, Any], bytes]:
     project = scenario.project
-    head = _run_capture(["git", "rev-parse", "HEAD"], cwd=project, environment=environment).decode().strip()
+    head = (
+        _run_capture(["git", "rev-parse", "HEAD"], cwd=project, environment=environment)
+        .decode()
+        .strip()
+    )
     status = _run_capture(
         ["git", "status", "--porcelain=v1", "-z"], cwd=project, environment=environment
     )
@@ -630,15 +849,21 @@ def capture_provenance(
         environment=environment,
     )
     untracked = []
-    for raw_path in filter(None, untracked_raw.decode(errors="surrogateescape").split("\0")):
+    for raw_path in filter(
+        None, untracked_raw.decode(errors="surrogateescape").split("\0")
+    ):
         path = project / raw_path
         if path.is_file() and not path.is_symlink():
-            untracked.append({"path": raw_path, "sha256": _sha256(path), "size": path.stat().st_size})
+            untracked.append(
+                {"path": raw_path, "sha256": _sha256(path), "size": path.stat().st_size}
+            )
     java_home = environment.get("JAVA_HOME")
     java = Path(java_home) / "bin" / "java" if java_home else Path("java")
-    java_version = _run_capture([str(java), "-version"], cwd=project, environment=environment).decode(
-        errors="replace"
-    ).strip()
+    java_version = (
+        _run_capture([str(java), "-version"], cwd=project, environment=environment)
+        .decode(errors="replace")
+        .strip()
+    )
     tracked_inputs = []
     gradle_jvm_arguments = None
     for relative in (
@@ -659,23 +884,35 @@ def capture_provenance(
                 {"path": relative, "sha256": _sha256(path), "size": path.stat().st_size}
             )
             if relative == "gradle.properties":
-                match = re.search(r"^org\.gradle\.jvmargs=(.*)$", path.read_text(), re.MULTILINE)
+                match = re.search(
+                    r"^org\.gradle\.jvmargs=(.*)$", path.read_text(), re.MULTILINE
+                )
                 gradle_jvm_arguments = match.group(1).strip() if match else None
     wrapper_properties = project / "gradle/wrapper/gradle-wrapper.properties"
     distribution = None
     if wrapper_properties.is_file():
-        match = re.search(r"^distributionUrl=(.+)$", wrapper_properties.read_text(), re.MULTILINE)
+        match = re.search(
+            r"^distributionUrl=(.+)$", wrapper_properties.read_text(), re.MULTILINE
+        )
         distribution = match.group(1).strip() if match else None
     missing = [str(path) for path in scenario.datapacks if not path.is_file()]
     if missing:
-        raise InvestigationError("datapack_not_found", f"datapack not found: {missing[0]}")
-    missing_runtime_files = [str(source) for source, _target in scenario.runtime_files if not source.is_file()]
+        raise InvestigationError(
+            "datapack_not_found", f"datapack not found: {missing[0]}"
+        )
+    missing_runtime_files = [
+        str(source)
+        for source, _target in scenario.runtime_files
+        if not source.is_file()
+    ]
     if missing_runtime_files:
         raise InvestigationError(
-            "runtime_file_not_found", f"runtime file not found: {missing_runtime_files[0]}"
+            "runtime_file_not_found",
+            f"runtime file not found: {missing_runtime_files[0]}",
         )
     if scenario.subject_artifact is not None and (
-        not scenario.subject_artifact.is_file() or scenario.subject_artifact.is_symlink()
+        not scenario.subject_artifact.is_file()
+        or scenario.subject_artifact.is_symlink()
     ):
         raise InvestigationError(
             "subject_artifact_not_found",
@@ -698,7 +935,8 @@ def capture_provenance(
     ]
     if missing_candidates:
         raise InvestigationError(
-            "candidate_file_not_found", f"candidate file not found: {missing_candidates[0]}"
+            "candidate_file_not_found",
+            f"candidate file not found: {missing_candidates[0]}",
         )
     datapacks = []
     resolved_ftf_presets = 0
@@ -717,7 +955,9 @@ def capture_provenance(
                     if not isinstance(resolved, dict):
                         raise ValueError("resolved preset is not an object")
                     item["resolved_ftf_preset"] = resolved
-                    item["resolved_ftf_preset_sha256"] = hashlib.sha256(raw_preset).hexdigest()
+                    item["resolved_ftf_preset_sha256"] = hashlib.sha256(
+                        raw_preset
+                    ).hexdigest()
                     resolved_ftf_presets += 1
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError, ValueError) as exc:
             raise InvestigationError(
@@ -754,12 +994,16 @@ def capture_provenance(
             for source, target in scenario.runtime_files
         ],
         "runtime_absent_files": list(scenario.runtime_absent_files),
-        "subject_artifact": None if scenario.subject_artifact is None else {
+        "subject_artifact": None
+        if scenario.subject_artifact is None
+        else {
             "path": str(scenario.subject_artifact),
             "sha256": _sha256(scenario.subject_artifact),
             "size": scenario.subject_artifact.stat().st_size,
         },
-        "subject_compile_artifact": None if scenario.subject_compile_artifact is None else {
+        "subject_compile_artifact": None
+        if scenario.subject_compile_artifact is None
+        else {
             "path": str(scenario.subject_compile_artifact),
             "sha256": _sha256(scenario.subject_compile_artifact),
             "size": scenario.subject_compile_artifact.stat().st_size,
@@ -798,7 +1042,9 @@ def capture_provenance(
                 "id": selected.probe_id,
                 "version": selected.version,
                 "config_sha256": hashlib.sha256(
-                    json.dumps(selected.config, sort_keys=True, separators=(",", ":")).encode()
+                    json.dumps(
+                        selected.config, sort_keys=True, separators=(",", ":")
+                    ).encode()
                 ).hexdigest(),
             }
             for selected in scenario.probes.values()
@@ -872,7 +1118,9 @@ def _nbt_find_long(f, path: tuple[str, ...]) -> int | None:
             name = read_name()
             if name == segment:
                 if depth == len(path) - 1:
-                    return struct.unpack(">q", f.read(8))[0] if child_type == 4 else None
+                    return (
+                        struct.unpack(">q", f.read(8))[0] if child_type == 4 else None
+                    )
                 if child_type != 10:
                     return None
                 break
@@ -884,16 +1132,27 @@ def parse_mod_list(log_text: str, loader: str) -> list[dict[str, str]]:
     mods: list[dict[str, str]] = []
     if loader == "fabric":
         active = False
+        current: list[dict[str, str]] = []
+        blocks: list[list[dict[str, str]]] = []
         for line in log_text.splitlines():
             if re.search(r"(?:FabricLoader\)|\[main/INFO\]:) Loading \d+ mods:", line):
+                if current:
+                    blocks.append(current)
+                current = []
                 active = True
                 continue
             if active:
                 match = re.match(r"\s*-\s+([a-z0-9_.-]+)\s+(.+?)\s*$", line)
                 if match:
-                    mods.append({"id": match.group(1), "version": match.group(2)})
-                elif mods and not re.match(r"\s*[|\\]--", line):
-                    break
+                    current.append({"id": match.group(1), "version": match.group(2)})
+                elif current and not re.match(r"\s*[|\\]--", line):
+                    blocks.append(current)
+                    current = []
+                    active = False
+        if current:
+            blocks.append(current)
+        if blocks:
+            mods = blocks[-1]
     elif loader in {"forge", "neoforge"}:
         active = False
         for line in log_text.splitlines():
@@ -904,14 +1163,20 @@ def parse_mod_list(log_text: str, loader: str) -> list[dict[str, str]]:
                 match = re.match(r"\s*(.+?)\s+(\S+)\s+\(([a-z0-9_.-]+)\)\s*$", line)
                 if match and match.group(3) != "id":
                     mods.append(
-                        {"id": match.group(3), "name": match.group(1).strip(), "version": match.group(2)}
+                        {
+                            "id": match.group(3),
+                            "name": match.group(1).strip(),
+                            "version": match.group(2),
+                        }
                     )
                 elif mods and "Launching target" in line:
                     break
     return mods
 
 
-def verify_world_identity(state: dict, requested_seed: str, timeout: float) -> dict[str, Any]:
+def verify_world_identity(
+    state: dict, requested_seed: str, timeout: float
+) -> dict[str, Any]:
     world = Path(state["world_dir"])
     level_dat = world / "level.dat"
     if not world.is_dir() or not level_dat.is_file():
@@ -950,12 +1215,15 @@ def _check_expectations(step: ScenarioStep, result: dict[str, Any]) -> None:
     allowed = {"response_contains", "response_regex", "region_count", "terminal_state"}
     _known_keys(expect, allowed, f"expectations for step {step.step_id}")
     responses = "\n".join(
-        item.get("response", "") for item in result.get("responses", result.get("regions", []))
+        item.get("response", "")
+        for item in result.get("responses", result.get("regions", []))
     )
     contains = expect.get("response_contains", [])
     if isinstance(contains, str):
         contains = [contains]
-    if not isinstance(contains, list) or any(not isinstance(item, str) for item in contains):
+    if not isinstance(contains, list) or any(
+        not isinstance(item, str) for item in contains
+    ):
         raise _error(f"step {step.step_id} response_contains must be a string or array")
     missing = [item for item in contains if item not in responses]
     if missing:
@@ -968,15 +1236,22 @@ def _check_expectations(step: ScenarioStep, result: dict[str, Any]) -> None:
             raise _error(f"step {step.step_id} response_regex must be a string")
         if re.search(pattern, responses) is None:
             raise InvestigationError(
-                "assertion_failed", f"step {step.step_id} response did not match {pattern!r}"
+                "assertion_failed",
+                f"step {step.step_id} response did not match {pattern!r}",
             )
-    if "region_count" in expect and len(result.get("regions", [])) != expect["region_count"]:
+    if (
+        "region_count" in expect
+        and len(result.get("regions", [])) != expect["region_count"]
+    ):
         raise InvestigationError(
             "assertion_failed",
             f"step {step.step_id} generated {len(result.get('regions', []))} regions, "
             f"expected {expect['region_count']}",
         )
-    if "terminal_state" in expect and result.get("terminal_state") != expect["terminal_state"]:
+    if (
+        "terminal_state" in expect
+        and result.get("terminal_state") != expect["terminal_state"]
+    ):
         raise InvestigationError(
             "assertion_failed",
             f"step {step.step_id} terminal state is {result.get('terminal_state')!r}, "
@@ -1010,7 +1285,9 @@ def _validate_probe_terminal(step_id: str, result: dict[str, Any]) -> None:
     terminal = result.get("state")
     if terminal != "pass":
         code = "incomplete_scan" if terminal == "inconclusive" else "probe_failed"
-        raise InvestigationError(code, f"step {step_id} probe terminal state is {terminal!r}")
+        raise InvestigationError(
+            code, f"step {step_id} probe terminal state is {terminal!r}"
+        )
     completeness = result.get("completeness")
     if isinstance(completeness, dict) and completeness.get("complete") is not True:
         raise InvestigationError(
@@ -1025,8 +1302,59 @@ def _fatal_log_pattern(text: str) -> str | None:
     )
 
 
+def _log_diagnostics(log_path: Path) -> dict[str, Any]:
+    counts = {
+        "warning_lines": 0,
+        "error_lines": 0,
+        "fatal_lines": 0,
+        "exception_lines": 0,
+    }
+    messages: dict[str, Counter[str]] = {
+        "warning": Counter(),
+        "error": Counter(),
+        "fatal": Counter(),
+        "exception": Counter(),
+    }
+    if not log_path.is_file():
+        return {**counts, "top_messages": {key: [] for key in messages}}
+
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        clean_line = ANSI_ESCAPE_PATTERN.sub("", line)
+        level_match = LOG_LEVEL_PATTERN.search(clean_line)
+        exception = EXCEPTION_LINE_PATTERN.search(clean_line) is not None
+        categories: list[str] = []
+        if level_match is not None:
+            category = level_match.group(1).lower()
+            counts[f"{category if category != 'warn' else 'warning'}_lines"] += 1
+            categories.append("warning" if category == "warn" else category)
+        if exception:
+            counts["exception_lines"] += 1
+            categories.append("exception")
+        if not categories:
+            continue
+        signature = re.sub(r"^\[[^\]]+\]\s*", "", clean_line)
+        signature = re.sub(r"^\[[^\]]+\]\s*", "", signature).strip()[:500]
+        for category in categories:
+            messages[category][signature] += 1
+
+    return {
+        **counts,
+        "top_messages": {
+            category: [
+                {"count": count, "message": message}
+                for message, count in counter.most_common(20)
+            ]
+            for category, counter in messages.items()
+        },
+    }
+
+
 def _scenario_summary(
-    state: dict, scenario: Scenario, result_state: str, steps: list[dict], error: dict | None
+    state: dict,
+    scenario: Scenario,
+    result_state: str,
+    steps: list[dict],
+    error: dict | None,
 ) -> dict:
     return {
         "ownership": state["ownership"],
@@ -1035,6 +1363,7 @@ def _scenario_summary(
         "state": result_state,
         "steps": steps,
         "error": error,
+        "log_diagnostics": state.get("log_diagnostics"),
         "cleanup": state.get("cleanup"),
         "updated_at": timestamp(),
     }
@@ -1052,6 +1381,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     world_identity: dict[str, Any] = {}
     failure: InvestigationError | None = None
+    cleanup_result: dict[str, Any] | None = None
     log_position = 0
     scenario_summary_path: Path | None = None
     progress_path: Path | None = None
@@ -1063,10 +1393,14 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         try:
             expected_root = (STATE_ROOT / "materialized").resolve()
             if materialized_path.parent.resolve().parent != expected_root:
-                raise ValueError("materialized fixture path failed ownership validation")
+                raise ValueError(
+                    "materialized fixture path failed ownership validation"
+                )
             if materialized_path.exists():
                 if materialized_path.is_symlink() or not materialized_path.is_file():
-                    raise ValueError("materialized fixture output is not a regular file")
+                    raise ValueError(
+                        "materialized fixture output is not a regular file"
+                    )
                 materialized_path.unlink()
             assert materialized_dir is not None
             materialized_dir.rmdir()
@@ -1090,7 +1424,9 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         nonlocal log_position
         assert state is not None
         if not any(identity_matches(item) for item in state.get("owned_processes", [])):
-            raise InvestigationError("scenario_crash", "owned server process boundary exited")
+            raise InvestigationError(
+                "scenario_crash", "owned server process boundary exited"
+            )
         log_path = Path(state["log_path"])
         with log_path.open("r", encoding="utf-8", errors="replace") as source:
             source.seek(log_position)
@@ -1099,7 +1435,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         fatal_pattern = _fatal_log_pattern(addition)
         if fatal_pattern is not None:
             raise InvestigationError(
-                "scenario_fatal_log", f"fatal server condition matched {fatal_pattern!r}"
+                "scenario_fatal_log",
+                f"fatal server condition matched {fatal_pattern!r}",
             )
 
     def execute_probe(
@@ -1140,15 +1477,18 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             materialized_path = materialized_dir / f"{fixture_manifest['id']}.zip"
             fixture_manifest.update(
                 archive_generated_fixture(
-                    generated_fixture["output_path"], materialized_path,
+                    generated_fixture["output_path"],
+                    materialized_path,
                     overlay=fixture_manifest["datapack_overlay_path"],
                 )
             )
             fixture_manifest["generator_run_id"] = generated_fixture["run_id"]
-            fixture_manifest["generator_manifest_path"] = generated_fixture["manifest_path"]
-            fixture_manifest["generated_content_sha256"] = generated_fixture["manifest"][
-                "generated"
-            ]["content_sha256"]
+            fixture_manifest["generator_manifest_path"] = generated_fixture[
+                "manifest_path"
+            ]
+            fixture_manifest["generated_content_sha256"] = generated_fixture[
+                "manifest"
+            ]["generated"]["content_sha256"]
             effective_scenario = replace(
                 scenario, datapacks=(materialized_path, *scenario.datapacks)
             )
@@ -1160,10 +1500,12 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             # Deliberate bounded generation is controlled by the scenario step timeout and
             # teardown path, not Minecraft's ordinary tick-stall watchdog.
             server_properties.setdefault("max-tick-time", "-1")
-        catalog_artifacts = list(resolve_artifacts(
-            scenario.companion_artifacts,
-            expected_loader=scenario.loader,
-        ))
+        catalog_artifacts = list(
+            resolve_artifact_closure(
+                scenario.companion_artifacts,
+                expected_loader=scenario.loader,
+            )
+        )
         resolved_artifacts = list(catalog_artifacts)
         probe_compile_artifacts = []
         selections = scenario.probe_compile_artifacts
@@ -1174,19 +1516,37 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             probe_compile_artifacts.append((artifact, selection.mapping))
         if scenario.subject_artifact is not None:
             subject_hash = _sha256(scenario.subject_artifact)
-            resolved_artifacts.insert(0, ResolvedArtifact(
-                "local-subject", "local-subject", "1.21.1", scenario.loader,
-                scenario.subject_artifact.name, subject_hash, scenario.subject_artifact,
-            ))
+            resolved_artifacts.insert(
+                0,
+                ResolvedArtifact(
+                    "local-subject",
+                    "local-subject",
+                    "1.21.1",
+                    scenario.loader,
+                    scenario.subject_artifact.name,
+                    subject_hash,
+                    scenario.subject_artifact,
+                ),
+            )
             if scenario.subject_compile_artifact is None:
                 probe_compile_artifacts.insert(0, (resolved_artifacts[0], "loader"))
         if scenario.subject_compile_artifact is not None:
             compile_hash = _sha256(scenario.subject_compile_artifact)
-            probe_compile_artifacts.insert(0, (ResolvedArtifact(
-                "local-subject-compile", "local-subject", "1.21.1", scenario.loader,
-                scenario.subject_compile_artifact.name, compile_hash,
-                scenario.subject_compile_artifact,
-            ), "named"))
+            probe_compile_artifacts.insert(
+                0,
+                (
+                    ResolvedArtifact(
+                        "local-subject-compile",
+                        "local-subject",
+                        "1.21.1",
+                        scenario.loader,
+                        scenario.subject_compile_artifact.name,
+                        compile_hash,
+                        scenario.subject_compile_artifact,
+                    ),
+                    "named",
+                ),
+            )
         try:
             state = start_server(
                 scenario.project,
@@ -1209,40 +1569,67 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             if expected is None:
                 raise
             details = startup_error.details
-            if startup_error.code != expected["code"] or details.get("cleanup_complete") is not True:
+            if (
+                startup_error.code != expected["code"]
+                or details.get("cleanup_complete") is not True
+            ):
                 raise InvestigationError(
-                    "assertion_failed", "expected startup failure and verified cleanup did not occur",
+                    "assertion_failed",
+                    "expected startup failure and verified cleanup did not occur",
                     details={"actual_code": startup_error.code, **details},
                 ) from startup_error
             artifact_dir = Path(details["artifact_dir"])
             failed_state = read_json(artifact_dir / "manifest.json")
+            provenance["launch_command"] = failed_state.get("command", [])
+            provenance["probe_overlay"] = failed_state.get("probe_overlay", {})
+            provenance["companion_artifacts"] = failed_state.get(
+                "companion_artifacts", []
+            )
             if failed_state.get("cleanup", {}).get("complete") is not True:
                 raise InvestigationError(
-                    "assertion_failed", "expected startup failure left incomplete cleanup",
+                    "assertion_failed",
+                    "expected startup failure left incomplete cleanup",
                     details=details,
                 ) from startup_error
-            log_text = Path(details["log_path"]).read_text(encoding="utf-8", errors="replace")
+            log_text = Path(details["log_path"]).read_text(
+                encoding="utf-8", errors="replace"
+            )
+            failed_state["log_diagnostics"] = _log_diagnostics(
+                Path(details["log_path"])
+            )
             missing_fragments = [
-                fragment for fragment in expected["log_contains"] if fragment not in log_text
+                fragment
+                for fragment in expected["log_contains"]
+                if fragment not in log_text
             ]
             mods = parse_mod_list(log_text, scenario.loader)
             present_mods = {item["id"] for item in mods}
-            missing_mods = sorted(set(scenario.expectations["required_mods"]) - present_mods)
+            missing_mods = sorted(
+                set(scenario.expectations["required_mods"]) - present_mods
+            )
             if missing_fragments or missing_mods:
                 raise InvestigationError(
-                    "assertion_failed", "expected startup diagnostic or required mods were absent",
-                    details={**details, "missing_fragments": missing_fragments, "missing_mods": missing_mods},
+                    "assertion_failed",
+                    "expected startup diagnostic or required mods were absent",
+                    details={
+                        **details,
+                        "missing_fragments": missing_fragments,
+                        "missing_mods": missing_mods,
+                    },
                 ) from startup_error
             provenance["mods"] = mods
             provenance["expected_startup_failure"] = {
-                "code": startup_error.code, "log_contains": expected["log_contains"]
+                "code": startup_error.code,
+                "log_contains": expected["log_contains"],
             }
             if materialized_path is not None and fixture_manifest is not None:
                 fixture_artifact_dir = artifact_dir / "datapacks"
                 fixture_artifact_dir.mkdir(exist_ok=True)
                 fixture_artifact = fixture_artifact_dir / materialized_path.name
                 shutil.copy2(materialized_path, fixture_artifact)
-                fixture_manifest["materialization_path"] = fixture_manifest["archive_path"]
+                fixture_manifest["materialization_path"] = fixture_manifest[
+                    "archive_path"
+                ]
                 fixture_manifest["archive_path"] = str(fixture_artifact)
                 fixture_manifest["archive_artifact"] = str(fixture_artifact)
                 for datapack in provenance["datapacks"]:
@@ -1256,29 +1643,42 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             (artifact_dir / "dirty.patch").write_bytes(dirty_patch)
             scenario_summary_path = artifact_dir / "scenario-summary.json"
             progress_path = artifact_dir / "scenario-progress.jsonl"
-            progress_path.write_text(json.dumps({
-                "timestamp": timestamp(), "event": "expected-startup-failure",
-                "code": startup_error.code, "cleanup_complete": True,
-            }, sort_keys=True) + "\n", encoding="utf-8")
-            atomic_write_json(scenario_summary_path, _scenario_summary(
-                failed_state, scenario, "succeeded", [], None
-            ))
+            progress_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": timestamp(),
+                        "event": "expected-startup-failure",
+                        "code": startup_error.code,
+                        "cleanup_complete": True,
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            atomic_write_json(
+                scenario_summary_path,
+                _scenario_summary(failed_state, scenario, "succeeded", [], None),
+            )
             return {
                 "state": failed_state,
                 "scenario": {
-                    "name": scenario.name, "path": str(scenario.path),
+                    "name": scenario.name,
+                    "path": str(scenario.path),
                     "sha256": provenance["scenario"]["sha256"],
                 },
                 "steps": [],
                 "provenance": provenance,
                 "world_identity": {},
                 "ftf_fixture": fixture_manifest,
+                "log_diagnostics": failed_state["log_diagnostics"],
                 "scenario_summary": str(scenario_summary_path),
                 "scenario_progress": str(progress_path),
             }
         if scenario.expectations["startup_failure"] is not None:
             raise InvestigationError(
-                "assertion_failed", "server reached readiness but startup failure was expected"
+                "assertion_failed",
+                "server reached readiness but startup failure was expected",
             )
         provenance["launch_command"] = state["command"]
         provenance["probe_overlay"] = state["probe_overlay"]
@@ -1311,10 +1711,18 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         mods = parse_mod_list(log_text, scenario.loader)
         provenance["mods"] = mods
         present_mods = {item["id"] for item in mods}
-        missing_mods = sorted(set(scenario.expectations["required_mods"]) - present_mods)
+        missing_mods = sorted(
+            set(scenario.expectations["required_mods"]) - present_mods
+        )
         if missing_mods:
             raise InvestigationError(
-                "required_mod_missing", f"runtime mod list lacks: {', '.join(missing_mods)}"
+                "required_mod_missing",
+                f"runtime mod list lacks: {', '.join(missing_mods)}",
+                details={
+                    "required_mods": scenario.expectations["required_mods"],
+                    "parsed_mods": mods,
+                    "log_excerpt": "\n".join(log_text.splitlines()[:240]),
+                },
             )
         atomic_write_json(artifact_dir / "provenance.json", provenance)
         state["scenario"] = {
@@ -1327,7 +1735,9 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         persist_active(state)
         record_event("ready", run_id=state["run_id"], mods=len(mods))
         log_position = Path(state["log_path"]).stat().st_size
-        world_identity = verify_world_identity(state, scenario.seed, scenario.step_timeout)
+        world_identity = verify_world_identity(
+            state, scenario.seed, scenario.step_timeout
+        )
         state["world_identity"] = world_identity
         state["world_verified_at"] = timestamp()
         state.setdefault("timings", {})["world_open_seconds"] = _seconds_between(
@@ -1338,8 +1748,53 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
 
         def execute_scenario_step(step: ScenarioStep) -> dict[str, Any]:
             if step.kind == "command":
+                command_started = time.monotonic()
+                capture_files = step.values["capture_files"]
+                run_dir = Path(state["run_dir"])
+                log_path = Path(state["log_path"])
+                command_log_start = log_path.stat().st_size
+                before_files = snapshot_measurement_files(run_dir, capture_files)
                 responses = run_commands(state, step.values["commands"], step.timeout)
-                return {"responses": responses}
+                monitored = (
+                    step.values["wait_for_log"] is not None
+                    or bool(capture_files)
+                    or bool(step.values["fail_on_log"])
+                )
+                if not monitored:
+                    return {"responses": responses}
+                remaining = step.timeout - (time.monotonic() - command_started)
+                if remaining <= 0:
+                    raise InvestigationError(
+                        "scenario_timeout", f"step {step.step_id} exceeded its timeout"
+                    )
+                measurement = wait_for_measurement(
+                    log_path=log_path,
+                    log_start=command_log_start,
+                    run_dir=run_dir,
+                    capture_files=capture_files,
+                    before_files=before_files,
+                    wait_for_log=step.values["wait_for_log"],
+                    fail_on_log=step.values["fail_on_log"],
+                    timeout=remaining,
+                    health_check=health_check,
+                )
+                command_log = measurement.pop("log_text")
+                captured = capture_measurement_files(
+                    run_dir,
+                    artifact_dir / "measurements" / step.step_id,
+                    capture_files,
+                )
+                metrics = extract_metrics(
+                    step.values["metrics"],
+                    run_dir=run_dir,
+                    command_log=command_log,
+                )
+                return {
+                    "responses": responses,
+                    "measurement": measurement,
+                    "captured_files": captured,
+                    "metrics": metrics,
+                }
             if step.kind == "probe":
                 request, probe_result = execute_probe(
                     step.values["probe"], step.timeout, step.step_id
@@ -1405,7 +1860,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                     remaining = step.timeout - (time.monotonic() - step_started)
                     if remaining <= 0:
                         raise InvestigationError(
-                            "scenario_timeout", f"step {step.step_id} exceeded its timeout"
+                            "scenario_timeout",
+                            f"step {step.step_id} exceeded its timeout",
                         )
                     probe_started = time.monotonic()
                     request, probe_result = execute_probe(
@@ -1423,7 +1879,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                     remaining = step.timeout - (time.monotonic() - step_started)
                     if remaining <= 0:
                         raise InvestigationError(
-                            "scenario_timeout", f"step {step.step_id} exceeded its timeout"
+                            "scenario_timeout",
+                            f"step {step.step_id} exceeded its timeout",
                         )
                     release_started = time.monotonic()
                     released = release_regions(
@@ -1520,6 +1977,8 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         failure = InvestigationError("scenario_error", str(exc))
     finally:
         if state is not None:
+            state["log_diagnostics"] = _log_diagnostics(Path(state["log_path"]))
+            persist_active(state)
             if failure is not None:
                 failure.details.update(
                     {
@@ -1586,7 +2045,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "message": cleanup.message,
                         "failures": cleanup.details.get("failures", []),
                     }
-                    return {
+                    cleanup_result = {
                         "state": state,
                         "scenario": state.get(
                             "scenario",
@@ -1596,6 +2055,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "provenance": provenance,
                         "world_identity": world_identity,
                         "ftf_fixture": fixture_manifest,
+                        "log_diagnostics": state.get("log_diagnostics"),
                         "scenario_summary": str(scenario_summary_path),
                         "scenario_progress": str(progress_path),
                         "cleanup_failed": {
@@ -1603,44 +2063,49 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                             "temporary_fixture_cleanup_error": temporary_cleanup,
                         },
                     }
-                raise CleanupError(
-                    "scenario cleanup did not complete",
-                    details={
-                        "run_id": state["run_id"],
-                        "artifact_dir": state["artifact_dir"],
-                        "log_path": state["log_path"],
-                        "scenario_error": (
-                            {"code": failure.code, "message": failure.message}
-                        ),
-                        "cleanup_error": cleanup.details,
-                        "temporary_fixture_cleanup_error": temporary_cleanup,
-                    },
-                ) from cleanup
-            if scenario_summary_path is not None:
-                atomic_write_json(
-                    scenario_summary_path,
-                    _scenario_summary(
-                        state,
-                        scenario,
-                        "failed" if failure else "succeeded",
-                        steps,
-                        (
-                            {
+                else:
+                    raise CleanupError(
+                        "scenario cleanup did not complete",
+                        details={
+                            "run_id": state["run_id"],
+                            "artifact_dir": state["artifact_dir"],
+                            "log_path": state["log_path"],
+                            "scenario_error": {
                                 "code": failure.code,
                                 "message": failure.message,
-                                "details": failure.details,
-                            }
-                            if failure
-                            else None
+                            },
+                            "cleanup_error": cleanup.details,
+                            "temporary_fixture_cleanup_error": temporary_cleanup,
+                        },
+                    ) from cleanup
+            if cleanup_result is None:
+                if scenario_summary_path is not None:
+                    atomic_write_json(
+                        scenario_summary_path,
+                        _scenario_summary(
+                            state,
+                            scenario,
+                            "failed" if failure else "succeeded",
+                            steps,
+                            (
+                                {
+                                    "code": failure.code,
+                                    "message": failure.message,
+                                    "details": failure.details,
+                                }
+                                if failure
+                                else None
+                            ),
                         ),
-                    ),
+                    )
+                record_event(
+                    "cleanup-finished",
+                    state=state["lifecycle"],
+                    cleanup=state.get("cleanup"),
                 )
-            record_event(
-                "cleanup-finished",
-                state=state["lifecycle"],
-                cleanup=state.get("cleanup"),
-            )
         cleanup_materialized()
+    if cleanup_result is not None:
+        return cleanup_result
     if failure is not None:
         raise failure
     assert state is not None
@@ -1651,6 +2116,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         "provenance": provenance,
         "world_identity": world_identity,
         "ftf_fixture": fixture_manifest,
+        "log_diagnostics": state.get("log_diagnostics"),
         "scenario_summary": str(scenario_summary_path),
         "scenario_progress": str(progress_path),
     }

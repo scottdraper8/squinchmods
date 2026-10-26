@@ -21,6 +21,16 @@ def _schema() -> dict:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)
+def _validator() -> jsonschema.protocols.Validator:
+    schema = _schema()
+    validator_class = jsonschema.validators.validator_for(schema)
+    # jsonschema.validate() re-validates the large schema against its metaschema on every
+    # envelope. Fedora's Python 3.14/jsonschema stack can overflow in that recursive path.
+    # The committed schema is static; construct and reuse its validator instead.
+    return validator_class(schema)
+
+
 def envelope(
     command: str,
     state: str,
@@ -46,13 +56,13 @@ def envelope(
         "error": error,
         "data": data or {},
     }
-    jsonschema.validate(value, _schema())
+    _validator().validate(value)
     return value
 
 
 def emit(value: dict, *, json_mode: bool, human: str | None = None) -> None:
     # Validate at the final emission boundary, including envelopes assembled by callers.
-    jsonschema.validate(value, _schema())
+    _validator().validate(value)
     if json_mode:
         print(json.dumps(value, sort_keys=True))
     elif human is not None:
