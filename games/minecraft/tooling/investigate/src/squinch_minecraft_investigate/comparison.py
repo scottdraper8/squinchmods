@@ -41,7 +41,7 @@ PATH_FIELDS = frozenset(
         "archive_artifact",
         "archive_path",
         "artifact_path",
-        "fixture_metadata_path",
+        "preset_metadata_path",
         "level_dat",
         "level_name",
         "log_path",
@@ -70,7 +70,11 @@ def _git(project: Path, *arguments: str) -> str:
             text=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
-        stderr = exc.stderr.strip() if isinstance(exc, subprocess.CalledProcessError) else str(exc)
+        stderr = (
+            exc.stderr.strip()
+            if isinstance(exc, subprocess.CalledProcessError)
+            else str(exc)
+        )
         raise InvestigationError(
             "comparison_git_failed",
             f"git {' '.join(arguments)} failed for {project}: {stderr}",
@@ -87,7 +91,8 @@ def resolve_exact_commit(project: Path, value: str, label: str) -> str:
     resolved = _git(project, "rev-parse", "--verify", f"{value}^{{commit}}").lower()
     if resolved != value.lower():
         raise InvestigationError(
-            "comparison_commit_invalid", f"{label} did not resolve to the exact requested commit"
+            "comparison_commit_invalid",
+            f"{label} did not resolve to the exact requested commit",
         )
     return resolved
 
@@ -129,9 +134,13 @@ def structured_diff(left: Any, right: Any, path: str = "$") -> list[dict[str, An
         for key in sorted(set(left) | set(right)):
             child = f"{path}.{key}"
             if key not in left:
-                differences.append({"path": child, "kind": "added", "right": right[key]})
+                differences.append(
+                    {"path": child, "kind": "added", "right": right[key]}
+                )
             elif key not in right:
-                differences.append({"path": child, "kind": "removed", "left": left[key]})
+                differences.append(
+                    {"path": child, "kind": "removed", "left": left[key]}
+                )
             else:
                 differences.extend(structured_diff(left[key], right[key], child))
         return differences
@@ -139,7 +148,9 @@ def structured_diff(left: Any, right: Any, path: str = "$") -> list[dict[str, An
         differences = []
         common = min(len(left), len(right))
         for index in range(common):
-            differences.extend(structured_diff(left[index], right[index], f"{path}[{index}]"))
+            differences.extend(
+                structured_diff(left[index], right[index], f"{path}[{index}]")
+            )
         for index in range(common, len(left)):
             differences.append(
                 {"path": f"{path}[{index}]", "kind": "removed", "left": left[index]}
@@ -196,8 +207,12 @@ def _timings(result: dict[str, Any]) -> dict[str, Any]:
         steps.append(
             {
                 "id": step.get("id"),
-                "duration_seconds": _seconds(step.get("started_at"), step.get("finished_at")),
-                "region_elapsed_seconds": [item.get("elapsed_seconds") for item in regions],
+                "duration_seconds": _seconds(
+                    step.get("started_at"), step.get("finished_at")
+                ),
+                "region_elapsed_seconds": [
+                    item.get("elapsed_seconds") for item in regions
+                ],
                 "measurements": step.get("result", {}).get("timing"),
                 "profile": step.get("result", {}).get("profile"),
             }
@@ -252,7 +267,7 @@ def _side_record(
         "scenario": provenance.get("scenario"),
         "datapacks": provenance.get("datapacks", []),
         "candidate_inputs": provenance.get("candidate_inputs", []),
-        "ftf_fixture": result.get("ftf_fixture"),
+        "ftf_preset": result.get("ftf_preset"),
         "world_identity": result.get("world_identity"),
     }
     code = {
@@ -283,14 +298,21 @@ def _side_record(
 
 def _add_worktree(project: Path, path: Path, commit: str) -> None:
     if path.exists() or path.is_symlink():
-        raise InvestigationError("comparison_worktree_exists", f"worktree target exists: {path}")
+        raise InvestigationError(
+            "comparison_worktree_exists", f"worktree target exists: {path}"
+        )
     _git(project, "worktree", "add", "--detach", str(path), commit)
     if path.is_symlink() or not path.is_dir():
-        raise InvestigationError("comparison_worktree_invalid", f"invalid worktree: {path}")
-    actual = _git(path, "rev-parse", "HEAD")
-    if actual != commit or _git(path, "status", "--porcelain=v1", "--untracked-files=all"):
         raise InvestigationError(
-            "comparison_worktree_invalid", f"new worktree did not match clean commit {commit}: {path}"
+            "comparison_worktree_invalid", f"invalid worktree: {path}"
+        )
+    actual = _git(path, "rev-parse", "HEAD")
+    if actual != commit or _git(
+        path, "status", "--porcelain=v1", "--untracked-files=all"
+    ):
+        raise InvestigationError(
+            "comparison_worktree_invalid",
+            f"new worktree did not match clean commit {commit}: {path}",
         )
 
 
@@ -304,7 +326,8 @@ def _remove_clean_worktree(project: Path, root: Path, path: Path) -> None:
         or path.name not in {"before", "after"}
     ):
         raise CleanupError(
-            "comparison worktree ownership validation failed", details={"path": str(path)}
+            "comparison worktree ownership validation failed",
+            details={"path": str(path)},
         )
     status = _git(path, "status", "--porcelain=v1", "--untracked-files=all")
     if status:
@@ -315,7 +338,8 @@ def _remove_clean_worktree(project: Path, root: Path, path: Path) -> None:
     _git(project, "worktree", "remove", str(path))
     if path.exists() or path.is_symlink():
         raise CleanupError(
-            "git reported worktree removal but the path remains", details={"path": str(path)}
+            "git reported worktree removal but the path remains",
+            details={"path": str(path)},
         )
 
 
@@ -325,7 +349,8 @@ def _prepare_owned_roots() -> None:
         path.mkdir(parents=True, exist_ok=True)
         if path.is_symlink() or path.resolve().parent != state_root:
             raise InvestigationError(
-                "comparison_root_invalid", f"comparison state root failed ownership validation: {path}"
+                "comparison_root_invalid",
+                f"comparison state root failed ownership validation: {path}",
             )
 
 
@@ -343,7 +368,9 @@ def run_exact_comparison(
     before = resolve_exact_commit(project, before, "before")
     after = resolve_exact_commit(project, after, "after")
     if before == after:
-        raise InvestigationError("comparison_commit_invalid", "before and after commits are equal")
+        raise InvestigationError(
+            "comparison_commit_invalid", "before and after commits are equal"
+        )
 
     _prepare_owned_roots()
     comparison_id = _comparison_id()
@@ -371,7 +398,9 @@ def run_exact_comparison(
                 "before": before,
                 "after": after,
                 "sides": sides,
-                "preserved_worktrees": [str(paths[label]) for label in sorted(preserved)],
+                "preserved_worktrees": [
+                    str(paths[label]) for label in sorted(preserved)
+                ],
                 "cleanup_errors": cleanup_errors,
                 "error": error,
             },
@@ -392,19 +421,29 @@ def run_exact_comparison(
         write_summary("running")
         for label, commit in (("before", before), ("after", after)):
             current = label
-            selected = replace(scenario, project=paths[label], retention="keep-on-failure")
+            selected = replace(
+                scenario, project=paths[label], retention="keep-on-failure"
+            )
             result = scenario_runner(selected)
             tree = _git(paths[label], "rev-parse", "HEAD^{tree}")
             sides[label] = _side_record(label, commit, tree, paths[label], result)
             write_summary("running")
             current = None
-        if sides["before"]["fingerprints"]["probe"]["sha256"] != sides["after"]["fingerprints"]["probe"]["sha256"]:
+        if (
+            sides["before"]["fingerprints"]["probe"]["sha256"]
+            != sides["after"]["fingerprints"]["probe"]["sha256"]
+        ):
             raise InvestigationError(
-                "comparison_probe_mismatch", "before and after did not inject the identical probe inputs"
+                "comparison_probe_mismatch",
+                "before and after did not inject the identical probe inputs",
             )
-        if sides["before"]["fingerprints"]["input"]["sha256"] != sides["after"]["fingerprints"]["input"]["sha256"]:
+        if (
+            sides["before"]["fingerprints"]["input"]["sha256"]
+            != sides["after"]["fingerprints"]["input"]["sha256"]
+        ):
             raise InvestigationError(
-                "comparison_input_mismatch", "before and after did not use identical scenario inputs"
+                "comparison_input_mismatch",
+                "before and after did not use identical scenario inputs",
             )
         left = sides["before"]["normalized"]
         right = sides["after"]["normalized"]
@@ -454,7 +493,11 @@ def run_exact_comparison(
                 worktree_root.rmdir()
             except OSError as exc:
                 cleanup_errors.append(
-                    {"path": str(worktree_root), "code": "rmdir_failed", "message": str(exc)}
+                    {
+                        "path": str(worktree_root),
+                        "code": "rmdir_failed",
+                        "message": str(exc),
+                    }
                 )
         error_value = None
         if failure is not None:
@@ -462,7 +505,9 @@ def run_exact_comparison(
                 "type": type(failure).__name__,
                 "message": str(failure),
             }
-        write_summary("failed" if failure or cleanup_errors else "succeeded", error_value)
+        write_summary(
+            "failed" if failure or cleanup_errors else "succeeded", error_value
+        )
 
     if failure is not None:
         if isinstance(failure, InvestigationError):
@@ -471,7 +516,9 @@ def run_exact_comparison(
                     "comparison_id": comparison_id,
                     "artifact_dir": str(artifact_dir),
                     "summary_path": str(summary_path),
-                    "preserved_worktrees": [str(paths[label]) for label in sorted(preserved)],
+                    "preserved_worktrees": [
+                        str(paths[label]) for label in sorted(preserved)
+                    ],
                 }
             )
         raise failure
@@ -482,7 +529,9 @@ def run_exact_comparison(
                 "comparison_id": comparison_id,
                 "artifact_dir": str(artifact_dir),
                 "summary_path": str(summary_path),
-                "preserved_worktrees": [str(paths[label]) for label in sorted(preserved)],
+                "preserved_worktrees": [
+                    str(paths[label]) for label in sorted(preserved)
+                ],
                 "cleanup_errors": cleanup_errors,
             },
         )

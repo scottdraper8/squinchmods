@@ -150,7 +150,7 @@
       "type": "object",
       "required": ["operation", "project", "loader", "lifecycle", "process", "cleanup", "leader_identity_valid", "owned_pids", "bound_ports"],
       "properties": {
-        "operation": {"enum": ["server", "client", "cell-scan", "preset-fixture"]},
+        "operation": {"enum": ["server", "client", "cell-scan", "preset-export"]},
         "project": {"type": "string", "minLength": 1},
         "loader": {"enum": ["fabric", "neoforge"]},
         "lifecycle": {"type": "string", "minLength": 1},
@@ -383,7 +383,7 @@
       "then": {"properties": {"data": {"$ref": "#/$defs/clientData"}}}
     },
     {
-      "if": {"properties": {"command": {"const": "preset-fixture"}, "error": {"type": "null"}}, "required": ["command", "error"]},
+      "if": {"properties": {"command": {"const": "preset-export"}, "error": {"type": "null"}}, "required": ["command", "error"]},
       "then": {
         "properties": {
           "data": {
@@ -393,7 +393,7 @@
                 "type": "object",
                 "required": ["kind", "run_id", "project", "head", "preset", "generated", "tracked_source_unchanged", "cleanup"],
                 "properties": {
-                  "kind": {"const": "ftf-preset-fixture"},
+                  "kind": {"const": "ftf-preset-export"},
                   "run_id": {"type": "string", "minLength": 1},
                   "project": {"type": "string", "minLength": 1},
                   "head": {"type": "string", "minLength": 1},

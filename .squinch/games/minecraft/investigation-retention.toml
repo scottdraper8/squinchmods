@@ -1,4 +1,3 @@
 schema_version = 1
 
-# Exact run IDs are protected only while a focused analysis or acceptance reference requires them.
 protected_runs = []

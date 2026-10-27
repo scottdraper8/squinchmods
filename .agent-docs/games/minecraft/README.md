@@ -11,7 +11,7 @@ references live beside each tool:
 - [`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md): runtime JAR and
   source acquisition.
 - [`agentic-development-guide.md`](agentic-development-guide.md): the Minecraft investigation
-  workflow and evidence handling.
+  workflow and scratch-state policy.
 
 ## Layout
 
@@ -24,10 +24,10 @@ games/minecraft/
     mc-source             extract vanilla source for inspection
     source-worker/        Gradle project used by mc-source
     qa/                   local check planner and runner
-    investigate/          managed Minecraft server and client investigations
+    investigate/          managed Minecraft server and client tooling
     third-party/          catalog-backed artifact and source acquisition
-  investigations/        probes, fixtures, and controlled projects
-  investigation-state/   generated investigation runs and worlds
+  investigations/        source integrations required by investigation tooling
+  investigation-state/   temporary generated runs, worlds, and logs
   reference/             local vanilla and third-party source checkouts
   qa-state/               local check runs and promoted worlds
 
@@ -35,12 +35,12 @@ games/minecraft/
   config.yml                                      shared Minecraft check profiles
   schema/                                         check configuration schemas
   games/minecraft/mods/<mod>/config.yml           per-mod targets and check settings
-  games/minecraft/mods/<mod>/scenarios/           mc-investigate scenarios
   games/minecraft/third-party/artifacts.toml      third-party artifact catalog
 ```
 
 Use `tooling/squinch <tool>` from the repository root to reach the package CLIs. Local check and
-investigation state is kept beneath the corresponding game-owned state directory.
+investigation outputs use the corresponding game-owned state directories as temporary scratch space;
+completed investigations are not kept as a persistent archive.
 
 ## Local checks
 
@@ -56,11 +56,11 @@ guide has the profile contents and exact command syntax.
 
 ## Investigations and artifacts
 
-`mc-investigate` runs repository-defined scenarios against an explicitly selected project worktree.
-It owns server or isolated-client startup and cleanup, records run inputs and outputs, and supports
-structured probes, generation, comparisons, and artifact inspection. Scenario files are stored under
-`.squinch/games/minecraft/mods/<mod>/scenarios/`; reusable probe projects and fixtures are under
-`games/minecraft/investigations/`.
+`mc-investigate` runs task-local inputs against an explicitly selected project worktree. It owns
+server or isolated-client startup and cleanup, records run inputs and outputs in scratch state, and
+supports structured probes, generation, comparisons, and artifact inspection. FTF presets are
+supplied as task-local preset inputs; exporter output is a generated datapack. FTF scenario, preset,
+and probe-pack catalogs are not maintained in the repository. Long-lived behavior belongs in tests.
 
 `third-party` uses `.squinch/games/minecraft/third-party/artifacts.toml` to acquire and verify
 runtime artifacts. Its source command creates shallow, sparse checkouts for source review. The

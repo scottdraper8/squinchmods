@@ -22,7 +22,6 @@ import tomllib
 
 from .catalog import ResolvedArtifact, resolve_artifact_closure, resolve_artifacts
 from .errors import CleanupError, InvestigationError
-from .fixtures import archive_generated_fixture, load_fixture
 from .generation import generate_regions, release_regions
 from .measurement import (
     capture_measurement_files,
@@ -32,6 +31,7 @@ from .measurement import (
 )
 from .output import timestamp
 from .paths import REPOSITORY_ROOT, STATE_ROOT
+from .presets import archive_generated_datapack, load_preset
 from .probe_requests import submit_probe
 from .processes import identity_matches
 from .profiling import start_jfr, stop_jfr, verify_jfr_host_health
@@ -91,7 +91,7 @@ class Scenario:
     loader: str
     launch_task: str
     seed: str
-    ftf_fixture: Path | None
+    ftf_preset: Path | None
     subject_source_project: Path | None
     datapacks: tuple[Path, ...]
     runtime_files: tuple[tuple[Path, str], ...]
@@ -179,7 +179,7 @@ def load_scenario(path: str | Path) -> Scenario:
             "loader",
             "launch_task",
             "seed",
-            "ftf_fixture",
+            "ftf_preset",
             "subject_source_project",
             "datapacks",
             "runtime_files",
@@ -219,14 +219,14 @@ def load_scenario(path: str | Path) -> Scenario:
     if not seed:
         raise _error("seed cannot be empty or random")
 
-    ftf_fixture = None
-    if "ftf_fixture" in raw:
-        ftf_fixture = _scenario_path(scenario_path, raw["ftf_fixture"], "ftf_fixture")
+    ftf_preset = None
+    if "ftf_preset" in raw:
+        ftf_preset = _scenario_path(scenario_path, raw["ftf_preset"], "ftf_preset")
     subject_source_project = None
     if "subject_source_project" in raw:
-        if ftf_fixture is None or "subject_artifact" not in raw:
+        if ftf_preset is None or "subject_artifact" not in raw:
             raise _error(
-                "subject_source_project requires ftf_fixture and subject_artifact"
+                "subject_source_project requires ftf_preset and subject_artifact"
             )
         subject_source_project = _scenario_path(
             scenario_path, raw["subject_source_project"], "subject_source_project"
@@ -735,7 +735,7 @@ def load_scenario(path: str | Path) -> Scenario:
         loader,
         launch_task,
         seed,
-        ftf_fixture,
+        ftf_preset,
         subject_source_project,
         datapacks,
         tuple(runtime_files),
@@ -1374,7 +1374,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
     provenance: dict[str, Any] = {}
     dirty_patch = b""
     effective_scenario = scenario
-    fixture_manifest: dict[str, Any] | None = None
+    preset_manifest: dict[str, Any] | None = None
     materialized_path: Path | None = None
     materialized_dir: Path | None = None
     state: dict | None = None
@@ -1394,12 +1394,12 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             expected_root = (STATE_ROOT / "materialized").resolve()
             if materialized_path.parent.resolve().parent != expected_root:
                 raise ValueError(
-                    "materialized fixture path failed ownership validation"
+                    "materialized datapack path failed ownership validation"
                 )
             if materialized_path.exists():
                 if materialized_path.is_symlink() or not materialized_path.is_file():
                     raise ValueError(
-                        "materialized fixture output is not a regular file"
+                        "materialized datapack output is not a regular file"
                     )
                 materialized_path.unlink()
             assert materialized_dir is not None
@@ -1463,38 +1463,38 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         return request, result
 
     try:
-        if scenario.ftf_fixture is not None:
-            from .preset_fixture import generate_preset_fixture
+        if scenario.ftf_preset is not None:
+            from .preset_export import export_preset
 
-            fixture_manifest = load_fixture(scenario.ftf_fixture)
-            generated_fixture = generate_preset_fixture(
+            preset_manifest = load_preset(scenario.ftf_preset)
+            generated_export = export_preset(
                 project_value=scenario.subject_source_project or scenario.project,
-                preset=Path(fixture_manifest["preset_path"]),
+                preset=Path(preset_manifest["preset_path"]),
                 timeout=scenario.startup_timeout,
             )
             materialized_dir = STATE_ROOT / "materialized" / uuid.uuid4().hex
             materialized_dir.mkdir(parents=True, exist_ok=False)
-            materialized_path = materialized_dir / f"{fixture_manifest['id']}.zip"
-            fixture_manifest.update(
-                archive_generated_fixture(
-                    generated_fixture["output_path"],
+            materialized_path = materialized_dir / f"{preset_manifest['id']}.zip"
+            preset_manifest.update(
+                archive_generated_datapack(
+                    generated_export["output_path"],
                     materialized_path,
-                    overlay=fixture_manifest["datapack_overlay_path"],
+                    overlay=preset_manifest["datapack_overlay_path"],
                 )
             )
-            fixture_manifest["generator_run_id"] = generated_fixture["run_id"]
-            fixture_manifest["generator_manifest_path"] = generated_fixture[
+            preset_manifest["generator_run_id"] = generated_export["run_id"]
+            preset_manifest["generator_manifest_path"] = generated_export[
                 "manifest_path"
             ]
-            fixture_manifest["generated_content_sha256"] = generated_fixture[
-                "manifest"
-            ]["generated"]["content_sha256"]
+            preset_manifest["generated_content_sha256"] = generated_export["manifest"][
+                "generated"
+            ]["content_sha256"]
             effective_scenario = replace(
                 scenario, datapacks=(materialized_path, *scenario.datapacks)
             )
         provenance, dirty_patch = capture_provenance(effective_scenario, environment)
-        if fixture_manifest is not None:
-            provenance["ftf_fixture"] = fixture_manifest
+        if preset_manifest is not None:
+            provenance["ftf_preset"] = preset_manifest
         server_properties = dict(scenario.server_properties)
         if any(step.kind == "generate" for step in scenario.steps):
             # Deliberate bounded generation is controlled by the scenario step timeout and
@@ -1622,22 +1622,22 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                 "code": startup_error.code,
                 "log_contains": expected["log_contains"],
             }
-            if materialized_path is not None and fixture_manifest is not None:
-                fixture_artifact_dir = artifact_dir / "datapacks"
-                fixture_artifact_dir.mkdir(exist_ok=True)
-                fixture_artifact = fixture_artifact_dir / materialized_path.name
-                shutil.copy2(materialized_path, fixture_artifact)
-                fixture_manifest["materialization_path"] = fixture_manifest[
+            if materialized_path is not None and preset_manifest is not None:
+                datapack_artifact_dir = artifact_dir / "datapacks"
+                datapack_artifact_dir.mkdir(exist_ok=True)
+                datapack_artifact = datapack_artifact_dir / materialized_path.name
+                shutil.copy2(materialized_path, datapack_artifact)
+                preset_manifest["materialization_path"] = preset_manifest[
                     "archive_path"
                 ]
-                fixture_manifest["archive_path"] = str(fixture_artifact)
-                fixture_manifest["archive_artifact"] = str(fixture_artifact)
+                preset_manifest["archive_path"] = str(datapack_artifact)
+                preset_manifest["archive_artifact"] = str(datapack_artifact)
                 for datapack in provenance["datapacks"]:
                     if datapack["path"] == str(materialized_path):
                         datapack["materialization_path"] = datapack["path"]
-                        datapack["path"] = str(fixture_artifact)
-                        datapack["fixture_metadata_path"] = str(scenario.ftf_fixture)
-                        datapack["artifact_path"] = str(fixture_artifact)
+                        datapack["path"] = str(datapack_artifact)
+                        datapack["preset_metadata_path"] = str(scenario.ftf_preset)
+                        datapack["artifact_path"] = str(datapack_artifact)
             atomic_write_json(artifact_dir / "provenance.json", provenance)
             (artifact_dir / "scenario.toml").write_bytes(scenario.path.read_bytes())
             (artifact_dir / "dirty.patch").write_bytes(dirty_patch)
@@ -1670,7 +1670,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                 "steps": [],
                 "provenance": provenance,
                 "world_identity": {},
-                "ftf_fixture": fixture_manifest,
+                "ftf_preset": preset_manifest,
                 "log_diagnostics": failed_state["log_diagnostics"],
                 "scenario_summary": str(scenario_summary_path),
                 "scenario_progress": str(progress_path),
@@ -1688,22 +1688,22 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         progress_path = artifact_dir / "scenario-progress.jsonl"
         (artifact_dir / "scenario.toml").write_bytes(scenario.path.read_bytes())
         (artifact_dir / "dirty.patch").write_bytes(dirty_patch)
-        if materialized_path is not None and fixture_manifest is not None:
-            fixture_artifact_dir = artifact_dir / "datapacks"
-            fixture_artifact_dir.mkdir()
-            fixture_artifact = fixture_artifact_dir / materialized_path.name
-            shutil.copy2(materialized_path, fixture_artifact)
-            fixture_manifest["materialization_path"] = fixture_manifest["archive_path"]
-            fixture_manifest["archive_path"] = str(fixture_artifact)
-            fixture_manifest["archive_artifact"] = str(fixture_artifact)
+        if materialized_path is not None and preset_manifest is not None:
+            datapack_artifact_dir = artifact_dir / "datapacks"
+            datapack_artifact_dir.mkdir()
+            datapack_artifact = datapack_artifact_dir / materialized_path.name
+            shutil.copy2(materialized_path, datapack_artifact)
+            preset_manifest["materialization_path"] = preset_manifest["archive_path"]
+            preset_manifest["archive_path"] = str(datapack_artifact)
+            preset_manifest["archive_artifact"] = str(datapack_artifact)
             for datapack in provenance["datapacks"]:
                 if datapack["path"] == str(materialized_path):
                     datapack["materialization_path"] = datapack["path"]
-                    datapack["path"] = str(fixture_artifact)
-                    datapack["fixture_metadata_path"] = str(scenario.ftf_fixture)
-                    datapack["artifact_path"] = str(fixture_artifact)
+                    datapack["path"] = str(datapack_artifact)
+                    datapack["preset_metadata_path"] = str(scenario.ftf_preset)
+                    datapack["artifact_path"] = str(datapack_artifact)
             state["datapacks"] = [
-                str(fixture_artifact) if path == str(materialized_path) else path
+                str(datapack_artifact) if path == str(materialized_path) else path
                 for path in state["datapacks"]
             ]
             cleanup_materialized()
@@ -2054,7 +2054,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "steps": steps,
                         "provenance": provenance,
                         "world_identity": world_identity,
-                        "ftf_fixture": fixture_manifest,
+                        "ftf_preset": preset_manifest,
                         "log_diagnostics": state.get("log_diagnostics"),
                         "scenario_summary": str(scenario_summary_path),
                         "scenario_progress": str(progress_path),
@@ -2115,7 +2115,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
         "steps": steps,
         "provenance": provenance,
         "world_identity": world_identity,
-        "ftf_fixture": fixture_manifest,
+        "ftf_preset": preset_manifest,
         "log_diagnostics": state.get("log_diagnostics"),
         "scenario_summary": str(scenario_summary_path),
         "scenario_progress": str(progress_path),

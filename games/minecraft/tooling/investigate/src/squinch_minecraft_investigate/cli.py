@@ -34,7 +34,7 @@ from .paths import (
     resolve_project,
     validate_loader,
 )
-from .preset_fixture import run_preset_fixture
+from .preset_export import run_preset_export
 from .probe_requests import submit_probe
 from .retention import RUN_ID_PATTERN, load_protected_run_ids
 from .scenario import load_scenario, run_scenario
@@ -279,7 +279,7 @@ def parser() -> argparse.ArgumentParser:
         "--preset",
         required=True,
         type=Path,
-        help="fixture.toml or resolved preset JSON",
+        help="preset.toml or resolved preset JSON",
     )
     cell_scan.add_argument("--seed", required=True)
     cell_scan.add_argument(
@@ -320,21 +320,21 @@ def parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Emit the versioned JSON envelope"
     )
 
-    preset_fixture = subparsers.add_parser(
-        "preset-fixture",
+    preset_export = subparsers.add_parser(
+        "preset-export",
         help="Generate a complete FTF datapack from one resolved preset",
     )
-    preset_fixture.add_argument(
+    preset_export.add_argument(
         "--project", required=True, help="Exact FTF project/worktree path"
     )
-    preset_fixture.add_argument(
+    preset_export.add_argument(
         "--preset",
         required=True,
         type=Path,
-        help="Base fixture.toml or resolved preset JSON",
+        help="preset.toml or resolved preset JSON",
     )
-    preset_fixture.add_argument("--timeout", type=float, default=300.0)
-    preset_fixture.add_argument(
+    preset_export.add_argument("--timeout", type=float, default=300.0)
+    preset_export.add_argument(
         "--json", action="store_true", help="Emit the versioned JSON envelope"
     )
 
@@ -739,7 +739,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         str(Path(state["artifact_dir"]) / "provenance.json"),
         str(Path(state["artifact_dir"]) / "scenario.toml"),
     ]
-    materialized = result["ftf_fixture"]
+    materialized = result["ftf_preset"]
     if materialized is not None:
         artifact_paths.append(materialized["archive_artifact"])
     cleanup_failed = result.get("cleanup_failed")
@@ -749,7 +749,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
         "steps": result["steps"],
         "provenance": result["provenance"],
         "world_identity": result["world_identity"],
-        "ftf_fixture": result["ftf_fixture"],
+        "ftf_preset": result["ftf_preset"],
         "log_diagnostics": result.get("log_diagnostics"),
     }
     if cleanup_failed is not None:
@@ -1046,10 +1046,10 @@ def _cell_scan(args: argparse.Namespace) -> tuple[dict, str]:
     )
 
 
-def _preset_fixture(args: argparse.Namespace) -> tuple[dict, str]:
-    generated = run_preset_fixture(args)
+def _preset_export(args: argparse.Namespace) -> tuple[dict, str]:
+    generated = run_preset_export(args)
     value = envelope(
-        "preset-fixture",
+        "preset-export",
         "succeeded",
         run_id=generated["run_id"],
         finished_at=timestamp(),
@@ -1064,7 +1064,7 @@ def _preset_fixture(args: argparse.Namespace) -> tuple[dict, str]:
         data={"manifest": generated["manifest"]},
     )
     return value, (
-        f"preset fixture {generated['run_id']} generated "
+        f"preset export {generated['run_id']} generated "
         f"{generated['manifest']['generated']['file_count']} files"
     )
 
@@ -1352,7 +1352,7 @@ HANDLERS = {
     "compare": _compare,
     "inspect-artifact": _inspect_artifact,
     "cell-scan": _cell_scan,
-    "preset-fixture": _preset_fixture,
+    "preset-export": _preset_export,
     "clean": _clean,
 }
 

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from squinch_minecraft_third_party.catalog import load_catalog, validate_catalog
+from squinch_minecraft_third_party.catalog import load_catalog
 
 
 class CatalogTests(unittest.TestCase):
@@ -12,7 +12,7 @@ class CatalogTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "artifacts.toml"
             path.write_text(
-                '''schema_version = 1
+                """schema_version = 1
 [[artifacts]]
 id = "same"
 project_slug = "example"
@@ -44,16 +44,11 @@ source_id = "source"
 [[sources]]
 id = "source"
 status = "unavailable"
-'''.format(hash="0" * 64), encoding="utf-8")
+""".format(hash="0" * 64),
+                encoding="utf-8",
+            )
             with self.assertRaisesRegex(Exception, "duplicate catalog artifact ID"):
                 load_catalog(path)
-
-    def test_committed_catalog_matches_the_cache(self) -> None:
-        root = Path(__file__).parents[5]
-        catalog = root / ".squinch/games/minecraft/third-party/artifacts.toml"
-        cache = Path.home() / ".cache/squinchmods/third-party/modrinth"
-        result = validate_catalog(catalog, cache_root=cache)
-        self.assertGreater(len(result["artifacts"]), 0)
 
 
 if __name__ == "__main__":

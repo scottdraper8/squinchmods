@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import comparison
 from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
 from squinch_minecraft_investigate.scenario import Scenario
@@ -44,7 +43,7 @@ def _scenario(path: Path, repo: Path) -> Scenario:
         loader="fabric",
         launch_task="runServer",
         seed="123",
-        ftf_fixture=None,
+        ftf_preset=None,
         subject_source_project=None,
         datapacks=(),
         runtime_files=(),
@@ -121,8 +120,11 @@ def _runner(selected: Scenario) -> dict:
                 "sentinel": "TEST",
             },
         },
-        "world_identity": {"actual_seed": 123, "world_dir": str(selected.project / "world")},
-        "ftf_fixture": None,
+        "world_identity": {
+            "actual_seed": 123,
+            "world_dir": str(selected.project / "world"),
+        },
+        "ftf_preset": None,
         "scenario_summary": f"/artifacts/{label}/scenario-summary.json",
         "scenario_progress": f"/artifacts/{label}/scenario-progress.jsonl",
     }
@@ -155,14 +157,24 @@ def test_exact_comparison_uses_detached_commits_and_removes_clean_worktrees(
     _roots(tmp_path, monkeypatch)
 
     result = comparison.run_exact_comparison(
-        repo, before, after, _scenario(tmp_path / "scenario.toml", repo), scenario_runner=_runner
+        repo,
+        before,
+        after,
+        _scenario(tmp_path / "scenario.toml", repo),
+        scenario_runner=_runner,
     )
 
     assert result["equal"] is False
     assert result["left"]["commit"] == before
     assert result["right"]["commit"] == after
-    assert result["left"]["fingerprints"]["probe"]["sha256"] == result["right"]["fingerprints"]["probe"]["sha256"]
-    assert result["left"]["fingerprints"]["input"]["sha256"] == result["right"]["fingerprints"]["input"]["sha256"]
+    assert (
+        result["left"]["fingerprints"]["probe"]["sha256"]
+        == result["right"]["fingerprints"]["probe"]["sha256"]
+    )
+    assert (
+        result["left"]["fingerprints"]["input"]["sha256"]
+        == result["right"]["fingerprints"]["input"]["sha256"]
+    )
     assert result["equivalence"]["input_fingerprints_equal"] is True
     assert result["preserved_worktrees"] == []
     assert list((tmp_path / "state" / "worktrees").glob("compare-*")) == []
@@ -179,7 +191,9 @@ def test_failed_side_is_preserved_while_unused_clean_side_is_removed(
 
     def fail_before(selected: Scenario) -> dict:
         if selected.project.name == "before":
-            raise InvestigationError("deliberate_failure", "controlled scenario failure")
+            raise InvestigationError(
+                "deliberate_failure", "controlled scenario failure"
+            )
         return _runner(selected)
 
     try:
@@ -199,7 +213,9 @@ def test_failed_side_is_preserved_while_unused_clean_side_is_removed(
     finally:
         listed = _git(repo, "worktree", "list", "--porcelain")
         for line in listed.splitlines():
-            if line.startswith("worktree ") and line.removeprefix("worktree ") != str(repo):
+            if line.startswith("worktree ") and line.removeprefix("worktree ") != str(
+                repo
+            ):
                 _git(repo, "worktree", "remove", line.removeprefix("worktree "))
 
 
@@ -231,7 +247,9 @@ def test_unexpected_worktree_change_is_preserved_without_force(
     finally:
         listed = _git(repo, "worktree", "list", "--porcelain")
         for line in listed.splitlines():
-            if line.startswith("worktree ") and line.removeprefix("worktree ") != str(repo):
+            if line.startswith("worktree ") and line.removeprefix("worktree ") != str(
+                repo
+            ):
                 path = Path(line.removeprefix("worktree "))
                 (path / "behavior.txt").write_text("before\n")
                 _git(repo, "worktree", "remove", str(path))
@@ -255,7 +273,9 @@ def test_comparison_rejects_nonidentical_probe_or_scenario_inputs(
         result = _runner(selected)
         if selected.project.name == "after":
             if drift == "probe":
-                result["provenance"]["probe_overlay"]["packs"][0]["content_sha256"] = "c" * 64
+                result["provenance"]["probe_overlay"]["packs"][0]["content_sha256"] = (
+                    "c" * 64
+                )
             else:
                 result["world_identity"]["actual_seed"] = 456
         return result

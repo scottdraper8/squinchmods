@@ -4,13 +4,13 @@ import groovy.json.JsonSlurper
 def harnessProperty = gradle.startParameter.projectProperties.get("squinchCellScanHarness")
 def requestProperty = gradle.startParameter.projectProperties.get("squinchCellScanRequest")
 def resultProperty = gradle.startParameter.projectProperties.get("squinchCellScanResult")
-def fixturePresetProperty = gradle.startParameter.projectProperties.get("squinchFixturePreset")
-def fixtureCanonicalPresetProperty = gradle.startParameter.projectProperties.get("squinchFixtureCanonicalPreset")
-def fixtureOutputProperty = gradle.startParameter.projectProperties.get("squinchFixtureOutput")
+def presetInputProperty = gradle.startParameter.projectProperties.get("squinchPresetInput")
+def canonicalPresetOutputProperty = gradle.startParameter.projectProperties.get("squinchCanonicalPresetOutput")
+def generatedDatapackOutputProperty = gradle.startParameter.projectProperties.get("squinchGeneratedDatapackOutput")
 
 def scanMode = requestProperty != null && resultProperty != null
-def fixtureMode = fixturePresetProperty != null && fixtureCanonicalPresetProperty != null && fixtureOutputProperty != null
-if (harnessProperty == null || scanMode == fixtureMode) {
+def presetExportMode = presetInputProperty != null && canonicalPresetOutputProperty != null && generatedDatapackOutputProperty != null
+if (harnessProperty == null || scanMode == presetExportMode) {
     throw new GradleException(
         "FTF standalone overlay requires its harness and exactly one complete operation input pair"
     )
@@ -42,34 +42,40 @@ gradle.beforeProject { project ->
                 task.systemProperty("java.awt.headless", "true")
             }
         }
-        if (fixtureMode) {
+        if (presetExportMode) {
+            // Preset export uses its own entrypoint and does not depend on the
+            // cell scanner's version-specific terrain APIs.
+            project.sourceSets.main.java.exclude("org/squinchmods/investigate/ftf/CellScanMain.java")
+            project.sourceSets.main.java.exclude("org/squinchmods/investigate/ftf/CellFields.java")
+            project.sourceSets.main.java.exclude("org/squinchmods/investigate/ftf/ScanAccumulator.java")
+            project.sourceSets.main.java.exclude("etcodehome/freeterraforged/platform/RegistryUtil.java")
             project.tasks.named("processResources").configure { task ->
-                task.inputs.property("squinchPresetFixtureEntrypoint", "1")
+                task.inputs.property("squinchPresetExportEntrypoint", "1")
                 task.doLast {
                     def metadata = new File(task.destinationDir, "fabric.mod.json")
                     def parsed = new JsonSlurper().parse(metadata)
                     parsed.entrypoints["fabric-datagen"].add(
-                        "org.squinchmods.investigate.ftf.PresetFixtureMain"
+                        "org.squinchmods.investigate.ftf.PresetExportMain"
                     )
                     metadata.text = JsonOutput.prettyPrint(JsonOutput.toJson(parsed))
                 }
             }
-            project.loom.runs.create("squinchPresetFixture") { run ->
+            project.loom.runs.create("squinchPresetExport") { run ->
                 run.inherit(project.loom.runs.getByName("client"))
                 run.runDir = project.relativePath(
-                    new File(fixtureOutputProperty).parentFile.canonicalFile
+                    new File(generatedDatapackOutputProperty).parentFile.canonicalFile
                 )
                 run.vmArg("-Dfabric-api.datagen")
                 run.vmArg("-Dfabric-api.datagen.modid=freeterraforged")
-                run.vmArg("-Dfabric-api.datagen.output-dir=${fixtureOutputProperty}-loader")
-                run.vmArg("-Dsquinch.fixture.preset=${new File(fixturePresetProperty).canonicalPath}")
-                run.vmArg("-Dsquinch.fixture.canonical-preset=${new File(fixtureCanonicalPresetProperty).canonicalPath}")
-                run.vmArg("-Dsquinch.fixture.output=${new File(fixtureOutputProperty).canonicalPath}")
+                run.vmArg("-Dfabric-api.datagen.output-dir=${generatedDatapackOutputProperty}-loader")
+                run.vmArg("-Dsquinch.preset.input=${new File(presetInputProperty).canonicalPath}")
+                run.vmArg("-Dsquinch.preset.canonical=${new File(canonicalPresetOutputProperty).canonicalPath}")
+                run.vmArg("-Dsquinch.generated-datapack=${new File(generatedDatapackOutputProperty).canonicalPath}")
             }
-            project.tasks.register("squinchPresetFixture") { task ->
+            project.tasks.register("squinchPresetExport") { task ->
                 task.group = "squinch investigation"
                 task.description = "Generate a complete preset-derived FTF datapack"
-                task.dependsOn("runSquinchPresetFixture")
+                task.dependsOn("runSquinchPresetExport")
             }
         }
     }

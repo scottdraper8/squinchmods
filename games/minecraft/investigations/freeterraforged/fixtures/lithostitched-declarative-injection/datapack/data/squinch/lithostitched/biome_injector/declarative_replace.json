@@ -1,7 +1,0 @@
-{
-  "type": "lithostitched:replace_fully",
-  "dimension": "minecraft:overworld",
-  "priority": 345,
-  "targets": ["minecraft:warm_ocean"],
-  "replacement": "minecraft:forest"
-}

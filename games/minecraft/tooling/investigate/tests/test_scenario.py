@@ -281,15 +281,15 @@ def test_packaged_subject_can_generate_fixture_from_ftf_project(
     (tmp_path / "games/minecraft/vanilla-control").mkdir(parents=True)
     ftf_project = tmp_path / "games/minecraft/ftf-source"
     ftf_project.mkdir(parents=True)
-    fixture = tmp_path / "games/minecraft/fixture.toml"
-    fixture.write_text("schema_version = 2\n")
+    preset_definition = tmp_path / "games/minecraft/preset.toml"
+    preset_definition.write_text("schema_version = 2\n")
     path = tmp_path / "packaged.toml"
     path.write_text("""schema_version = 1
 name = "packaged-fixture-control"
 project = "games/minecraft/vanilla-control"
 loader = "fabric"
 seed = 1
-ftf_fixture = "games/minecraft/fixture.toml"
+ftf_preset = "games/minecraft/preset.toml"
 subject_artifact = "games/minecraft/ftf-source/build/subject.jar"
 subject_source_project = "games/minecraft/ftf-source"
 
@@ -305,10 +305,10 @@ command = "list"
     assert loaded.subject_source_project == ftf_project.resolve()
 
     path.write_text(
-        path.read_text().replace('ftf_fixture = "games/minecraft/fixture.toml"\n', "")
+        path.read_text().replace('ftf_preset = "games/minecraft/preset.toml"\n', "")
     )
     with pytest.raises(
-        InvestigationError, match="requires ftf_fixture and subject_artifact"
+        InvestigationError, match="requires ftf_preset and subject_artifact"
     ):
         load_scenario(path)
 

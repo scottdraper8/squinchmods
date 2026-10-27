@@ -388,7 +388,7 @@ def load_owned_active(project: Path, loader: str) -> dict:
     if state.get("schema_version") != 3:
         raise InvestigationError("invalid_state", "active state schema is not current")
     operation = state.get("operation")
-    if operation not in {"server", "client", "cell-scan", "preset-fixture"}:
+    if operation not in {"server", "client", "cell-scan", "preset-export"}:
         raise InvestigationError("invalid_state", "active state operation is invalid")
     if Path(state.get("project", "")) != project or state.get("loader") != loader:
         raise InvestigationError(
@@ -1678,7 +1678,7 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         from .client import recover_client
 
         return recover_client(project, loader, timeout)
-    if state["operation"] in {"cell-scan", "preset-fixture"}:
+    if state["operation"] in {"cell-scan", "preset-export"}:
         from .cell_scan import recover_standalone
 
         return recover_standalone(project, loader, timeout)

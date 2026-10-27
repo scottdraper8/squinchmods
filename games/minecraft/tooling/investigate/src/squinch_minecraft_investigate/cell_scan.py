@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from .errors import InvestigationError
-from .fixtures import load_fixture
 from .owned_operation import (
     recover_finite_service,
     run_finite_service,
@@ -22,6 +21,7 @@ from .paths import (
     resolve_project,
     validate_loader,
 )
+from .presets import load_preset
 from .scenario import _java_seed
 from .server import (
     OWNERSHIP,
@@ -36,14 +36,38 @@ CELL_SCAN_ROOT = MINECRAFT_DIR / "investigations" / "freeterraforged" / "cell-sc
 CELL_SCAN_OVERLAY = CELL_SCAN_ROOT / "gradle" / "cell-scan.gradle"
 PREDICATE = re.compile(r"^([^:]+):(>=|<=|==|!=|>|<):(.+)$")
 CELL_FIELDS = {
-    "height", "height_blocks", "height_erosion", "sediment", "gradient",
-    "terrain", "terrain_category", "continent_id", "continent_edge",
-    "continent_distance", "continent_x", "continent_z", "continent_scale",
-    "river_mask", "river_water_level", "river_zone", "temperature", "moisture",
-    "region_temperature", "region_moisture", "erosion", "terrain_erosion",
-    "weirdness", "water_table", "terrain_region_id", "terrain_region_edge",
-    "terrain_region_center_x", "terrain_region_center_z", "biome_region_id",
-    "biome_region_edge", "macro_biome_id", "beach_noise",
+    "height",
+    "height_blocks",
+    "height_erosion",
+    "sediment",
+    "gradient",
+    "terrain",
+    "terrain_category",
+    "continent_id",
+    "continent_edge",
+    "continent_distance",
+    "continent_x",
+    "continent_z",
+    "continent_scale",
+    "river_mask",
+    "river_water_level",
+    "river_zone",
+    "temperature",
+    "moisture",
+    "region_temperature",
+    "region_moisture",
+    "erosion",
+    "terrain_erosion",
+    "weirdness",
+    "water_table",
+    "terrain_region_id",
+    "terrain_region_edge",
+    "terrain_region_center_x",
+    "terrain_region_center_z",
+    "biome_region_id",
+    "biome_region_edge",
+    "macro_biome_id",
+    "beach_noise",
 }
 
 
@@ -74,10 +98,16 @@ def _directory_fingerprint(path: Path) -> tuple[str, int, int]:
 def _git(project: Path, *arguments: str) -> bytes:
     try:
         return subprocess.run(
-            ["git", *arguments], cwd=project, check=True, capture_output=True, timeout=60,
+            ["git", *arguments],
+            cwd=project,
+            check=True,
+            capture_output=True,
+            timeout=60,
         ).stdout
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        raise InvestigationError("cell_scan_provenance_failed", f"git {' '.join(arguments)} failed: {exc}") from exc
+        raise InvestigationError(
+            "cell_scan_provenance_failed", f"git {' '.join(arguments)} failed: {exc}"
+        ) from exc
 
 
 def _tracked_status(project: Path) -> bytes:
@@ -100,15 +130,19 @@ def _predicate(value: str) -> dict[str, Any]:
 
 def _read_preset(path: Path) -> tuple[dict, dict]:
     resolved = path.expanduser().resolve()
-    if resolved.name == "fixture.toml":
-        manifest = load_fixture(resolved)
+    if resolved.name == "preset.toml":
+        manifest = load_preset(resolved)
         return manifest["resolved_preset"], manifest
     if resolved.is_symlink() or not resolved.is_file():
-        raise InvestigationError("preset_not_found", f"preset is not a regular file: {resolved}")
+        raise InvestigationError(
+            "preset_not_found", f"preset is not a regular file: {resolved}"
+        )
     try:
         preset = json.loads(resolved.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise InvestigationError("invalid_preset", f"preset is not valid JSON: {exc}") from exc
+        raise InvestigationError(
+            "invalid_preset", f"preset is not valid JSON: {exc}"
+        ) from exc
     if not isinstance(preset, dict):
         raise InvestigationError("invalid_preset", "preset JSON root must be an object")
     return preset, {
@@ -127,10 +161,21 @@ def _fields(values: list[str], predicates: list[dict], rank_field: str) -> list[
         requested.extend(item.strip() for item in value.split(",") if item.strip())
     if not requested:
         requested = [
-            "height", "height_blocks", "terrain", "terrain_category",
-            "continent_edge", "continent_distance", "river_mask", "river_zone",
-            "temperature", "moisture", "erosion", "weirdness", "water_table",
-            "terrain_region_id", "biome_region_id",
+            "height",
+            "height_blocks",
+            "terrain",
+            "terrain_category",
+            "continent_edge",
+            "continent_distance",
+            "river_mask",
+            "river_zone",
+            "temperature",
+            "moisture",
+            "erosion",
+            "weirdness",
+            "water_table",
+            "terrain_region_id",
+            "biome_region_id",
         ]
     for field in [rank_field, *(item["field"] for item in predicates)]:
         if field not in requested:
@@ -177,7 +222,8 @@ def _tiles(bounds: list[float], factor: int) -> list[dict[str, int]]:
     ]
     if len(values) > 64:
         raise InvestigationError(
-            "cell_scan_too_large", f"tile scan selects {len(values)} tiles; maximum is 64"
+            "cell_scan_too_large",
+            f"tile scan selects {len(values)} tiles; maximum is 64",
         )
     return values
 
@@ -186,13 +232,20 @@ def run_cell_scan(args) -> dict:
     project = resolve_project(args.project)
     validate_loader(project, "fabric")
     if not CELL_SCAN_OVERLAY.is_file():
-        raise InvestigationError("cell_scan_missing", f"cell scan overlay is missing: {CELL_SCAN_OVERLAY}")
+        raise InvestigationError(
+            "cell_scan_missing", f"cell scan overlay is missing: {CELL_SCAN_OVERLAY}"
+        )
     if args.tile_size < 1 or args.tile_size > 6:
-        raise InvestigationError("invalid_cell_scan", "tile-size must be between 1 and 6")
+        raise InvestigationError(
+            "invalid_cell_scan", "tile-size must be between 1 and 6"
+        )
     if args.sample_step < 1:
         raise InvestigationError("invalid_cell_scan", "sample-step must be positive")
     if args.refine_step < 1 or args.refine_count < 0:
-        raise InvestigationError("invalid_cell_scan", "refine-step must be positive and refine-count nonnegative")
+        raise InvestigationError(
+            "invalid_cell_scan",
+            "refine-step must be positive and refine-count nonnegative",
+        )
     if args.zoom <= 0:
         raise InvestigationError("invalid_cell_scan", "zoom must be positive")
 
@@ -209,12 +262,20 @@ def run_cell_scan(args) -> dict:
     if args.bounds:
         bounds = [float(value) for value in args.bounds]
         if bounds[0] > bounds[2] or bounds[1] > bounds[3]:
-            raise InvestigationError("invalid_cell_scan", "bounds minima must not exceed maxima")
+            raise InvestigationError(
+                "invalid_cell_scan", "bounds minima must not exceed maxima"
+            )
         center_x = (bounds[0] + bounds[2]) / 2
         center_z = (bounds[1] + bounds[3]) / 2
-        zoom = max((bounds[2] - bounds[0]) / width, (bounds[3] - bounds[1]) / width, 1e-6)
+        zoom = max(
+            (bounds[2] - bounds[0]) / width, (bounds[3] - bounds[1]) / width, 1e-6
+        )
     else:
-        center_x, center_z, zoom = float(args.center[0]), float(args.center[1]), args.zoom
+        center_x, center_z, zoom = (
+            float(args.center[0]),
+            float(args.center[1]),
+            args.zoom,
+        )
         half = width * zoom / 2
         bounds = [center_x - half, center_z - half, center_x + half, center_z + half]
     tiles = _tiles(bounds, args.tile_size) if args.mode == "tile" else []
@@ -260,7 +321,9 @@ def run_cell_scan(args) -> dict:
         "top_k": args.top_k,
         "example_limit": args.example_limit,
         "refine_count": args.refine_count,
-        "refine_zoom": args.refine_zoom if args.refine_zoom is not None else max(1.0, zoom / 16.0),
+        "refine_zoom": args.refine_zoom
+        if args.refine_zoom is not None
+        else max(1.0, zoom / 16.0),
         "refine_step": args.refine_step,
         "exact_tile": args.exact_tile,
         "grid_json": args.grid_json,
@@ -279,13 +342,19 @@ def run_cell_scan(args) -> dict:
         atomic_write_json(request_path, request)
 
     command = [
-        "bash", "./gradlew", ":fabric:squinchCellScan", "--console=plain", "--no-daemon",
-        "--init-script", str(CELL_SCAN_OVERLAY),
+        "bash",
+        "./gradlew",
+        ":fabric:squinchCellScan",
+        "--console=plain",
+        "--no-daemon",
+        "--init-script",
+        str(CELL_SCAN_OVERLAY),
         f"-PsquinchCellScanHarness={CELL_SCAN_ROOT}",
         f"-PsquinchCellScanRequest={request_path}",
         f"-PsquinchCellScanResult={result_path}",
     ]
     started = time.monotonic()
+
     def validate(_state: dict) -> dict:
         wall_ms = (time.monotonic() - started) * 1000
         status_after = _tracked_status(project)
@@ -329,17 +398,27 @@ def run_cell_scan(args) -> dict:
         path = Path(value)
         directory_hash = directory_count = directory_size = None
         if path.is_dir():
-            directory_hash, directory_count, directory_size = _directory_fingerprint(path)
-        classpath.append({
-            "path": value,
-            "exists": path.exists(),
-            "kind": "directory" if path.is_dir() else "file" if path.is_file() else "missing",
-            "size": path.stat().st_size if path.is_file() else directory_size,
-            "file_count": directory_count,
-            "sha256": _sha256(path) if path.is_file() else directory_hash,
-        })
+            directory_hash, directory_count, directory_size = _directory_fingerprint(
+                path
+            )
+        classpath.append(
+            {
+                "path": value,
+                "exists": path.exists(),
+                "kind": "directory"
+                if path.is_dir()
+                else "file"
+                if path.is_file()
+                else "missing",
+                "size": path.stat().st_size if path.is_file() else directory_size,
+                "file_count": directory_count,
+                "sha256": _sha256(path) if path.is_file() else directory_hash,
+            }
+        )
     properties = {}
-    for line in (project / "gradle.properties").read_text(encoding="utf-8").splitlines():
+    for line in (
+        (project / "gradle.properties").read_text(encoding="utf-8").splitlines()
+    ):
         key, separator, value = line.partition("=")
         if separator:
             properties[key.strip()] = value.strip()
@@ -362,7 +441,11 @@ def run_cell_scan(args) -> dict:
             "root": str(CELL_SCAN_ROOT),
             "overlay_sha256": _sha256(CELL_SCAN_OVERLAY),
             "source_files": [
-                {"path": str(path), "sha256": _sha256(path), "size": path.stat().st_size}
+                {
+                    "path": str(path),
+                    "sha256": _sha256(path),
+                    "size": path.stat().st_size,
+                }
                 for path in sorted((CELL_SCAN_ROOT / "src").rglob("*.java"))
             ],
         },
@@ -408,5 +491,5 @@ def recover_standalone(project: Path, loader: str, timeout: float) -> dict:
         timeout=timeout,
         lock_path=lock_path(project, loader),
         load_active=load_owned_active,
-        operations={"cell-scan", "preset-fixture"},
+        operations={"cell-scan", "preset-export"},
     )

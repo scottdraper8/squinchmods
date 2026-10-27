@@ -14,21 +14,22 @@ tooling/squinch mc-investigate run \
 ```
 
 The public commands are `start`, `stop`, `status`, `doctor`, `command`, `run`, `client`, `scenario`,
-`generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, `preset-fixture`, and `clean`. Add
-`--json` to any command for the committed `schemas/cli-output-v1.json` envelope. The states
-`starting`, `running`, and `stopping` are non-terminal; `ready` means RCON authentication succeeded;
-`succeeded`, `failed`, `inconclusive`, and `error` are terminal outcomes; `inactive` means no
-service is tracked; and `degraded` or `unknown` requires diagnosis rather than an assumption of
-success.
+`benchmark`, `generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, `preset-export`, and
+`clean`. Add `--json` to any command for the committed `schemas/cli-output-v1.json` envelope.
+`cell-scan`, `preset-export`, and the `ftf_preset` scenario field are FTF adapters; lifecycle
+workflows otherwise target any compatible project. Inputs are supplied for the active task, not from
+a persistent FTF catalog. The states `starting`, `running`, and `stopping` are non-terminal; `ready`
+means RCON authentication succeeded; `succeeded`, `failed`, `inconclusive`, and `error` are terminal
+outcomes; `inactive` means no service is tracked; and `degraded` or `unknown` requires diagnosis
+rather than an assumption of success.
 
-Run a canonical or temporary scenario with one command; every repository-owned project, datapack,
-fixture, patch, and probe path is repository-root-relative (`games/minecraft/...`) and resolved from
-the repository root rather than the caller's directory:
+Run a scenario supplied for the current investigation. Scenario files and target projects are
+otherwise independent. Every repository-owned project, datapack, preset, patch, and probe path is
+repository-root-relative (`games/minecraft/...`) and resolved from the repository root rather than
+the caller's directory:
 
 ```bash
-tooling/squinch mc-investigate scenario \
-  .squinch/games/minecraft/mods/FreeTerraForged/scenarios/smoke.toml \
-  --json
+tooling/squinch mc-investigate scenario "$SCENARIO_FILE" --json
 ```
 
 Scenario schema version 1 requires an exact seed and ordered steps. It supports command, generation,
@@ -53,17 +54,18 @@ runtime unless they are also listed in `companion_artifacts`. This boundary is i
 independent packaged-JAR harnesses, not as a substitute for source-worktree provenance.
 
 Run world-creation UI probes through the isolated client lifecycle, never a personal launcher
-profile or the project's ordinary run directory:
+profile or the project's ordinary run directory. This example uses a probe pack and artifact
+supplied for the current investigation; the client lifecycle itself is generic:
 
 ```bash
 tooling/squinch mc-investigate client \
-  --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
+  --project "$PROJECT" \
   --loader fabric \
-  --probe-pack games/minecraft/investigations/freeterraforged/probes/pre-server-preview \
-  --artifact lithostitched-fabric \
-  --runtime-file games/minecraft/investigations/example.toml=config/example.toml \
-  --probe-env SQUINCH_PREVIEW_CASE=regeneration \
-  --result-env SQUINCH_PREVIEW_RESULT=preview-result.json \
+  --probe-pack "$PROBE_PACK" \
+  --artifact "$ARTIFACT_ID" \
+  --runtime-file "$INPUT_FILE=config/example.toml" \
+  --probe-env "SQUINCH_CASE=$CASE" \
+  --result-env SQUINCH_RESULT=result.json \
   --production \
   --cpu-list 16-31 \
   --json
@@ -90,129 +92,97 @@ constrains the entire owned service to an explicit processor set. A result whose
 is `fail` may still be a completed behavior-bearing falsification artifact; callers must distinguish
 an asserted behavioral mismatch from launch failure and still require complete cleanup.
 
-For an isolated generation benchmark, set `repeat`, a nonzero `offset = [x, z]`, and
-`release_after_observation = true` on a generation step. The parser requires every translated
-coordinate window to be disjoint and caps one step at 20 observations. Releasing each exact owned
-force-load set after its terminal probe prevents earlier windows from remaining live and poisoning
-later heap and timing behavior; release time is recorded but excluded from generation/total timing.
-Each observation retains its exact bounds plus generation, probe, release, and total seconds; the
-step also reports every timed generation/probe value with median, minimum, maximum, and range. Set
-`jfr = true` on any step to record only that step with the owned Minecraft JVM. The resulting
-nonempty, hashed `.jfr` is stored under that run's `profiles/` directory and referenced by both the
-scenario result and manifest. Lifecycle timing separately records startup, verified world-open,
-save, shutdown, and cleanup rather than folding those costs into generation.
+For an isolated generation benchmark, use task-local scenario inputs with disjoint coordinate
+windows and release generated chunks between observations. A scenario can record per-observation
+timings and an optional `.jfr` profile in run scratch state. Remove benchmark inputs and outputs
+when the active work is complete. Lifecycle timing separates startup, world-open, save, shutdown,
+and cleanup from generation.
 
-The retained FTF benchmark is
-`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-biome-palette.toml`. Use it directly
-with `scenario`, or pass it to exact `compare` as shown below. Exact comparisons hold a global lock
-and run the two sides sequentially, preventing before/after benchmark overlap by default. Timing and
-profile metadata remain evidence but are excluded from behavioral equality.
+Run repeated or multi-stack measurements through a task-local benchmark matrix rather than a shell
+loop. The matrix runner and schema are workload-agnostic:
 
-Run an exact before/after comparison with full 40-character commit SHAs and one scenario:
+```bash
+tooling/squinch mc-investigate benchmark \
+  "$BENCHMARK_FILE" \
+  --json
+```
+
+A schema-version-1 task-local matrix references one base scenario and declares catalog-root
+variants, required runtime mod IDs, optional asserted `startup_failure` outcomes, repetitions,
+retention, failure policy, and execution order. Scenario and variant artifact IDs are always
+expanded through the catalog's transitive `required_dependencies` closure before staging;
+`required_mods` can assert every resulting runtime mod ID rather than only the top-level mods.
+`round-robin` preserves declaration order, `shuffled` randomizes each repetition from the recorded
+seed, and `bracketed` runs a named control before and after a randomized treatment block.
+`paired-bracketed` assigns every variant a `comparison_group` and `pair_id`, brackets every group
+with its own control pair, randomizes treatment-pair order, and keeps each pair's group members
+adjacent while randomizing their order. A variant may override the base scenario's `loader`, which
+allows one matrix to compare equivalent Fabric and NeoForge stacks. Before each scenario, the
+generic runner can require a continuously quiet host window using normalized load, available memory,
+swap usage, and no swap I/O. Every run remains a normal independently owned scenario with verified
+teardown. Each scenario and matrix record also carries bounded log diagnostics: WARN, ERROR, FATAL,
+and exception-line counts plus the 20 most frequent messages in each category. The matrix scratch
+state contains its immutable plan, matrix and base-scenario hashes, per-run records, host snapshots,
+scenario artifact links, extracted metrics, per-variant aggregates, and paired metrics normalized to
+the mean of each group's start/end controls in the same repetition. A cleanup failure always stops
+the matrix.
+
+Benchmark campaigns are checkpointed rather than restarted. Every attempt is appended beneath the
+campaign's `attempts/` directory. A successful scenario with verified cleanup becomes an accepted
+checkpoint in `runs/` with a separate SHA-256 sidecar; accepted checkpoints are immutable and are
+never retried. Lifecycle-invalid attempts (`cleanup_failed`, `already_active`, `recovery_required`,
+`host_degraded`, `host_not_quiet`, or a changed campaign input) remain in the attempt ledger but are
+classified as retryable, excluded from aggregates, and retried after recovery. Other scenario
+failures are classified as rejected samples and are retried only when the caller explicitly uses
+`--retry-failed`.
+
+Invoking the same matrix without `--resume` automatically resumes the unique matching incomplete
+campaign. It refuses ambiguous campaigns, refuses to silently repeat an already completed campaign,
+and refuses to mix records after the matrix, base scenario, source worktree, catalog, or external
+input fingerprints change. `--new-campaign` is the explicit escape hatch for deliberately starting
+over. `--max-new-runs` limits new attempts without changing any accepted checkpoints:
+
+```bash
+tooling/squinch mc-investigate benchmark path/to/matrix.toml --max-new-runs 16 --json
+# The same command auto-resumes the matching campaign.
+tooling/squinch mc-investigate benchmark path/to/matrix.toml --max-new-runs 16 --json
+# Retry an unexpected rejected sample after diagnosis.
+tooling/squinch mc-investigate benchmark path/to/matrix.toml --retry-failed --json
+# An exact ID is available when multiple incomplete task campaigns need disambiguation.
+tooling/squinch mc-investigate benchmark path/to/matrix.toml --resume RUN_ID --json
+```
+
+Matrix inputs and campaign state are scratch for the active comparison. Remove them when its
+analysis is complete; do not keep campaigns as a historical archive.
+
+Matrix runtime state lives below the investigation cache's `benchmarks/` directory. Workload
+adapters remain task-local scenarios, so the matrix runner contains no mod-specific command or
+report knowledge. Remove the matrix and its scratch results when the active comparison is complete.
+
+Use a task-local scenario with `scenario` or pass it to exact `compare` as shown below. Exact
+comparisons hold a global lock and run the two sides sequentially, preventing before/after benchmark
+overlap by default. Timing and profile metadata are excluded from behavioral equality.
+
+Run an exact before/after comparison with full commit SHAs and one task-local scenario:
 
 ```bash
 tooling/squinch mc-investigate compare \
-  --project games/minecraft/mods/FreeTerraForged \
-  --before 9099214b0a92e702bd2de9e1d9e61c5d645fb5b0 \
-  --after a05560848cf7bec7ad56ba5832d247d08a1c7da0 \
-  --scenario .squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-biome-palette.toml \
+  --project "$PROJECT" \
+  --before "$BEFORE_SHA" \
+  --after "$AFTER_SHA" \
+  --scenario "$SCENARIO_FILE" \
   --expect different --json
 ```
 
 The command creates two detached worktrees under `investigation-state/worktrees/`, runs them
 sequentially, and requires identical scenario-input and injected-probe fingerprints. It removes
 request IDs, timestamps, polling/timing fields, and placement CPU time from behavioral equality;
-list order and all remaining numbers stay exact. The comparison artifact retains both normalized
+list order and all remaining numbers stay exact. The comparison output includes both normalized
 sides, recursive field-level differences, exact commit/tree identities, and code, environment,
 input, probe, and timing fingerprints. Clean temporary worktrees are removed in `finally`. A failed
-side or an unexpectedly modified worktree is preserved and reported rather than force-removed.
-Existing result files can still be compared with `compare --left FILE --right FILE`.
-
-An FTF scenario names one compact preset fixture with `ftf_fixture = ".../fixture.toml"`. Before
-server startup, the runner invokes the selected worktree's real preset exporter, validates the
-complete generated registry tree, writes a deterministic ZIP, and copies it into the scenario run.
-The generator run ID, semantic metadata, input preset hash, generated-tree hash, and archive hash
-are retained together. Additional independent datapacks remain a repeatable `datapacks = [...]`
-array.
-
-Generate a complete source tree through the selected FTF worktree from either an existing fixture or
-a complete resolved preset JSON:
-
-```bash
-tooling/squinch mc-investigate preset-fixture \
-  --project games/minecraft/investigation-state/worktrees/ftf-worldgen-compatibility \
-  --preset games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
-  --json
-```
-
-The command decodes the resolved preset in a standalone FTF data-generation process, invokes the
-real complete preset exporter, and verifies the generated preset, dimension type, noise settings,
-density functions, source-tree fingerprint, worktree immutability, and process cleanup. Generated
-trees remain run artifacts; only complete preset JSON and its compact semantic metadata belong in
-the tracked fixture catalog.
-
-## Standalone FTF cell discovery
-
-`cell-scan` executes the selected FTF worktree's real compiled `Preset`, noise bootstrap,
-`GeneratorContext`, and `TileGenerator` classes in a small standalone JVM. It does not start a
-dedicated server, create a world, or generate Minecraft chunks, and it fails instead of falling back
-to a live probe if the standalone registry boundary cannot be established.
-
-Use preview mode for inexpensive discovery. This calls FTF's exact
-`generateZoomed(centerX, centerZ, zoom, false)` path and labels the result `prediction`:
-
-```bash
-tooling/squinch mc-investigate cell-scan \
-  --project games/minecraft/mods/FreeTerraForged \
-  --preset games/minecraft/investigations/freeterraforged/fixtures/vanilla-depth-maximum-ocean/fixture.toml \
-  --seed 12345 --mode adaptive --bounds -4096 -4096 4096 4096 \
-  --sample-step 16 --predicate 'height:>=:0.15' \
-  --field height,height_blocks,terrain,continent_edge \
-  --refine-count 2 --refine-step 8 --exact-tile --json
-```
-
-Preview and adaptive modes support bounds or center/zoom, sample steps, repeatable field and
-`FIELD:OP:VALUE` predicate selections, ascending/descending ranking, top-K candidates, bounded
-predicate examples, histograms, quantiles, extrema, optional JSON/CSV grids, and a PNG heatmap.
-Available data spans height, terrain/type, continent, river, temperature/moisture, erosion,
-weirdness, water table, and terrain/biome region fields. Aggregates are the default; grids are only
-retained when explicitly requested.
-
-Use `--mode tile --tile-size 3` for FTF's filtered horizontal cell model. Tile mode invokes
-`TileGenerator.generate(tileX, tileZ)`, uses FTF's runtime filter-border calculation, closes every
-tile, caps one request at 64 tiles, and labels its authority `ftf-horizontal-cell-model` rather than
-final block truth. Every scan artifact records the exact seed, resolved preset, target HEAD/dirty
-status, harness hashes, standalone bootstrap boundary, Minecraft/FTF/Java versions, fully
-fingerprinted classpath, cold/warm/Gradle wall timings, and a deterministic result hash.
-
-The canonical live parity gate is
-`.squinch/games/minecraft/mods/FreeTerraForged/scenarios/ftf-cell-cache-cross-check.toml`. It
-selects the external `probes/cell-cache` pack, loads the same seed and preset, and compares
-standalone factor-3 samples with FTF's live runtime tile cache at exact block coordinates. Direct
-development starts can select reusable packs with repeatable `--probe-pack PATH`; scenarios use a
-top-level `probe_packs = [PATH, ...]` array. Pack manifests, source/resource roots, capabilities,
-mixins, and hashes are recorded in the run manifest.
-
-Reusable FTF packs live under `games/minecraft/investigations/freeterraforged/probes/`. The
-`biome-palette` and `placement-telemetry` packs use the same runtime, scenario trigger, result
-model, and finished-chunk selector while retaining their distinct measurements. `heightmap-delta` is
-the first new probe authored through the external pack template; `placement-telemetry` is the only
-one of these three that needs Mixins. See that directory's README and
-`probe-pack-template/README.md` for configuration, historical disposition, and authoring rules.
-
-To turn discovery into finished-world evidence, point a scenario generation step at the scanner's
-retained `cell-scan-result.json` instead of writing fixed bounds:
-
-```toml
-[[steps]]
-id = "generate-shortlist"
-type = "generate"
-unit = "block"
-candidate_file = "/exact/run/artifact/cell-scan-result.json"
-candidate_limit = 2
-authority = "finished-chunk"
-terminal_probe = "squinch:finished-chunks"
-```
+side or an unexpectedly modified worktree is left in task-local scratch state and reported rather
+than force-removed. Remove that state after the issue is resolved. Existing result files can still
+be compared with `compare --left FILE --right FILE`.
 
 The runner reads `scan.top_candidates`, floors negative coordinates correctly, deduplicates them by
 chunk, fingerprints the shortlist artifact, force-generates each selected chunk, and runs the chosen
@@ -266,10 +236,11 @@ world before steps run. A crash, fatal server condition, timeout, assertion fail
 non-passing probe terminal result, incomplete scan, or cleanup failure makes the command nonzero.
 
 Generated state lives beneath `games/minecraft/investigation-state/` and is ignored by Git. Every
-run owns a unique ID, artifact directory, log, manifest, command stream, summary, and level name.
-Target `eula.txt` and `server.properties` files are backed up and restored. The launcher invokes a
-non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable Gradle daemons for the
-launch command, and never changes the wrapper's tracked mode.
+This is task-local scratch, not a persistent archive; remove completed run state after the active
+work is done. run owns a unique ID, artifact directory, log, manifest, command stream, summary, and
+level name. Target `eula.txt` and `server.properties` files are backed up and restored. The launcher
+invokes a non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable Gradle
+daemons for the launch command, and never changes the wrapper's tracked mode.
 
 Every launch runs as a dedicated transient user-systemd service with control-group kill semantics.
 The exact unit intent is published as recoverable `launching` state before `systemd-run` is spawned,
@@ -285,96 +256,31 @@ remaining budget.
 
 `clean` is a dry run unless `--apply` is supplied. It accepts exact `--run` IDs or an explicit
 `--older-than-days` selection and rejects active runs, symlinks, foreign manifests, or paths outside
-the owned state root. Age cleanup preserves evidence named in
-`.squinch/games/minecraft/investigation-retention.toml`. Exact deletion of one of those runs
-requires the deliberately narrow `--include-protected` override. It deletes directly after
+the owned state root. The repository's `protected_runs` list in
+`.squinch/games/minecraft/investigation-retention.toml` is empty. Cleanup deletes directly after
 validation; there is no speculative trash layer.
 
-## Testing policy: tests must earn their keep
+## Verification and test policy
 
-Automated testing is useful only where it is more discriminating and repeatable than a targeted live
-experiment. Test count, coverage percentage, and the presence of a `tests/` directory are not goals.
+Use source checks and focused tests first. During active development, managed Minecraft runs can
+verify loader startup, datapack and registry loading, generation hooks, finished chunks, and client
+behavior at the real game boundary. Those checks use task-local inputs and scratch outputs; remove
+scenarios, probe packs, presets, logs, profiles, screenshots, and measurements when the work is
+done.
 
-Automated tests also do not replace QA Mixins, live scanners, experimental branches, or
-purpose-built investigation logic. Tests protect stable tooling invariants and cheap deterministic
-behavior. The handcrafted probes answer new questions about the real game. This package exists to
-make those probes easier to create and trust, not to make them unnecessary.
+Put stable, repeatable behavior in CI/CD tests. Keep investigation recipes and raw results out of
+the repository unless a source or test input is required by CI or the generic tooling.
 
-### Rules for retaining an automated test
+### Useful automated test boundaries
 
-A retained test must satisfy all of the following:
+- CLI JSON schema and command state transitions.
+- Scenario parsing, path confinement, managed-file restoration, and input validation.
+- Coordinate tiling, atomic writes, process identity, teardown, and RCON framing.
+- Manifest hashing, preset export output, worktree lifecycle, and production artifact exclusion.
 
-1. **Named failure:** Its description states a realistic defect it would catch.
-2. **Meaningful assertion:** It asserts an observable invariant or outcome, not merely that code
-   ran, returned a non-null value, or called a mock.
-3. **Independent expectation:** Expected values are not generated by the same logic being tested.
-4. **Relevant boundary:** It exercises the lowest real boundary needed to expose the defect.
-5. **Negative control:** The test is shown to fail against a deliberately broken implementation, a
-   prior known-bad implementation, or a controlled fault.
-6. **Stable value:** The likely regression cost exceeds the maintenance and false-confidence cost.
-
-If you cannot explain what plausible code change makes a test fail, don't add it. If an existing
-test continues to pass after the behavior it claims to protect is deliberately broken, fix or delete
-the test.
-
-### Prohibited low-value patterns
-
-- Testing a mock's configured return value.
-- Mocking the code path that contains the behavior under test.
-- Reimplementing production logic in the test and comparing the implementation with its duplicate.
-- Computing expected output by calling another method that uses the same underlying implementation.
-- Assertions such as "result exists," "exit code is an integer," or "a callback was called" when the
-  real invariant is stronger.
-- Snapshotting incidental log formatting as a substitute for structured behavior.
-- Simulating Minecraft registries, chunks, Mixins, or loaders and treating that as evidence that the
-  integration works in Minecraft.
-- Huge fake frameworks that behave more like the desired system than the real external dependency.
-- Timing assertions with narrow wall-clock thresholds on a shared development machine.
-- Adding a permanent regression test for every one-off investigation regardless of recurrence or
-  stability.
-
-### Where automated tests are legitimately valuable
-
-| Area                    | Useful verification                                                                                                              | Why it earns permanence                                                                                    |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| CLI JSON contract       | Emit real success, failure, and in-progress responses for each structured command and validate them against the committed schema | Agents need stable state/error semantics; undocumented drift can cause false conclusions or unsafe cleanup |
-| Scenario parsing        | Real TOML files with known resolved paths/configuration and invalid cases                                                        | Deterministic logic with many dangerous edge cases                                                         |
-| Coordinate tiling       | Boundary tables and property tests covering negative coordinates and 16x16 limits                                                | Off-by-one errors silently generate the wrong world area                                                   |
-| Atomic state/results    | Real temporary filesystem operations and interrupted-write cases                                                                 | Corrupt state can cause unsafe cleanup or false completion                                                 |
-| Process identity        | Real subprocesses, process groups, `/proc` identity, and socket listeners                                                        | The historical failure is an OS-process problem, not a Python-object problem                               |
-| Teardown                | A helper process that forks a child listener and ignores TERM                                                                    | Reproduces the actual class of orphan failure without pretending to be Minecraft                           |
-| RCON framing            | A small real socket server with valid and malformed packets                                                                      | Exercises protocol bytes and timeouts directly                                                             |
-| Result state machine    | Tables covering pass/fail/inconclusive/error and missing terminal events                                                         | Prevents false success, the most dangerous agent-facing failure                                            |
-| Manifest hashing        | Known files/diffs/datapacks and changed-input controls                                                                           | Provenance must detect real input changes                                                                  |
-| Fixture materialization | Build a real datapack archive, inspect its required data path and decoded resolved preset, and compare deterministic hashes      | Scenarios depend on the packaged bytes Minecraft actually loads                                            |
-| Worktree lifecycle      | A temporary real Git repository with actual detached worktrees                                                                   | Git behavior is cheap to exercise directly and unsafe to merely mock                                       |
-| Artifact exclusion      | Inspect a real built jar/zip                                                                                                     | The invariant concerns packaged bytes, not Gradle task configuration                                       |
-
-### Where live scenarios are more honest
-
-Use real, targeted Minecraft runs rather than elaborate automated simulations for: loader startup
-and Mixin application; datapack and registry bootstrap; FTF `GeneratorContext` acquisition;
-`WorldGenRegion` availability rules; finished `LevelChunk` promotion; stored biome palettes;
-structures, Beardifier, aquifers, surface rules, and placed features; Fabric/NeoForge differences;
-interactions with TerraBlender, Biomes O' Plenty, Regions Unexplored, or other mods; and whether a
-visual worldgen defect is meaningful to a player. These scenarios can still be automated by
-`mc-investigate`; the distinction is that they run the real game and assert a narrow condition
-rather than replacing the game with mocks.
-
-### Targeted experiments are first-class verification
-
-Not every useful check belongs in a permanent test suite. For a feature under active development, it
-is often better to create a small scenario/probe that states the competing hypotheses, uses an exact
-seed, preset, coordinates, loader, and code commit, measures the one observation that distinguishes
-them, records a structured result and run manifest, and is retained as a permanent regression only
-if the invariant is stable and recurrence risk justifies it. The scenario and its artifacts are
-evidence even when the probe is later removed — that's preferable to keeping a generic-looking test
-that never exercised the actual failure.
-
-Topic QA worktrees remain legitimate when an investigation needs implementation changes and
-instrumentation to evolve together; this package should reduce their manual build, registration,
-parameter, comparison, and cleanup burden, not treat their existence as a failure or force all
-experimental work through a generic permanent test suite.
+Tests should assert behavior at the lowest real boundary needed to catch the defect. Avoid duplicate
+implementations, mock-only assertions, timing thresholds on shared machines, and simulated Minecraft
+integration that could pass while the real loader or world generation fails.
 
 ### Verification ladder
 

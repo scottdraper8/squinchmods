@@ -221,6 +221,6 @@ artifacts under catalog policy:
 - cross-loader production builds whose JARs contain no probes, sentinels, stale Mixins, deleted
   implementations, or bundled optional dependencies.
 
-Store exact inputs, logs, outputs, profiles, and cleanup state with their run artifacts while an
-active release or regression decision relies on them. Keep this document as a contract, not a run
-diary.
+Use task-local inputs and outputs while implementing or debugging these checks, then discard them
+when the active work is complete. Keep the behavior in CI/CD tests and use this document as the
+current contract, not as a run archive.

@@ -19,7 +19,7 @@ final class CellFields {
         "terrain", "terrain_category", "continent_id", "continent_edge",
         "continent_distance", "continent_x", "continent_z", "continent_scale",
         "river_mask", "river_water_level", "river_zone", "temperature", "moisture",
-        "region_temperature", "region_moisture", "erosion", "terrain_erosion",
+        "erosion", "terrain_erosion",
         "weirdness", "water_table", "terrain_region_id", "terrain_region_edge",
         "terrain_region_center_x", "terrain_region_center_z", "biome_region_id",
         "biome_region_edge", "macro_biome_id", "beach_noise"
@@ -48,8 +48,6 @@ final class CellFields {
             case "river_zone" -> cell.riverZone.name();
             case "temperature" -> cell.temperature;
             case "moisture" -> cell.moisture;
-            case "region_temperature" -> cell.regionTemperature;
-            case "region_moisture" -> cell.regionMoisture;
             case "erosion" -> cell.erosion;
             case "terrain_erosion" -> cell.terrainErosion;
             case "weirdness" -> cell.weirdness;

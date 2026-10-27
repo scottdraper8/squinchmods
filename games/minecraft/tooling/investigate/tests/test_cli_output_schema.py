@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import jsonschema
 import pytest
-
 from squinch_minecraft_investigate import cli
 from squinch_minecraft_investigate.output import envelope
 
@@ -106,7 +105,7 @@ def test_scenario_handler_rejects_cleanup_failure_and_main_exits_nonzero(
         "steps": [{"id": "s1", "type": "command", "state": "succeeded"}],
         "provenance": {"code": {"head": "deadbeef"}},
         "world_identity": {"actual_seed": 123},
-        "ftf_fixture": None,
+        "ftf_preset": None,
         "scenario_summary": "/tmp/run-1/scenario-summary.json",
         "scenario_progress": "/tmp/run-1/scenario-progress.jsonl",
         "cleanup_failed": {
@@ -115,10 +114,14 @@ def test_scenario_handler_rejects_cleanup_failure_and_main_exits_nonzero(
             "details": {},
         },
     }
-    monkeypatch.setattr(cli, "load_scenario", lambda _path: SimpleNamespace(name="smoke"))
+    monkeypatch.setattr(
+        cli, "load_scenario", lambda _path: SimpleNamespace(name="smoke")
+    )
     monkeypatch.setattr(cli, "run_scenario", lambda _definition: result)
 
-    value, _message = cli._scenario(argparse.Namespace(scenario_file=Path("smoke.toml")))
+    value, _message = cli._scenario(
+        argparse.Namespace(scenario_file=Path("smoke.toml"))
+    )
 
     assert value["state"] == "error"
     assert value["data"]["steps"] == result["steps"]
@@ -161,7 +164,14 @@ def test_generate_envelope_requires_unit_bounds_and_regions() -> None:
         data={
             "unit": "chunk",
             "input_bounds": [0, 0, 31, 31],
-            "regions": [{"chunk_min_x": 0, "chunk_min_z": 0, "chunk_max_x": 15, "chunk_max_z": 15}],
+            "regions": [
+                {
+                    "chunk_min_x": 0,
+                    "chunk_min_z": 0,
+                    "chunk_max_x": 15,
+                    "chunk_max_z": 15,
+                }
+            ],
         },
     )
 
@@ -226,7 +236,11 @@ def test_compare_envelope_requires_equal_left_right() -> None:
         "compare",
         "succeeded",
         run_id=None,
-        data={"equal": False, "left": {"outcome": "pass"}, "right": {"outcome": "fail"}},
+        data={
+            "equal": False,
+            "left": {"outcome": "pass"},
+            "right": {"outcome": "fail"},
+        },
     )
 
 
@@ -294,12 +308,14 @@ def test_client_envelope_requires_verified_results_and_cleanup() -> None:
             "runtime_dir": "/tmp/run/display-runtime",
             "wayland_display": "squinch-test",
         },
-        "results": [{
-            "environment": "SQUINCH_RESULT",
-            "path": "/tmp/run/result.json",
-            "sha256": "a" * 64,
-            "result": {"status": "pass"},
-        }],
+        "results": [
+            {
+                "environment": "SQUINCH_RESULT",
+                "path": "/tmp/run/result.json",
+                "sha256": "a" * 64,
+                "result": {"status": "pass"},
+            }
+        ],
     }
     envelope("client", "succeeded", run_id="run-1", data=data)
 
@@ -308,9 +324,9 @@ def test_client_envelope_requires_verified_results_and_cleanup() -> None:
         envelope("client", "succeeded", run_id="run-1", data=data)
 
 
-def test_preset_fixture_envelope_requires_complete_generated_evidence() -> None:
+def test_preset_export_envelope_requires_complete_generated_evidence() -> None:
     manifest = {
-        "kind": "ftf-preset-fixture",
+        "kind": "ftf-preset-export",
         "run_id": "run-1",
         "project": "/tmp/project",
         "head": "deadbeef",
@@ -328,42 +344,50 @@ def test_preset_fixture_envelope_requires_complete_generated_evidence() -> None:
             "files": ["pack.mcmeta"],
         },
     }
-    envelope("preset-fixture", "succeeded", run_id="run-1", data={"manifest": manifest})
+    envelope("preset-export", "succeeded", run_id="run-1", data={"manifest": manifest})
 
     del manifest["generated"]["density_function_count"]
     with pytest.raises(jsonschema.ValidationError):
-        envelope("preset-fixture", "succeeded", run_id="run-1", data={"manifest": manifest})
+        envelope(
+            "preset-export", "succeeded", run_id="run-1", data={"manifest": manifest}
+        )
 
 
 def test_clean_envelope_requires_action_and_targets() -> None:
     """Catches a clean refactor that stops reporting whether it was a dry run, which is the one
     field that tells an agent whether anything was actually deleted."""
-    envelope("clean", "succeeded", run_id=None, data={"action": "dry-run", "targets": []})
+    envelope(
+        "clean", "succeeded", run_id=None, data={"action": "dry-run", "targets": []}
+    )
 
 
 def test_clean_envelope_rejects_unknown_action() -> None:
     """Negative control: 'action' must be exactly dry-run or deleted; anything else defeats the
     whole point of distinguishing a dry run from a real deletion."""
     with pytest.raises(jsonschema.ValidationError):
-        envelope("clean", "succeeded", run_id=None, data={"action": "removed", "targets": []})
+        envelope(
+            "clean", "succeeded", run_id=None, data={"action": "removed", "targets": []}
+        )
 
 
 def test_status_active_envelope_requires_identity_and_binding_fields() -> None:
     """Catches a status refactor that drops the leader-identity/bound-ports fields doctor and an
     agent's own safety checks depend on to avoid signaling a reused PID."""
     data = dict(ACTIVE_DATA)
-    data.update({
-        "operation": "server",
-        "leader_identity_valid": True,
-        "owned_pids": [1234],
-        "bound_ports": [25565, 25575],
-    })
+    data.update(
+        {
+            "operation": "server",
+            "leader_identity_valid": True,
+            "owned_pids": [1234],
+            "bound_ports": [25565, 25575],
+        }
+    )
     envelope("status", "ready", run_id="run-1", data=data)
 
 
 def test_status_accepts_finite_operation_without_server_fields() -> None:
     data = {
-        "operation": "preset-fixture",
+        "operation": "preset-export",
         "project": "/tmp/project",
         "loader": "fabric",
         "lifecycle": "running",
@@ -384,5 +408,12 @@ def test_status_accepts_finite_operation_without_server_fields() -> None:
 def test_doctor_envelope_accepts_action_or_issues() -> None:
     """Catches a doctor refactor that reports neither a recovery action nor an issue list, which
     would make its output indistinguishable from 'nothing to check'."""
-    envelope("doctor", "succeeded", run_id="run-1", data={"action": "finalized-failed-run"})
-    envelope("doctor", "degraded", run_id="run-1", data={"issues": ["orphaned world directory"]})
+    envelope(
+        "doctor", "succeeded", run_id="run-1", data={"action": "finalized-failed-run"}
+    )
+    envelope(
+        "doctor",
+        "degraded",
+        run_id="run-1",
+        data={"issues": ["orphaned world directory"]},
+    )

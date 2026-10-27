@@ -11,7 +11,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -712,7 +712,7 @@ def _result_path(run_dir: Path, entry: dict[str, Any]) -> Path:
 
 
 def _new_run_id() -> str:
-    now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    now = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return f"{now}-{uuid.uuid4().hex[:10]}"
 
 
@@ -808,7 +808,7 @@ def _path_identity(path: Path) -> dict[str, Any]:
 def _campaign_input_identity(base: Scenario) -> dict[str, Any]:
     paths: list[Path] = []
     optional_paths = (
-        base.ftf_fixture,
+        base.ftf_preset,
         base.subject_artifact,
         base.subject_compile_artifact,
     )
