@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import uuid
 from collections.abc import Callable
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import CleanupError, InvestigationError
+from .gradle_wrapper import GRADLE_WRAPPER_JAR, validate_gradle_wrapper_bootstrap
 from .paths import STATE_ROOT, WORKTREES_ROOT
 from .scenario import Scenario, run_scenario
 from .state import atomic_write_json
@@ -296,6 +298,102 @@ def _side_record(
     }
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _prepare_gradle_wrapper_bootstrap(
+    project: Path, worktree: Path
+) -> tuple[dict[str, Any] | None, tuple[Path, str] | None]:
+    """Stage an ignored Gradle wrapper JAR when an exact worktree omits it."""
+    wrapper = validate_gradle_wrapper_bootstrap(
+        worktree, require_jar=False, error_prefix="comparison"
+    )
+    if not wrapper["standard_wrapper"]:
+        return None, None
+
+    target = Path(wrapper["jar"])
+    if target.is_symlink():
+        raise InvestigationError(
+            "comparison_bootstrap_invalid",
+            f"Gradle wrapper JAR must not be a symlink in comparison worktree: {target}",
+        )
+    if target.is_file():
+        return (
+            {
+                "path": GRADLE_WRAPPER_JAR.as_posix(),
+                "sha256": _sha256_file(target),
+                "source": "commit",
+                "staged": False,
+            },
+            None,
+        )
+    if target.exists():
+        raise InvestigationError(
+            "comparison_bootstrap_invalid",
+            f"Gradle wrapper JAR path is not a regular file: {target}",
+        )
+
+    source = project / GRADLE_WRAPPER_JAR
+    if (
+        source.is_symlink()
+        or not source.is_file()
+        or not source.resolve().is_relative_to(project.resolve())
+    ):
+        raise InvestigationError(
+            "comparison_bootstrap_missing",
+            "detached comparison worktree is missing its Gradle wrapper JAR and no regular "
+            f"bootstrap source is available at {source}; provide the standard wrapper JAR "
+            "in the selected project before comparing",
+            details={
+                "worktree": str(worktree),
+                "missing_path": GRADLE_WRAPPER_JAR.as_posix(),
+                "source_path": str(source),
+            },
+        )
+    digest = _sha256_file(source)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.parent.resolve().is_relative_to(worktree.resolve()):
+            raise OSError("wrapper JAR destination escapes the comparison worktree")
+        with source.open("rb") as source_file, target.open("xb") as target_file:
+            shutil.copyfileobj(source_file, target_file)
+    except OSError as exc:
+        raise InvestigationError(
+            "comparison_bootstrap_stage_failed",
+            f"could not stage the Gradle wrapper JAR into {worktree}: {exc}",
+        ) from exc
+    return (
+        {
+            "path": GRADLE_WRAPPER_JAR.as_posix(),
+            "sha256": digest,
+            "source": "selected-project-local-input",
+            "staged": True,
+        },
+        (target, digest),
+    )
+
+
+def _remove_staged_bootstrap(worktree: Path, path: Path, expected_sha256: str) -> None:
+    if not path.exists() and not path.is_symlink():
+        return
+    if (
+        not path.parent.resolve().is_relative_to(worktree.resolve())
+        or path.is_symlink()
+        or not path.is_file()
+        or _sha256_file(path) != expected_sha256
+    ):
+        raise CleanupError(
+            "staged comparison bootstrap input changed unexpectedly; preserving worktree",
+            details={"path": str(path)},
+        )
+    path.unlink()
+
+
 def _add_worktree(project: Path, path: Path, commit: str) -> None:
     if path.exists() or path.is_symlink():
         raise InvestigationError(
@@ -383,6 +481,8 @@ def run_exact_comparison(
     created: list[str] = []
     preserved: set[str] = set()
     sides: dict[str, dict[str, Any]] = {}
+    bootstrap_inputs: dict[str, dict[str, Any]] = {}
+    staged_bootstrap: dict[str, tuple[Path, str]] = {}
     current: str | None = None
     failure: BaseException | None = None
     cleanup_errors: list[dict[str, Any]] = []
@@ -397,6 +497,7 @@ def run_exact_comparison(
                 "scenario": str(scenario.path),
                 "before": before,
                 "after": after,
+                "bootstrap_inputs": bootstrap_inputs,
                 "sides": sides,
                 "preserved_worktrees": [
                     str(paths[label]) for label in sorted(preserved)
@@ -418,6 +519,19 @@ def run_exact_comparison(
                 raise
             created.append(label)
             current = None
+            bootstrap, staged = _prepare_gradle_wrapper_bootstrap(project, paths[label])
+            if bootstrap is not None:
+                bootstrap_inputs[label] = bootstrap
+            if staged is not None:
+                staged_bootstrap[label] = staged
+        wrapper_hashes = {value["sha256"] for value in bootstrap_inputs.values()}
+        if len(wrapper_hashes) > 1:
+            raise InvestigationError(
+                "comparison_bootstrap_mismatch",
+                "before and after use different Gradle wrapper JARs; comparison requires the "
+                "same wrapper bootstrap input",
+                details={"bootstrap_inputs": bootstrap_inputs},
+            )
         write_summary("running")
         for label, commit in (("before", before), ("after", after)):
             current = label
@@ -452,6 +566,7 @@ def run_exact_comparison(
             "comparison_id": comparison_id,
             "artifact_dir": str(artifact_dir),
             "summary_path": str(summary_path),
+            "bootstrap_inputs": bootstrap_inputs,
             "equal": not differences,
             "difference_count": len(differences),
             "differences": differences,
@@ -477,6 +592,9 @@ def run_exact_comparison(
             if label in preserved:
                 continue
             try:
+                staged = staged_bootstrap.get(label)
+                if staged is not None:
+                    _remove_staged_bootstrap(paths[label], *staged)
                 _remove_clean_worktree(project, worktree_root, paths[label])
             except (CleanupError, InvestigationError) as exc:
                 preserved.add(label)

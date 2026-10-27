@@ -402,6 +402,9 @@ def _public_state(state: dict) -> dict:
         "lifecycle": state["lifecycle"],
         "process": state["process"],
         "cleanup": state.get("cleanup"),
+        "remaining_owned_threads": state.get("remaining_owned_threads", []),
+        "thread_inspection_errors": state.get("thread_inspection_errors", []),
+        "thread_capture_errors": state.get("thread_capture_errors", []),
     }
     if state["operation"] == "server":
         value.update(
@@ -477,10 +480,22 @@ def _status(args: argparse.Namespace) -> tuple[dict, str]:
         return envelope(
             "status", "inactive", data={"project": str(project), "loader": loader}
         ), f"inactive {project}/{loader}"
+    thread_health = (
+        not state["remaining_owned_threads"]
+        and not state["thread_inspection_errors"]
+        and not state.get("thread_capture_errors")
+    )
     healthy = (
-        state["lifecycle"] == "ready" and bool(state["bound_ports"])
+        state["lifecycle"] == "ready"
+        and state["leader_identity_valid"]
+        and bool(state["owned_pids"])
+        and bool(state["bound_ports"])
+        and thread_health
         if state["operation"] == "server"
-        else state["lifecycle"] == "running" and bool(state["owned_pids"])
+        else state["lifecycle"] == "running"
+        and state["leader_identity_valid"]
+        and bool(state["owned_pids"])
+        and thread_health
     )
     machine_state = "ready" if healthy else "degraded"
     value = envelope(
@@ -510,8 +525,20 @@ def _doctor(args: argparse.Namespace) -> tuple[dict, str]:
         ), "no active investigation state"
     if not args.recover:
         issues = []
-        if not current["leader_identity_valid"] and not current["owned_pids"]:
-            issues.append("tracked process boundary is no longer alive")
+        if not current["leader_identity_valid"]:
+            issues.append("tracked main-process identity is no longer alive")
+        if not current["owned_pids"]:
+            issues.append("managed service cgroup has no live processes")
+        if current["remaining_owned_threads"]:
+            issues.append("tracked investigation-owned D-state threads remain")
+        issues.extend(
+            f"owned-thread inspection inconclusive: {item}"
+            for item in current["thread_inspection_errors"]
+        )
+        issues.extend(
+            f"owned-thread capture incomplete: {item}"
+            for item in current.get("thread_capture_errors", [])
+        )
         expected_lifecycle = "ready" if current["operation"] == "server" else "running"
         if current["lifecycle"] != expected_lifecycle:
             issues.append(f"lifecycle is {current['lifecycle']}")

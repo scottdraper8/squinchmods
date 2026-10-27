@@ -98,7 +98,7 @@ name = "relative-path-control"
 project = "{project}"
 loader = "fabric"
 seed = 12345
-datapacks = ["games/minecraft/investigations/fixture.zip"]
+datapacks = ["games/minecraft/investigations/test-pack.zip"]
 retention = "discard"
 
 [server_properties]
@@ -138,7 +138,7 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     project.mkdir(parents=True)
     assets = tmp_path / "games/minecraft/investigations"
     assets.mkdir(parents=True)
-    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "test-pack.zip").write_bytes(b"datapack")
     (assets / "probe.json").write_text('{"radius": 4}\n')
     scenario_path = tmp_path / ".squinch/scenario.toml"
     scenario_path.parent.mkdir()
@@ -151,9 +151,66 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     scenario = load_scenario(scenario_path)
 
     assert scenario.project == project.resolve()
-    assert scenario.datapacks == ((assets / "fixture.zip").resolve(),)
+    assert scenario.datapacks == ((assets / "test-pack.zip").resolve(),)
     assert scenario.probes["finished-chunk"].config == {"radius": 4}
     assert scenario.steps[0].values["bounds"] == [0, 0, 16, 16]
+
+
+def test_missing_gradle_wrapper_bootstrap_fails_before_provenance_or_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches a missing wrapper JAR surfacing only as a Gradle startup failure."""
+    project = tmp_path / "games/minecraft/project"
+    (project / "gradle/wrapper").mkdir(parents=True)
+    (project / "gradlew").write_text("#!/bin/sh\n")
+    (project / "gradle/wrapper/gradle-wrapper.properties").write_text(
+        "distributionUrl=https\\://services.gradle.org/distributions/gradle-test-bin.zip\n"
+    )
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "test-pack.zip").write_bytes(b"datapack")
+    (assets / "probe.json").write_text("{}\n")
+    scenario_path = tmp_path / ".squinch/missing-wrapper.toml"
+    scenario_path.parent.mkdir()
+    _write_scenario(scenario_path)
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    scenario = load_scenario(scenario_path)
+
+    with pytest.raises(InvestigationError) as failure:
+        scenario_module.capture_provenance(scenario, {})
+
+    assert failure.value.code == "gradle_wrapper_bootstrap_missing"
+    assert failure.value.details["jar_path"].endswith(
+        "gradle/wrapper/gradle-wrapper.jar"
+    )
+
+
+def test_sparse_standard_wrapper_missing_properties_fails_before_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "games/minecraft/project"
+    project.mkdir(parents=True)
+    (project / "gradlew").write_text(
+        "#!/bin/sh\nexec java -classpath gradle/wrapper/gradle-wrapper.jar "
+        "org.gradle.wrapper.GradleWrapperMain\n"
+    )
+    assets = tmp_path / "games/minecraft/investigations"
+    assets.mkdir(parents=True)
+    (assets / "test-pack.zip").write_bytes(b"datapack")
+    (assets / "probe.json").write_text("{}\n")
+    scenario_path = tmp_path / ".squinch/missing-wrapper-properties.toml"
+    scenario_path.parent.mkdir()
+    _write_scenario(scenario_path)
+    monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
+    scenario = load_scenario(scenario_path)
+
+    with pytest.raises(InvestigationError) as failure:
+        scenario_module.capture_provenance(scenario, {})
+
+    assert failure.value.code == "gradle_wrapper_bootstrap_missing"
+    assert failure.value.details["properties_path"].endswith(
+        "gradle/wrapper/gradle-wrapper.properties"
+    )
 
 
 def test_production_launch_task_is_explicit_and_loader_scoped(
@@ -163,7 +220,7 @@ def test_production_launch_task_is_explicit_and_loader_scoped(
     project.mkdir(parents=True)
     assets = tmp_path / "games/minecraft/investigations"
     assets.mkdir(parents=True)
-    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "test-pack.zip").write_bytes(b"datapack")
     (assets / "probe.json").write_text("{}\n")
     scenario_path = tmp_path / ".squinch/production.toml"
     scenario_path.parent.mkdir()
@@ -275,7 +332,7 @@ startup_failure = { code = "startup_exited", log_contains = ["lithostitched_inje
         load_scenario(path)
 
 
-def test_packaged_subject_can_generate_fixture_from_ftf_project(
+def test_packaged_subject_can_export_preset_from_ftf_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "games/minecraft/vanilla-control").mkdir(parents=True)
@@ -285,7 +342,7 @@ def test_packaged_subject_can_generate_fixture_from_ftf_project(
     preset_definition.write_text("schema_version = 2\n")
     path = tmp_path / "packaged.toml"
     path.write_text("""schema_version = 1
-name = "packaged-fixture-control"
+name = "packaged-preset-control"
 project = "games/minecraft/vanilla-control"
 loader = "fabric"
 seed = 1
@@ -320,7 +377,7 @@ def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
     project.mkdir(parents=True)
     assets = tmp_path / "games/minecraft/investigations"
     assets.mkdir(parents=True)
-    (assets / "fixture.zip").write_bytes(b"datapack")
+    (assets / "test-pack.zip").write_bytes(b"datapack")
     (assets / "probe.json").write_text("{}\n")
     subject = project / "build/libs/subject.jar"
     subject.parent.mkdir(parents=True)
@@ -434,7 +491,7 @@ def test_repeated_generation_requires_disjoint_windows_and_retains_every_observa
     scenario_path.parent.mkdir()
     assets = tmp_path / "games/minecraft/investigations"
     assets.mkdir(parents=True)
-    (assets / "fixture.zip").write_bytes(b"fixture")
+    (assets / "test-pack.zip").write_bytes(b"datapack")
     (assets / "probe.json").write_text("{}\n")
     _write_scenario(scenario_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)

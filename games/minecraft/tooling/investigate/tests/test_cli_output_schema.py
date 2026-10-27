@@ -334,7 +334,7 @@ def test_preset_export_envelope_requires_complete_generated_evidence() -> None:
         "tracked_source_unchanged": True,
         "cleanup": {"complete": True, "failures": []},
         "generated": {
-            "path": "/tmp/run/generated-fixture",
+            "path": "/tmp/run/generated-datapack",
             "content_sha256": "a" * 64,
             "file_count": 5,
             "size": 100,
@@ -385,6 +385,35 @@ def test_status_active_envelope_requires_identity_and_binding_fields() -> None:
     envelope("status", "ready", run_id="run-1", data=data)
 
 
+def test_status_degrades_when_the_tracked_process_escapes_its_service_cgroup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = {
+        **ACTIVE_DATA,
+        "run_id": "run-1",
+        "started_at": "2026-08-01T00:00:00Z",
+        "artifact_dir": "/tmp/run-1",
+        "log_path": "/tmp/run-1/server.log",
+        "operation": "server",
+        "remaining_owned_threads": [],
+        "thread_inspection_errors": [],
+        "thread_capture_errors": [],
+        "leader_identity_valid": True,
+        "owned_pids": [],
+        "bound_ports": [25565, 25575],
+    }
+    monkeypatch.setattr(cli, "_resolve", lambda _args: (Path("/tmp/project"), "fabric"))
+    monkeypatch.setattr(cli, "status", lambda _project, _loader: current)
+
+    value, _message = cli._status(
+        argparse.Namespace(project="project", loader="fabric")
+    )
+
+    assert value["state"] == "degraded"
+    assert value["data"]["leader_identity_valid"] is True
+    assert value["data"]["owned_pids"] == []
+
+
 def test_status_accepts_finite_operation_without_server_fields() -> None:
     data = {
         "operation": "preset-export",
@@ -403,6 +432,40 @@ def test_status_accepts_finite_operation_without_server_fields() -> None:
     del data["run_dir"]
     with pytest.raises(jsonschema.ValidationError):
         envelope("status", "ready", run_id="run-1", data=data)
+
+
+def test_doctor_reports_degraded_when_a_retained_owned_thread_is_stuck(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    thread = {"pid": 4321, "tid": 4321, "state": "D", "start_ticks": 99}
+    current = {
+        **ACTIVE_DATA,
+        "run_id": "run-1",
+        "started_at": "2026-08-01T00:00:00Z",
+        "artifact_dir": "/tmp/run-1",
+        "log_path": "/tmp/run-1/server.log",
+        "operation": "server",
+        "remaining_owned_threads": [thread],
+        "thread_inspection_errors": [],
+        "thread_capture_errors": [],
+        "leader_identity_valid": False,
+        "owned_pids": [],
+        "bound_ports": [],
+    }
+    monkeypatch.setattr(cli, "_resolve", lambda _args: (Path("/tmp/project"), "fabric"))
+    monkeypatch.setattr(cli, "status", lambda _project, _loader: current)
+
+    value, _message = cli._doctor(
+        argparse.Namespace(
+            project="project", loader="fabric", recover=False, timeout=30
+        )
+    )
+
+    assert value["state"] == "degraded"
+    assert (
+        "tracked investigation-owned D-state threads remain" in value["data"]["issues"]
+    )
+    assert value["data"]["remaining_owned_threads"] == [thread]
 
 
 def test_doctor_envelope_accepts_action_or_issues() -> None:

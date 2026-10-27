@@ -23,6 +23,7 @@ import tomllib
 from .catalog import ResolvedArtifact, resolve_artifact_closure, resolve_artifacts
 from .errors import CleanupError, InvestigationError
 from .generation import generate_regions, release_regions
+from .gradle_wrapper import validate_gradle_wrapper_bootstrap
 from .measurement import (
     capture_measurement_files,
     extract_metrics,
@@ -832,6 +833,8 @@ def capture_provenance(
     scenario: Scenario, environment: dict[str, str]
 ) -> tuple[dict[str, Any], bytes]:
     project = scenario.project
+    validate_gradle_wrapper_bootstrap(project)
+    wrapper_properties = project / "gradle/wrapper/gradle-wrapper.properties"
     head = (
         _run_capture(["git", "rev-parse", "HEAD"], cwd=project, environment=environment)
         .decode()
@@ -888,7 +891,6 @@ def capture_provenance(
                     r"^org\.gradle\.jvmargs=(.*)$", path.read_text(), re.MULTILINE
                 )
                 gradle_jvm_arguments = match.group(1).strip() if match else None
-    wrapper_properties = project / "gradle/wrapper/gradle-wrapper.properties"
     distribution = None
     if wrapper_properties.is_file():
         match = re.search(
@@ -1408,7 +1410,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
             materialized_dir = None
         except (OSError, ValueError) as cleanup:
             raise CleanupError(
-                "temporary fixture cleanup did not complete",
+                "temporary datapack cleanup did not complete",
                 details={"path": str(materialized_path), "error": str(cleanup)},
             ) from cleanup
 
@@ -2060,7 +2062,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                         "scenario_progress": str(progress_path),
                         "cleanup_failed": {
                             **cleanup_error,
-                            "temporary_fixture_cleanup_error": temporary_cleanup,
+                            "temporary_datapack_cleanup_error": temporary_cleanup,
                         },
                     }
                 else:
@@ -2075,7 +2077,7 @@ def run_scenario(scenario: Scenario) -> dict[str, Any]:
                                 "message": failure.message,
                             },
                             "cleanup_error": cleanup.details,
-                            "temporary_fixture_cleanup_error": temporary_cleanup,
+                            "temporary_datapack_cleanup_error": temporary_cleanup,
                         },
                     ) from cleanup
             if cleanup_result is None:

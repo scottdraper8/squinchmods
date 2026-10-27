@@ -19,9 +19,11 @@ from .processes import (
     proc_identity,
     process_kernel_diagnostics,
     service_members,
+    service_thread_members,
     signal_recorded_process,
     signal_service,
     stop_service,
+    uninterruptible_owned_threads,
 )
 from .state import atomic_write_json, project_lock
 
@@ -49,7 +51,9 @@ def defer_termination_signals():
 class Deadline:
     def __init__(self, timeout: float):
         if timeout <= 0:
-            raise InvestigationError("operation_timeout_invalid", "timeout must be positive")
+            raise InvestigationError(
+                "operation_timeout_invalid", "timeout must be positive"
+            )
         self._end = time.monotonic() + timeout
 
     def remaining(self, cap: float | None = None) -> float:
@@ -65,11 +69,56 @@ def write_active_manifest(state: dict) -> None:
     atomic_write_json(Path(state["artifact_dir"]) / "manifest.json", state)
 
 
+def capture_service_threads(
+    state: dict, timeout: float = 5.0, *, process_ids: set[int] | None = None
+) -> bool:
+    recorded = {int(item["pid"]): item for item in state.get("owned_threads", [])}
+    if process_ids is None:
+        process_ids = {
+            int(item["pid"])
+            for item in state.get("owned_processes", [])
+            if identity_matches(item)
+        }
+    scan = service_thread_members(
+        state["service"],
+        known_threads=recorded,
+        process_ids=process_ids,
+        timeout=timeout,
+    )
+    before = dict(recorded)
+    recorded.update({item["pid"]: item for item in scan["threads"]})
+    state["owned_threads"] = sorted(recorded.values(), key=lambda item: item["pid"])
+    errors = state.setdefault("thread_capture_errors", [])
+    errors_before = list(errors)
+    if scan.get("cgroup_gone") or (
+        state["service"].get("cgroup") and not scan["inconclusive"]
+    ):
+        # A complete current scan supersedes transient capture errors. Keep previously captured
+        # identities for procfs revalidation, including after the cgroup disappears.
+        errors.clear()
+    for item in scan["inconclusive"]:
+        if item not in errors:
+            errors.append(item)
+    changed = recorded != before or errors != errors_before
+    if changed:
+        try:
+            write_active_manifest(state)
+        except OSError as exc:
+            message = f"could not persist captured thread ownership: {exc}"
+            if message not in errors:
+                errors.append(message)
+    return changed
+
+
 def live_owned_processes(state: dict, timeout: float = 5.0) -> list[dict]:
     recorded = {int(item["pid"]): item for item in state.get("owned_processes", [])}
-    for identity in service_members(state["service"], timeout=timeout):
+    current_members = service_members(state["service"], timeout=timeout)
+    for identity in current_members:
         recorded[identity["pid"]] = identity
     state["owned_processes"] = sorted(recorded.values(), key=lambda item: item["pid"])
+    capture_service_threads(
+        state, timeout, process_ids={int(item["pid"]) for item in current_members}
+    )
     return [item for item in state["owned_processes"] if identity_matches(item)]
 
 
@@ -87,7 +136,9 @@ def wait_owned_exit(
                 write_active_manifest(state)
             except OSError as exc:
                 if persistence_failures is not None:
-                    persistence_failures.append(f"could not persist expanded process ownership: {exc}")
+                    persistence_failures.append(
+                        f"could not persist expanded process ownership: {exc}"
+                    )
         time.sleep(0.2)
     return not live_owned_processes(state, 0.0)
 
@@ -126,7 +177,9 @@ def terminate_owned_service(state: dict, timeout: float, *, label: str) -> list[
                 try:
                     signal_recorded_process(identity, signal.SIGKILL)
                 except OSError as exc:
-                    failures.append(f"failed to kill owned pid {identity['pid']}: {exc}")
+                    failures.append(
+                        f"failed to kill owned pid {identity['pid']}: {exc}"
+                    )
             wait_owned_exit(state, deadline.remaining(5.0), failures)
     try:
         stop_service(state["service"], timeout=deadline.remaining(5.0))
@@ -138,6 +191,24 @@ def terminate_owned_service(state: dict, timeout: float, *, label: str) -> list[
         failures.append(
             f"owned {label} processes remain alive: {[item['pid'] for item in remaining]}"
         )
+    thread_scan = uninterruptible_owned_threads(
+        state.get("owned_threads", []), timeout=deadline.remaining()
+    )
+    state["remaining_owned_threads"] = thread_scan["threads"]
+    state["thread_inspection_errors"] = thread_scan["inconclusive"]
+    if state["remaining_owned_threads"]:
+        failures.append(
+            "owned D-state threads remain after service teardown: "
+            f"{state['remaining_owned_threads']}"
+        )
+    failures.extend(
+        f"owned thread inspection incomplete: {item}"
+        for item in state["thread_inspection_errors"]
+    )
+    failures.extend(
+        f"owned thread capture incomplete: {item}"
+        for item in state.get("thread_capture_errors", [])
+    )
     return failures
 
 
@@ -165,12 +236,35 @@ def run_finite_service(
     state_fields: dict | None = None,
 ) -> tuple[dict, T]:
     if timeout <= 0:
-        raise InvestigationError("process_service_invalid", "operation timeout must be positive")
+        raise InvestigationError(
+            "process_service_invalid", "operation timeout must be positive"
+        )
     reserved = {
-        "ownership", "schema_version", "operation", "run_id", "lifecycle", "started_at",
-        "finished_at", "project", "loader", "run_dir", "artifact_dir", "log_path",
-        "active_path", "process", "service", "launcher", "owned_processes", "command",
-        "cleanup", "remaining_owned_processes", "teardown_process_diagnostics",
+        "ownership",
+        "schema_version",
+        "operation",
+        "run_id",
+        "lifecycle",
+        "started_at",
+        "finished_at",
+        "project",
+        "loader",
+        "run_dir",
+        "artifact_dir",
+        "log_path",
+        "active_path",
+        "process",
+        "service",
+        "launcher",
+        "owned_processes",
+        "command",
+        "cleanup",
+        "remaining_owned_processes",
+        "remaining_owned_threads",
+        "thread_inspection_errors",
+        "thread_capture_errors",
+        "owned_threads",
+        "teardown_process_diagnostics",
     }
     overlap = reserved & set(state_fields or {})
     if overlap:
@@ -202,6 +296,8 @@ def run_finite_service(
         "service": None,
         "launcher": launcher,
         "owned_processes": [],
+        "owned_threads": [],
+        "thread_capture_errors": [],
         "command": command,
         "cleanup": {"complete": False, "failures": []},
         **(state_fields or {}),
@@ -260,10 +356,17 @@ def run_finite_service(
                 alive = False
                 if launch_owned:
                     try:
-                        failures.extend(terminate_owned_service(state, 15.0, label=operation))
+                        failures.extend(
+                            terminate_owned_service(state, 15.0, label=operation)
+                        )
                     except BaseException as exc:  # noqa: BLE001 - cleanup must survive signals
                         failures.append(f"{operation} launch cleanup failed: {exc}")
-                    alive = bool(state.get("remaining_owned_processes"))
+                    alive = bool(
+                        state.get("remaining_owned_processes")
+                        or state.get("remaining_owned_threads")
+                        or state.get("thread_inspection_errors")
+                        or state.get("thread_capture_errors")
+                    )
                 if alive:
                     state["lifecycle"] = "cleanup_failed"
                     state["failure"] = str(original)
@@ -271,7 +374,9 @@ def run_finite_service(
                     try:
                         write_active_manifest(state)
                     except OSError as exc:
-                        failures.append(f"could not retain active recovery state: {exc}")
+                        failures.append(
+                            f"could not retain active recovery state: {exc}"
+                        )
                         with contextlib.suppress(OSError):
                             atomic_write_json(artifact_dir / "manifest.json", state)
                 else:
@@ -357,8 +462,13 @@ def run_finite_service(
         if failure is None and pending_signals:
             failure = KeyboardInterrupt()
         state["finished_at"] = timestamp()
-        state["cleanup"] = {"complete": not cleanup_failures, "failures": cleanup_failures}
-        state["lifecycle"] = "succeeded" if failure is None and not cleanup_failures else "failed"
+        state["cleanup"] = {
+            "complete": not cleanup_failures,
+            "failures": cleanup_failures,
+        }
+        state["lifecycle"] = (
+            "succeeded" if failure is None and not cleanup_failures else "failed"
+        )
         if failure is not None:
             state["failure"] = str(failure)
         write_active_manifest(state)
@@ -379,12 +489,14 @@ def run_finite_service(
         ) from failure
     if failure is not None:
         if isinstance(failure, InvestigationError):
-            failure.details.update({
-                "run_id": run_id,
-                "artifact_dir": str(artifact_dir),
-                "log_path": str(log_path),
-                "cleanup_complete": True,
-            })
+            failure.details.update(
+                {
+                    "run_id": run_id,
+                    "artifact_dir": str(artifact_dir),
+                    "log_path": str(log_path),
+                    "cleanup_complete": True,
+                }
+            )
         if isinstance(failure, KeyboardInterrupt):
             raise InvestigationError(
                 "interrupted",

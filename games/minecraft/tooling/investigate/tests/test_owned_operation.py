@@ -6,7 +6,6 @@ import signal
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import owned_operation
 from squinch_minecraft_investigate.errors import CleanupError, InvestigationError
 
@@ -39,14 +38,19 @@ def _arguments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         "wrapper": _identity(40),
     }
     monkeypatch.setattr(owned_operation, "proc_identity", lambda _pid: _identity(39))
+
     def launch(**kwargs):
         wrapper = _Wrapper()
         kwargs["publish_start"](wrapper, service, service["wrapper"])
         return wrapper, service, _identity(41)
 
     monkeypatch.setattr(owned_operation, "launch_service", launch)
-    monkeypatch.setattr(owned_operation, "live_owned_processes", lambda _state, *_args: [])
-    monkeypatch.setattr(owned_operation, "wait_owned_exit", lambda _state, _timeout: True)
+    monkeypatch.setattr(
+        owned_operation, "live_owned_processes", lambda _state, *_args: []
+    )
+    monkeypatch.setattr(
+        owned_operation, "wait_owned_exit", lambda _state, _timeout: True
+    )
     monkeypatch.setattr(
         owned_operation, "terminate_owned_service", lambda _state, _timeout, label: []
     )
@@ -68,8 +72,66 @@ def _arguments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     }
 
 
+def test_live_owner_capture_persists_new_thread_identities(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    process = _identity(41)
+    thread = _identity(42)
+    state = {
+        "service": {"unit": "squinch-mc-run-1.service", "cgroup": "/test"},
+        "owned_processes": [],
+        "owned_threads": [],
+        "thread_capture_errors": [],
+        "artifact_dir": str(tmp_path / "run"),
+        "active_path": str(tmp_path / "active.json"),
+    }
+    writes: list[list[dict]] = []
+    monkeypatch.setattr(
+        owned_operation, "service_members", lambda *_args, **_kwargs: [process]
+    )
+    monkeypatch.setattr(
+        owned_operation,
+        "service_thread_members",
+        lambda *_args, **_kwargs: {"threads": [thread], "inconclusive": []},
+    )
+    monkeypatch.setattr(
+        owned_operation,
+        "write_active_manifest",
+        lambda value: writes.append(list(value["owned_threads"])),
+    )
+    monkeypatch.setattr(owned_operation, "identity_matches", lambda _identity: True)
+
+    assert owned_operation.live_owned_processes(state) == [process]
+    assert state["owned_threads"] == [thread]
+    assert writes == [[thread]]
+
+
+def test_disappeared_cgroup_retires_no_budget_capture_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = {
+        "service": {"unit": "squinch-mc-run-1.service", "cgroup": "/test"},
+        "owned_threads": [],
+        "thread_capture_errors": ["owned cgroup thread scan had no time budget"],
+    }
+    monkeypatch.setattr(
+        owned_operation,
+        "service_thread_members",
+        lambda *_args, **_kwargs: {
+            "threads": [],
+            "inconclusive": [],
+            "cgroup_gone": True,
+        },
+    )
+    monkeypatch.setattr(owned_operation, "write_active_manifest", lambda _state: None)
+
+    assert owned_operation.capture_service_threads(state, timeout=0, process_ids=set())
+    assert state["thread_capture_errors"] == []
+
+
 def test_finite_service_removes_active_state_only_after_validation_and_cleanup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
 
@@ -87,7 +149,8 @@ def test_finite_service_removes_active_state_only_after_validation_and_cleanup(
 
 
 def test_finite_service_accepts_terminal_result_while_wrapper_is_live(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
 
@@ -120,7 +183,8 @@ def test_finite_service_accepts_terminal_result_while_wrapper_is_live(
 
 
 def test_finite_service_preserves_failure_evidence_after_clean_teardown(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
 
@@ -139,7 +203,8 @@ def test_finite_service_preserves_failure_evidence_after_clean_teardown(
 
 
 def test_finite_service_defers_repeated_signal_until_cleanup_finishes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
     calls: list[str] = []
@@ -164,7 +229,8 @@ def test_finite_service_defers_repeated_signal_until_cleanup_finishes(
     try:
         with pytest.raises(InvestigationError) as caught:
             owned_operation.run_finite_service(
-                **arguments, validate=lambda _state: pytest.fail("validation must not run")
+                **arguments,
+                validate=lambda _state: pytest.fail("validation must not run"),
             )
     finally:
         signal.signal(signal.SIGINT, previous)
@@ -179,15 +245,47 @@ def test_finite_service_defers_repeated_signal_until_cleanup_finishes(
     assert manifest["cleanup"]["complete"] is True
 
 
-def test_finite_service_retains_recoverable_state_when_cleanup_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_teardown_fails_when_a_previously_owned_thread_stays_uninterruptible(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    arguments = _arguments(tmp_path, monkeypatch)
+    thread = {**_identity(42), "state": "D"}
+    state = {
+        "service": {"unit": "squinch-mc-run-1.service", "cgroup": "/test"},
+        "owned_processes": [_identity(41)],
+        "owned_threads": [thread],
+    }
+    monkeypatch.setattr(owned_operation, "live_owned_processes", lambda *_args: [])
+    monkeypatch.setattr(owned_operation, "stop_service", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         owned_operation,
-        "terminate_owned_service",
-        lambda _state, _timeout, label: [f"owned {label} process remains"],
+        "uninterruptible_owned_threads",
+        lambda *_args, **_kwargs: {
+            "threads": [{**thread, "tid": 42}],
+            "inconclusive": [],
+        },
     )
+
+    failures = owned_operation.terminate_owned_service(state, 2.0, label="test")
+
+    assert len(failures) == 1
+    assert "owned D-state threads remain after service teardown" in failures[0]
+    assert state["remaining_owned_threads"] == [{**thread, "tid": 42}]
+
+
+def test_finite_service_retains_recoverable_state_when_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments = _arguments(tmp_path, monkeypatch)
+    thread = {**_identity(42), "tid": 42}
+
+    def retain_thread(state: dict, _timeout: float, label: str) -> list[str]:
+        state["remaining_owned_threads"] = [thread]
+        state["thread_inspection_errors"] = []
+        state["thread_capture_errors"] = []
+        return [f"owned {label} D-state thread remains"]
+
+    monkeypatch.setattr(owned_operation, "terminate_owned_service", retain_thread)
 
     with pytest.raises(CleanupError, match="cleanup did not complete"):
         owned_operation.run_finite_service(
@@ -197,10 +295,12 @@ def test_finite_service_retains_recoverable_state_when_cleanup_fails(
     retained = json.loads(arguments["active_path"].read_text())
     assert retained["lifecycle"] == "cleanup_failed"
     assert retained["cleanup"]["complete"] is False
+    assert retained["remaining_owned_threads"] == [thread]
 
 
 def test_finite_service_rejects_state_that_overrides_ownership_fields(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
     with pytest.raises(InvestigationError, match="override ownership"):
@@ -212,13 +312,15 @@ def test_finite_service_rejects_state_that_overrides_ownership_fields(
 
 
 def test_finite_service_checks_active_state_before_creating_artifacts(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
     arguments["active_path"].parent.mkdir(parents=True)
     arguments["active_path"].write_text("{}")
     arguments["load_active"] = lambda _project, _loader: {
-        "run_id": "existing", "operation": "client"
+        "run_id": "existing",
+        "operation": "client",
     }
 
     with pytest.raises(InvestigationError, match="already active"):
@@ -232,7 +334,8 @@ def test_finite_service_checks_active_state_before_creating_artifacts(
 
 
 def test_finite_service_removes_unlaunched_preparation_artifacts(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
 
@@ -251,7 +354,8 @@ def test_finite_service_removes_unlaunched_preparation_artifacts(
 
 
 def test_finite_service_retains_live_owner_when_initial_manifest_write_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     arguments = _arguments(tmp_path, monkeypatch)
     retained: list[dict] = []
@@ -265,6 +369,7 @@ def test_finite_service_retains_live_owner_when_initial_manifest_write_fails(
         retained.append(state.copy())
 
     monkeypatch.setattr(owned_operation, "write_active_manifest", write)
+
     def retain_process(state: dict, *_args, **_kwargs) -> list[str]:
         state["remaining_owned_processes"] = [_identity(40)]
         return ["owned finite-test process remains"]
@@ -293,6 +398,7 @@ def test_owned_teardown_phases_share_one_monotonic_budget(
     state = {
         "service": {"unit": "squinch-mc-run-1.service", "cgroup": "/test"},
         "owned_processes": [identity],
+        "owned_threads": [_identity(42)],
     }
     live_results = iter(([identity], [identity], []))
     waits: list[float] = []
@@ -301,11 +407,15 @@ def test_owned_teardown_phases_share_one_monotonic_budget(
 
     monkeypatch.setattr(owned_operation.time, "monotonic", lambda: now)
     monkeypatch.setattr(
-        owned_operation, "live_owned_processes", lambda _state, *_args: list(next(live_results))
+        owned_operation,
+        "live_owned_processes",
+        lambda _state, *_args: list(next(live_results)),
     )
     monkeypatch.setattr(owned_operation, "write_active_manifest", lambda _state: None)
     monkeypatch.setattr(
-        owned_operation, "process_kernel_diagnostics", lambda value: {"pid": value["pid"]}
+        owned_operation,
+        "process_kernel_diagnostics",
+        lambda value: {"pid": value["pid"]},
     )
     monkeypatch.setattr(
         owned_operation,
@@ -329,7 +439,11 @@ def test_owned_teardown_phases_share_one_monotonic_budget(
         lambda _service, *, timeout: stops.append(timeout),
     )
 
-    assert owned_operation.terminate_owned_service(state, 2.0, label="test") == []
+    failures = owned_operation.terminate_owned_service(state, 2.0, label="test")
+    assert failures == [
+        "owned thread inspection incomplete: thread inspection had no time budget"
+    ]
+    assert state["thread_inspection_errors"] == ["thread inspection had no time budget"]
     assert waits == [2.0, 0.5]
     assert signals == [2.0, 0.5]
     assert stops == [0.0]

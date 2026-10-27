@@ -479,8 +479,13 @@ def test_owned_process_health_scan_has_one_global_budget(
                 }
             )
         )
-    clock = iter((0.0, 0.05, 0.2))
-    monkeypatch.setattr(server.time, "monotonic", lambda: next(clock))
+    clock = [0.0]
+
+    def monotonic() -> float:
+        clock[0] += 0.06
+        return clock[0]
+
+    monkeypatch.setattr(server.time, "monotonic", monotonic)
     monkeypatch.setattr(server, "proc_identity", lambda _pid: None)
 
     with pytest.raises(InvestigationError) as failure:
@@ -551,6 +556,7 @@ def test_server_preparation_failure_restores_files_and_removes_unlaunched_artifa
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
+    (project / "gradlew").write_text("#!/bin/sh\n")
     properties = run_dir / "server.properties"
     properties.write_text("motd=preserve\n")
     state_root = tmp_path / "state"
@@ -595,12 +601,48 @@ def test_server_preparation_failure_restores_files_and_removes_unlaunched_artifa
     assert not list((state_root / "locks/server-port-reservations").glob("*.json"))
 
 
+def test_missing_wrapper_bootstrap_fails_before_server_preparation(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    run_dir = project / "fabric" / "run"
+    run_dir.mkdir(parents=True)
+    (project / "gradlew").write_text(
+        "#!/bin/sh\nexec java -classpath gradle/wrapper/gradle-wrapper.jar "
+        "org.gradle.wrapper.GradleWrapperMain\n"
+    )
+    wrapper_properties = project / "gradle/wrapper/gradle-wrapper.properties"
+    wrapper_properties.parent.mkdir(parents=True)
+    wrapper_properties.write_text(
+        "distributionUrl=https://services.gradle.org/distributions/gradle-test-bin.zip\n"
+    )
+
+    with pytest.raises(InvestigationError) as failure:
+        server.start_server(
+            project.resolve(),
+            "fabric",
+            seed=None,
+            datapacks=[],
+            properties={},
+            timeout=10,
+            retention="discard",
+        )
+
+    assert failure.value.code == "gradle_wrapper_bootstrap_missing"
+    assert failure.value.details["jar_path"].endswith(
+        "gradle/wrapper/gradle-wrapper.jar"
+    )
+    assert not (run_dir / "eula.txt").exists()
+    assert not (run_dir / "server.properties").exists()
+
+
 def test_server_launcher_identity_is_required_before_files_are_mutated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
+    (project / "gradlew").write_text("#!/bin/sh\n")
     properties = run_dir / "server.properties"
     properties.write_text("motd=preserve\n")
     state_root = tmp_path / "state"
@@ -633,6 +675,7 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
     project = tmp_path / "project"
     run_dir = project / "fabric" / "run"
     run_dir.mkdir(parents=True)
+    (project / "gradlew").write_text("#!/bin/sh\n")
     properties = run_dir / "server.properties"
     properties.write_text("motd=preserve\n")
     state_root = tmp_path / "state"
@@ -1134,6 +1177,53 @@ def test_probe_overlay_tracked_source_mutation_fails_and_cleans_up(
     assert '"complete": true' in manifest.read_text()
 
 
+def test_recover_does_not_finalize_a_retained_owned_thread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    thread = {
+        "pid": 62,
+        "ppid": 1,
+        "pgrp": 60,
+        "session": 60,
+        "start_ticks": 7,
+        "state": "D",
+    }
+    state = {
+        "operation": "server",
+        "lifecycle": "failed",
+        "service": {"unit": "squinch-mc-test.service", "cgroup": "/test"},
+        "process": {"pid": 44, "ppid": 33, "pgrp": 44, "session": 44, "start_ticks": 1},
+        "owned_processes": [],
+        "owned_threads": [thread],
+        "thread_capture_errors": [],
+        "ports": {"server": 25565, "rcon": 25575},
+    }
+    calls: list[dict] = []
+    monkeypatch.setattr(server, "load_owned_active", lambda _project, _loader: state)
+    monkeypatch.setattr(server, "identity_matches", lambda _identity: False)
+    monkeypatch.setattr(server, "service_members", lambda _service, **_kwargs: [])
+    monkeypatch.setattr(server, "port_is_free", lambda _port: True)
+    monkeypatch.setattr(
+        server,
+        "uninterruptible_owned_threads",
+        lambda *_args, **_kwargs: {
+            "threads": [{**thread, "tid": 62}],
+            "inconclusive": [],
+        },
+    )
+
+    def refuse_finalization(*_args, **kwargs):
+        calls.append(kwargs)
+        raise CleanupError("retained thread still blocks recovery")
+
+    monkeypatch.setattr(server, "stop_server", refuse_finalization)
+
+    with pytest.raises(CleanupError, match="retained thread"):
+        server.recover(Path("project"), "fabric", 30)
+
+    assert calls == [{"successful": False, "timeout": 30}]
+
+
 def test_recover_stops_an_orphaned_starting_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1221,7 +1311,7 @@ def test_recover_without_live_process_removes_companion_artifacts(
     monkeypatch.setattr(server, "load_owned_active", lambda _project, _loader: state)
     monkeypatch.setattr(server, "load_active", lambda _project, _loader: state)
     monkeypatch.setattr(server, "identity_matches", lambda _identity: False)
-    monkeypatch.setattr(server, "service_members", lambda _service: [])
+    monkeypatch.setattr(server, "service_members", lambda _service, **_kwargs: [])
     monkeypatch.setattr(server, "port_is_free", lambda _port: True)
     monkeypatch.setattr(
         server, "lock_path", lambda _project, _loader: tmp_path / "lock"
@@ -1260,3 +1350,43 @@ def test_server_teardown_defers_signal_and_reports_retained_run(
     assert caught.value.code == "interrupted"
     assert caught.value.details["run_id"] == "run-1"
     assert caught.value.details["cleanup_complete"] is True
+
+
+def test_status_captures_current_cgroup_threads_before_health_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    active = tmp_path / "active.json"
+    active.touch()
+    process = {"pid": 41, "start_ticks": 1, "pgrp": 41, "session": 41}
+    thread = {"pid": 42, "start_ticks": 2, "pgrp": 41, "session": 41, "state": "S"}
+    state = {
+        "process": process,
+        "service": {"unit": "squinch-mc-test.service", "cgroup": "/test"},
+        "ports": {"server": 25565, "rcon": 25575},
+        "owned_threads": [],
+        "thread_capture_errors": [],
+    }
+    captured: list[set[int]] = []
+    monkeypatch.setattr(server, "active_path", lambda *_args: active)
+    monkeypatch.setattr(server, "load_owned_active", lambda *_args: state)
+    monkeypatch.setattr(server, "service_members", lambda *_args, **_kwargs: [process])
+
+    def capture(target: dict, *, timeout: float, process_ids: set[int]) -> bool:
+        captured.append(process_ids)
+        target["owned_threads"] = [thread]
+        return True
+
+    monkeypatch.setattr(server, "capture_service_threads", capture)
+    monkeypatch.setattr(
+        server,
+        "uninterruptible_owned_threads",
+        lambda *_args, **_kwargs: {"threads": [], "inconclusive": []},
+    )
+    monkeypatch.setattr(server, "identity_matches", lambda _identity: True)
+    monkeypatch.setattr(server, "port_is_free", lambda _port: True)
+
+    result = server.status(Path("project"), "fabric")
+
+    assert captured == [{41}]
+    assert result["owned_threads"] == [thread]
+    assert result["leader_identity_valid"] is True

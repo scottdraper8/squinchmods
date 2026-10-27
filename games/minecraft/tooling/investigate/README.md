@@ -40,7 +40,20 @@ first-start behavior; and response/region/terminal expectations. Managed files a
 where applicable, backed up, installed or removed before launch, and restored on every cleanup path.
 A generation step has `generation` authority unless it names a selected terminal probe and
 explicitly requests `finished-chunk` authority. Force-load acknowledgment alone is never labeled
-finished-chunk proof.
+finished-chunk proof. Each `companion_artifacts` entry is a catalog root: its transitive
+`required_dependencies` closure is validated, deduplicated, conflict-checked, and staged in
+dependency-first order. Do not manually flatten a mod's dependency list into every scenario. Set
+`launch_task = "prodServer"` to execute production-mapped Fabric/NeoForge code. For Fabric revision
+comparisons, the probe overlay supplies the standard Loom production-server task when an older clean
+revision does not declare one, while preserving an existing project-owned task.
+
+A command step can own an asynchronous measurement by setting `wait_for_log`, `fail_on_log`, and
+`capture_files`. The runner snapshots output files before issuing RCON commands, accepts only files
+that changed during that command, waits for stable output plus the command-owned completion marker,
+copies the files into task-local run state before shutdown, and rejects configured failure markers.
+`[[steps.metrics]]` entries extract typed `int`, `float`, or `string` values from either the new
+server-log range or a captured text file. This keeps workload-specific commands and report formats
+in task-local scenario data instead of adding them to the generic lifecycle manager.
 
 Packaged-subject scenarios may set `subject_artifact` to a repository-relative production JAR. The
 runner hashes it, installs it as an owned runtime companion, records the materialized path, and
@@ -155,6 +168,13 @@ tooling/squinch mc-investigate benchmark path/to/matrix.toml --resume RUN_ID --j
 Matrix inputs and campaign state are scratch for the active comparison. Remove them when its
 analysis is complete; do not keep campaigns as a historical archive.
 
+Normal run cleanup treats scenario runs referenced by accepted benchmark checkpoints as protected,
+even if an age or project selector would otherwise match them. Deleting a benchmark that owns
+accepted checkpoints requires the explicit `clean --benchmark RUN_ID --discard-checkpoints --apply`
+combination. Rejected and superseded attempt runs are not checkpoint-protected and can be removed by
+normal owned cleanup after they are no longer active; compact attempt records remain only in the
+task's benchmark scratch state.
+
 Matrix runtime state lives below the investigation cache's `benchmarks/` directory. Workload
 adapters remain task-local scenarios, so the matrix runner contains no mod-specific command or
 report knowledge. Remove the matrix and its scratch results when the active comparison is complete.
@@ -184,11 +204,24 @@ side or an unexpectedly modified worktree is left in task-local scratch state an
 than force-removed. Remove that state after the issue is resolved. Existing result files can still
 be compared with `compare --left FILE --right FILE`.
 
-The runner reads `scan.top_candidates`, floors negative coordinates correctly, deduplicates them by
-chunk, fingerprints the shortlist artifact, force-generates each selected chunk, and runs the chosen
-terminal probe for every chunk. The evidence funnel is therefore: preview prediction → optional
-exact FTF tile → bounded real generation → finished-chunk probe. Only the final stage may be
-described as finished-world truth.
+For exact worktrees that use the standard Gradle wrapper, `compare` preflights its bootstrap inputs
+before launching either side and reports a sparse checkout that omits `gradlew` or required wrapper
+properties. If a worktree has wrapper properties but omits its ignored `gradle-wrapper.jar`, the
+runner stages the regular JAR from the selected project into that worktree, fingerprints it in the
+comparison summary, and removes it on clean teardown. When both revisions use the wrapper, their JAR
+hashes must match. If no valid source exists, the comparison fails before running Minecraft with a
+specific bootstrap error.
+
+## FTF adapters and terminology
+
+FTF preset input is supplied for the active task. The `preset-export` command passes it to FTF's
+real exporter and produces a generated datapack in run scratch state. The scenario field
+`ftf_preset` also names a task-local preset input. No preset catalog is maintained.
+
+`cell-scan` runs the selected worktree's compiled FTF model without starting a server or generating
+Minecraft chunks. Preview output has prediction authority; tile mode checks the horizontal tile
+model. Neither result establishes final block placement. Use command help for the current scan
+options and remove its input and output when the active work is complete.
 
 The probe runtime is injected into development runs by an external Gradle init overlay. It adds no
 tracked target source or resources. Requests appear atomically under
@@ -205,7 +238,7 @@ configuration, or generated loader-metadata references to that configuration:
 
 ```bash
 tooling/squinch mc-investigate inspect-artifact \
-  games/minecraft/mods/FreeTerraForged/fabric/build/libs/freeterraforged-fabric-*.jar \
+  "$ARTIFACT_JAR" \
   --json
 ```
 
@@ -236,23 +269,28 @@ world before steps run. A crash, fatal server condition, timeout, assertion fail
 non-passing probe terminal result, incomplete scan, or cleanup failure makes the command nonzero.
 
 Generated state lives beneath `games/minecraft/investigation-state/` and is ignored by Git. Every
+run owns a unique ID, artifact directory, log, manifest, command stream, summary, and level name.
 This is task-local scratch, not a persistent archive; remove completed run state after the active
-work is done. run owns a unique ID, artifact directory, log, manifest, command stream, summary, and
-level name. Target `eula.txt` and `server.properties` files are backed up and restored. The launcher
-invokes a non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable Gradle
-daemons for the launch command, and never changes the wrapper's tracked mode.
+work is done. Target `eula.txt` and `server.properties` files are backed up and restored. The
+launcher invokes a non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable
+Gradle daemons for the launch command, and never changes the wrapper's tracked mode.
 
 Every launch runs as a dedicated transient user-systemd service with control-group kill semantics.
 The exact unit intent is published as recoverable `launching` state before `systemd-run` is spawned,
 wrapper identity enriches that owner immediately after spawn, and main-process discovery then
-advances it in place. `stop` enumerates that service's complete cgroup, validates retained Linux
-process identities before fallback signaling, removes only force-load regions recorded by the run,
-and treats any remaining process/listener/file/world cleanup problem as failure. `doctor --recover`
-is the explicit recovery path for retained incomplete state. Launch preparation is transactional,
-and every blocking stop phase consumes the same monotonic timeout budget; the timeout is not
-restarted for each phase. Choose a timeout that includes launch/transformation, the probe, normal
-shutdown, and fallback cleanup; a short diagnostic timeout can expire before cleanup has any
-remaining budget.
+advances it in place. While the service is active, the runner retains identity snapshots for its
+cgroup thread IDs as well as process identities. Teardown and `status`/`doctor` verify those exact
+thread identities, so a surviving D-state thread is not mistaken for a clean exit merely because its
+leader or service cgroup disappeared. `status` also degrades when the tracked main-process identity
+or service-cgroup membership is missing, even if listeners remain bound. Incomplete thread capture
+or a still-blocked owned thread keeps recovery active; the tool never signals thread IDs. `stop`
+also enumerates that service's complete cgroup, validates retained Linux process identities before
+fallback signaling, removes only force-load regions recorded by the run, and treats any remaining
+process/listener/file/world cleanup problem as failure. `doctor --recover` is the explicit recovery
+path for retained incomplete state. Launch preparation is transactional, and every blocking stop
+phase consumes the same monotonic timeout budget; the timeout is not restarted for each phase.
+Choose a timeout that includes launch/transformation, the probe, normal shutdown, and fallback
+cleanup; a short diagnostic timeout can expire before cleanup has any remaining budget.
 
 `clean` is a dry run unless `--apply` is supplied. It accepts exact `--run` IDs or an explicit
 `--older-than-days` selection and rejects active runs, symlinks, foreign manifests, or paths outside
@@ -284,14 +322,15 @@ integration that could pass while the real loader or world generation fails.
 
 ### Verification ladder
 
-Use the cheapest layer that can genuinely falsify the claim, then cross the real boundary before
-declaring integration complete:
+Use the cheapest layer that can genuinely falsify the claim, then cross the real boundary needed for
+completion:
 
-1. **Pure deterministic test:** parsing, tiling, aggregation, state transitions.
-2. **Real local boundary test:** filesystem, socket, subprocess, Git worktree, jar.
-3. **Fast mod-model probe:** FTF preview/cell/tile prediction.
-4. **Real Minecraft scenario:** loader, registries, chunks, blocks, structures, features.
-5. **Human/client confirmation:** visual and player-facing behavior.
+1. Source inspection and deterministic tests.
+2. Filesystem, socket, subprocess, Git worktree, and artifact checks.
+3. A mod-specific prediction or standalone model, when available.
+4. A managed Minecraft run for loader, registry, chunk, block, structure, or feature behavior.
+5. Client visual review for player-facing claims.
 
-Passing a lower layer never proves a higher one. In particular, an FTF cell scan cannot prove final
-blocks, and a mocked server cannot prove process teardown or loader behavior.
+A lower layer does not establish a higher one. In particular, an FTF cell scan does not establish
+final block placement, and a mocked server does not establish real process teardown or loader
+behavior.

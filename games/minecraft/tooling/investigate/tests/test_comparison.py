@@ -25,13 +25,29 @@ def _repository(tmp_path: Path) -> tuple[Path, str, str]:
     _git(repo, "config", "user.name", "Comparison Test")
     _git(repo, "config", "user.email", "comparison@example.invalid")
     (repo / "gradlew").write_text("#!/bin/sh\n")
+    (repo / "gradle" / "wrapper").mkdir(parents=True)
+    (repo / "gradle" / "wrapper" / "gradle-wrapper.properties").write_text(
+        "distributionUrl=https\\://services.gradle.org/distributions/gradle-test-bin.zip\n"
+    )
+    (repo / ".gitignore").write_text("gradle/wrapper/gradle-wrapper.jar\n")
     (repo / "behavior.txt").write_text("before\n")
-    _git(repo, "add", "gradlew", "behavior.txt")
+    _git(
+        repo,
+        "add",
+        "gradlew",
+        "behavior.txt",
+        ".gitignore",
+        "gradle/wrapper/gradle-wrapper.properties",
+    )
     _git(repo, "commit", "-qm", "before")
     before = _git(repo, "rev-parse", "HEAD")
     (repo / "behavior.txt").write_text("after\n")
     _git(repo, "commit", "-qam", "after")
-    return repo, before, _git(repo, "rev-parse", "HEAD")
+    after = _git(repo, "rev-parse", "HEAD")
+    (repo / "gradle" / "wrapper" / "gradle-wrapper.jar").write_bytes(
+        b"local ignored wrapper bootstrap"
+    )
+    return repo, before, after
 
 
 def _scenario(path: Path, repo: Path) -> Scenario:
@@ -180,6 +196,104 @@ def test_exact_comparison_uses_detached_commits_and_removes_clean_worktrees(
     assert list((tmp_path / "state" / "worktrees").glob("compare-*")) == []
     listed = _git(repo, "worktree", "list", "--porcelain")
     assert listed.count("worktree ") == 1
+
+
+def test_sparse_worktree_missing_wrapper_properties_fails_preflight(
+    tmp_path: Path,
+) -> None:
+    repo, _, _ = _repository(tmp_path)
+    worktree = tmp_path / "sparse-worktree"
+    worktree.mkdir()
+    (worktree / "gradlew").write_text(
+        "#!/bin/sh\nexec java -classpath gradle/wrapper/gradle-wrapper.jar "
+        "org.gradle.wrapper.GradleWrapperMain\n"
+    )
+
+    with pytest.raises(InvestigationError) as failure:
+        comparison._prepare_gradle_wrapper_bootstrap(repo, worktree)
+
+    assert failure.value.code == "comparison_bootstrap_missing"
+    assert (
+        failure.value.details["missing_path"]
+        == "gradle/wrapper/gradle-wrapper.properties"
+    )
+
+
+def test_sparse_worktree_missing_wrapper_script_fails_preflight(
+    tmp_path: Path,
+) -> None:
+    repo, _, _ = _repository(tmp_path)
+    worktree = tmp_path / "sparse-worktree"
+    worktree.mkdir()
+
+    with pytest.raises(InvestigationError) as failure:
+        comparison._prepare_gradle_wrapper_bootstrap(repo, worktree)
+
+    assert failure.value.code == "comparison_bootstrap_missing"
+    assert failure.value.details["missing_path"] == "gradlew"
+
+
+def test_missing_worktree_wrapper_jar_is_staged_and_fingerprinted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches sparse comparison worktrees failing before Minecraft because an ignored wrapper JAR is absent."""
+    repo, before, after = _repository(tmp_path)
+    _roots(tmp_path, monkeypatch)
+    observed: list[bytes] = []
+
+    def runner(selected: Scenario) -> dict:
+        jar = selected.project / comparison.GRADLE_WRAPPER_JAR
+        assert jar.is_file()
+        observed.append(jar.read_bytes())
+        return _runner(selected)
+
+    result = comparison.run_exact_comparison(
+        repo,
+        before,
+        after,
+        _scenario(tmp_path / "scenario.toml", repo),
+        scenario_runner=runner,
+    )
+
+    assert observed == [b"local ignored wrapper bootstrap"] * 2
+    assert result["bootstrap_inputs"]["before"]["staged"] is True
+    assert result["bootstrap_inputs"]["after"]["staged"] is True
+    assert (
+        result["bootstrap_inputs"]["before"]["sha256"]
+        == result["bootstrap_inputs"]["after"]["sha256"]
+    )
+    assert result["preserved_worktrees"] == []
+    assert list((tmp_path / "state" / "worktrees").glob("compare-*")) == []
+
+
+def test_missing_wrapper_source_fails_before_scenario_and_cleans_worktrees(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Catches an opaque Gradle class-loading failure when no wrapper bootstrap can be staged."""
+    repo, before, after = _repository(tmp_path)
+    (repo / comparison.GRADLE_WRAPPER_JAR).unlink()
+    _roots(tmp_path, monkeypatch)
+    invoked = False
+
+    def runner(_selected: Scenario) -> dict:
+        nonlocal invoked
+        invoked = True
+        return {}
+
+    with pytest.raises(InvestigationError) as failure:
+        comparison.run_exact_comparison(
+            repo,
+            before,
+            after,
+            _scenario(tmp_path / "scenario.toml", repo),
+            scenario_runner=runner,
+        )
+
+    assert failure.value.code == "comparison_bootstrap_missing"
+    assert not invoked
+    assert failure.value.details["missing_path"] == "gradle/wrapper/gradle-wrapper.jar"
+    assert _git(repo, "worktree", "list", "--porcelain").count("worktree ") == 1
+    assert list((tmp_path / "state" / "worktrees").glob("compare-*")) == []
 
 
 def test_failed_side_is_preserved_while_unused_clean_side_is_removed(

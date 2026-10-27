@@ -17,9 +17,11 @@ from pathlib import Path
 
 from .catalog import ResolvedArtifact
 from .errors import CleanupError, InvestigationError
+from .gradle_wrapper import validate_gradle_wrapper_bootstrap
 from .output import timestamp
 from .owned_operation import (
     Deadline,
+    capture_service_threads,
     defer_termination_signals,
     terminate_owned_service,
 )
@@ -45,6 +47,7 @@ from .processes import (
     signal_recorded_process,
     signal_service,
     stop_service,
+    uninterruptible_owned_threads,
 )
 from .rcon import RconError, execute
 from .state import atomic_write_json, blocking_lock, project_lock, read_json
@@ -463,6 +466,21 @@ def load_owned_active(project: Path, loader: str) -> dict:
         raise InvestigationError(
             "invalid_state", "active state owned process identities are invalid"
         )
+    owned_threads = state.get("owned_threads", [])
+    if not isinstance(owned_threads, list) or not all(
+        isinstance(item, dict) and _valid_process_identity(item)
+        for item in owned_threads
+    ):
+        raise InvestigationError(
+            "invalid_state", "active state owned thread identities are invalid"
+        )
+    thread_capture_errors = state.get("thread_capture_errors", [])
+    if not isinstance(thread_capture_errors, list) or not all(
+        isinstance(item, str) for item in thread_capture_errors
+    ):
+        raise InvestigationError(
+            "invalid_state", "active state thread capture diagnostics are invalid"
+        )
     if operation == "client":
         display = state.get("display")
         display_root = (
@@ -540,9 +558,13 @@ def persist_active(state: dict) -> None:
 
 def _refresh_owned_processes(state: dict, *, timeout: float = 5.0) -> list[dict]:
     recorded = {int(item["pid"]): item for item in state.get("owned_processes", [])}
-    for identity in service_members(state["service"], timeout=timeout):
+    current_members = service_members(state["service"], timeout=timeout)
+    for identity in current_members:
         recorded[identity["pid"]] = identity
     state["owned_processes"] = sorted(recorded.values(), key=lambda value: value["pid"])
+    capture_service_threads(
+        state, timeout, process_ids={int(item["pid"]) for item in current_members}
+    )
     return [item for item in state["owned_processes"] if identity_matches(item)]
 
 
@@ -564,9 +586,12 @@ def uninterruptible_owned_processes(
             continue
         if state.get("ownership") != OWNERSHIP:
             continue
-        for expected in state.get("owned_processes", []):
-            if not isinstance(expected, dict) or "pid" not in expected:
-                continue
+        owned_processes = [
+            expected
+            for expected in state.get("owned_processes", [])
+            if isinstance(expected, dict) and "pid" in expected
+        ]
+        for expected in owned_processes:
             if time.monotonic() >= deadline:
                 raise InvestigationError(
                     "host_health_inconclusive",
@@ -592,6 +617,41 @@ def uninterruptible_owned_processes(
                         "process": actual,
                     }
                 )
+        thread_capture_errors = state.get("thread_capture_errors", [])
+        if thread_capture_errors:
+            raise InvestigationError(
+                "host_health_inconclusive",
+                "previous owned-thread capture was incomplete",
+                details={
+                    "active_path": str(path),
+                    "run_id": state.get("run_id"),
+                    "capture_errors": thread_capture_errors,
+                },
+            )
+        thread_scan = uninterruptible_owned_threads(
+            state.get("owned_threads", []),
+            timeout=max(0.0, deadline - time.monotonic()),
+        )
+        if thread_scan["inconclusive"]:
+            raise InvestigationError(
+                "host_health_inconclusive",
+                "owned-thread health scan was incomplete",
+                details={
+                    "active_path": str(path),
+                    "run_id": state.get("run_id"),
+                    "inconclusive": thread_scan["inconclusive"],
+                },
+            )
+        blocked.extend(
+            {
+                "active_path": str(path),
+                "run_id": state.get("run_id"),
+                "project": state.get("project"),
+                "loader": state.get("loader"),
+                "thread": thread,
+            }
+            for thread in thread_scan["threads"]
+        )
     return blocked
 
 
@@ -842,6 +902,7 @@ def start_server(
                 f"stale or incompletely cleaned state requires doctor --recover: {active}",
             )
 
+        validate_gradle_wrapper_bootstrap(project)
         run_id = new_run_id()
         artifact_dir = RUNS_ROOT / run_id
         run_dir = loader_dir / "run"
@@ -1072,6 +1133,8 @@ def start_server(
                 "owned_processes": [wrapper_identity]
                 if wrapper_identity is not None
                 else [],
+                "owned_threads": [],
+                "thread_capture_errors": [],
                 "managed_files": managed_files,
                 "runtime_files": resolved_runtime_files,
                 "runtime_absent_files": resolved_runtime_absent_files,
@@ -1133,7 +1196,12 @@ def start_server(
                     )
                 except BaseException as failure:  # noqa: BLE001 - cleanup must survive signals
                     cleanup_failures.append(f"server launch cleanup failed: {failure}")
-                owned_process_alive = bool(state.get("remaining_owned_processes"))
+                owned_process_alive = bool(
+                    state.get("remaining_owned_processes")
+                    or state.get("remaining_owned_threads")
+                    or state.get("thread_inspection_errors")
+                    or state.get("thread_capture_errors")
+                )
             if not owned_process_alive:
                 if state is not None:
                     cleanup_failures.extend(_remove_launch_artifacts(state))
@@ -1570,6 +1638,11 @@ def _stop_server(
                 "shutdown timeout expired before listener cleanup was verified"
             )
         remaining = service_members(state["service"], timeout=deadline.remaining(1.0))
+        capture_service_threads(
+            state,
+            timeout=deadline.remaining(),
+            process_ids={int(item["pid"]) for item in remaining},
+        )
         if remaining:
             failures.append(
                 f"owned cgroup remains alive: {[item['pid'] for item in remaining]}"
@@ -1581,6 +1654,24 @@ def _stop_server(
         ]
         if remaining_owned:
             failures.append(f"recorded owned processes remain alive: {remaining_owned}")
+        thread_scan = uninterruptible_owned_threads(
+            state.get("owned_threads", []), timeout=deadline.remaining()
+        )
+        state["remaining_owned_threads"] = thread_scan["threads"]
+        state["thread_inspection_errors"] = thread_scan["inconclusive"]
+        if state["remaining_owned_threads"]:
+            failures.append(
+                "owned D-state threads remain after service teardown: "
+                f"{state['remaining_owned_threads']}"
+            )
+        failures.extend(
+            f"owned thread inspection incomplete: {item}"
+            for item in state["thread_inspection_errors"]
+        )
+        failures.extend(
+            f"owned thread capture incomplete: {item}"
+            for item in state.get("thread_capture_errors", [])
+        )
         state["timings"]["shutdown_seconds"] = time.monotonic() - shutdown_started
 
         failures.extend(_remove_protocol_files(state))
@@ -1657,13 +1748,23 @@ def status(project: Path, loader: str) -> dict | None:
     active = active_path(project, loader)
     if not active.exists():
         return None
-    state = load_owned_active(project, loader)
-    state = dict(state)
+    state = dict(load_owned_active(project, loader))
     process = state["process"]
     state["leader_identity_valid"] = isinstance(process, dict) and identity_matches(
         process
     )
-    state["owned_pids"] = [item["pid"] for item in service_members(state["service"])]
+    current_members = service_members(state["service"])
+    state["owned_pids"] = [item["pid"] for item in current_members]
+    capture_service_threads(
+        state,
+        timeout=2.0,
+        process_ids={int(item["pid"]) for item in current_members},
+    )
+    thread_scan = uninterruptible_owned_threads(
+        state.get("owned_threads", []), timeout=2.0
+    )
+    state["remaining_owned_threads"] = thread_scan["threads"]
+    state["thread_inspection_errors"] = thread_scan["inconclusive"]
     state["bound_ports"] = [
         int(port)
         for port in state.get("ports", {}).values()
@@ -1682,9 +1783,26 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         from .cell_scan import recover_standalone
 
         return recover_standalone(project, loader, timeout)
-    process_alive = any(
-        identity_matches(item) for item in state.get("owned_processes", [])
-    ) or bool(service_members(state["service"]))
+    if state.get("thread_capture_errors"):
+        raise InvestigationError(
+            "host_health_inconclusive",
+            "previous owned-thread capture was incomplete",
+            details={"capture_errors": state["thread_capture_errors"]},
+        )
+    thread_scan = uninterruptible_owned_threads(
+        state.get("owned_threads", []), timeout=max(0.1, min(timeout, 2.0))
+    )
+    if thread_scan["inconclusive"]:
+        raise InvestigationError(
+            "host_health_inconclusive",
+            "recovery could not verify retained owned threads",
+            details={"inconclusive": thread_scan["inconclusive"]},
+        )
+    process_alive = (
+        any(identity_matches(item) for item in state.get("owned_processes", []))
+        or bool(service_members(state["service"]))
+        or bool(thread_scan["threads"])
+    )
     ports_bound = any(not port_is_free(int(port)) for port in state["ports"].values())
     if process_alive or ports_bound:
         if state["lifecycle"] == "starting":
@@ -1703,12 +1821,25 @@ def recover(project: Path, loader: str, timeout: float) -> dict:
         return stop_server(project, loader, successful=False, timeout=timeout)
     with project_lock(lock_path(project, loader)):
         state = load_active(project, loader)
-        if any(
-            identity_matches(item) for item in state.get("owned_processes", [])
-        ) or any(not port_is_free(int(port)) for port in state["ports"].values()):
+        _refresh_owned_processes(state)
+        thread_scan = uninterruptible_owned_threads(
+            state.get("owned_threads", []), timeout=max(0.1, min(timeout, 2.0))
+        )
+        if (
+            state.get("thread_capture_errors")
+            or thread_scan["inconclusive"]
+            or thread_scan["threads"]
+            or any(identity_matches(item) for item in state.get("owned_processes", []))
+            or any(not port_is_free(int(port)) for port in state["ports"].values())
+        ):
             raise InvestigationError(
                 "recovery_state_changed",
-                "process or listener state changed while recovery acquired its lock; retry doctor",
+                "process, listener, or owned-thread state changed while recovery acquired its lock; retry doctor",
+                details={
+                    "threads": thread_scan["threads"],
+                    "thread_capture_errors": state.get("thread_capture_errors", []),
+                    "thread_inspection_errors": thread_scan["inconclusive"],
+                },
             )
         failures = _remove_protocol_files(state)
         failures.extend(_restore_managed_files(state))
