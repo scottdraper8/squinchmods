@@ -347,21 +347,6 @@ required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta4"]
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
-id = "mc1.21.1-neoforge-regions-unexplored-0.6.2-lithostitched-beta6"
-project_slug = "regions-unexplored"
-project_id = "Tkikq67H"
-minecraft_version = "1.21.1"
-loader = "neoforge"
-version_number = "0.6.2-neoforge-21.1"
-version_id = "5A8LFnXX"
-filename = "regions-unexplored-0.6.2-neoforge-21.1.jar"
-sha256 = "ccf32ed714f2724f54406b9e02a8d6f94d87dc5c72397bc39b3d6ed8f32412ea"
-status = "diagnostic-only"
-reason = "Current NeoForge Regions Unexplored code-listener matrix locked to current Lithostitched"
-required_dependencies = ["mc1.21.1-neoforge-lithostitched-1.8.0-beta6"]
-source_id = "source-regions-unexplored"
-
-[[artifacts]]
 id = "mc1.21.1-neoforge-lithostitched-1.8.0-beta4"
 project_slug = "lithostitched"
 project_id = "XaDC71GB"
@@ -452,21 +437,6 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1
 source_id = "source-regions-unexplored"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-regions-unexplored-0.6.2-lithostitched-beta6"
-project_slug = "regions-unexplored"
-project_id = "Tkikq67H"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "0.6.2-fabric-21.1"
-version_id = "SffwLsGY"
-filename = "regions-unexplored-0.6.2-fabric-21.1.jar"
-sha256 = "c0c2f1a83cbdc1f252255823e33230ace9db6f5fd6da010a739f46f7a6d3a6a7"
-status = "diagnostic-only"
-reason = "Current Fabric Regions Unexplored code-listener matrix locked to current Lithostitched"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithostitched-1.8.0-beta6"]
-source_id = "source-regions-unexplored"
-
-[[artifacts]]
 id = "mc1.21.1-fabric-terrablender-4.1.0.8"
 project_slug = "terrablender"
 project_id = "kkmrDlKT"
@@ -512,21 +482,6 @@ required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
 source_id = "source-lithosphere-unavailable"
 
 [[artifacts]]
-id = "mc1.21.1-fabric-lithosphere-1.8.1"
-project_slug = "lithosphere"
-project_id = "iv9jp2k9"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "1.8.1+mod"
-version_id = "Cu9qQGut"
-filename = "lithosphere-1.8.1.jar"
-sha256 = "54f594090ea529477351711ddc479329a3bc6861804b86819150fca757880fd6"
-status = "diagnostic-only"
-reason = "Older Lithosphere regression control; not a substitute for the latest Still Life ownership result"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1"]
-source_id = "source-lithosphere-unavailable"
-
-[[artifacts]]
 id = "mc1.21.1-fabric-still-life-0.1.1"
 project_slug = "still-life"
 project_id = "fK6aflho"
@@ -539,21 +494,6 @@ sha256 = "0838e42c151cd4118b2baadc9fe933cc5015c611d00a54846601eb1e8b66deab"
 status = "diagnostic-only"
 reason = "Latest 1.21.1-compatible Still Life beta release for worldgen ownership audit"
 required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithosphere-1.8.2"]
-source_id = "source-still-life-unavailable"
-
-[[artifacts]]
-id = "mc1.21.1-fabric-still-life-0.1"
-project_slug = "still-life"
-project_id = "fK6aflho"
-minecraft_version = "1.21.1"
-loader = "fabric"
-version_number = "0.1+mod"
-version_id = "lYmXmwwj"
-filename = "still-life-0.1.jar"
-sha256 = "d04088a48dd6a62c044879422492780f5b2d9aaa38b2c70a7b2352d187085b4f"
-status = "diagnostic-only"
-reason = "Earlier 1.21.1-compatible Still Life beta for the worldgen ownership audit"
-required_dependencies = ["mc1.21.1-fabric-fabric-api-0.116.17+1.21.1", "mc1.21.1-fabric-lithosphere-1.8.1"]
 source_id = "source-still-life-unavailable"
 
 [[artifacts]]

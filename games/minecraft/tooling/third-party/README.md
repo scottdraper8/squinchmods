@@ -2,7 +2,7 @@
 
 This tool owns two different artifacts used by investigations:
 
-- Modrinth release JARs for actually running a companion mod.
+- Modrinth release JARs for running companion mods, or official datapack ZIPs.
 - Shallow, sparse source checkouts for reviewing the implementation that corresponds to the
   Minecraft version under investigation.
 
@@ -24,7 +24,11 @@ tooling/squinch third-party minecraft acquire \
 ```
 
 Validate the entire active catalog and cache with `tooling/squinch third-party minecraft validate`.
-The cache is under
+Official datapacks use `loader = "datapack"` and a pinned `.zip` filename in the same catalog.
+Acquisition checks for meaningful root pack metadata and a nonempty namespaced resource file. This
+is structural archive validation; it does not prove that Minecraft can load the pack or execute its
+contents. Acquisition does not convert or patch mod JARs. Use the acquired ZIP as an explicit
+investigation `datapacks` input, not a companion mod artifact. The cache is under
 `${SQINCHMODS_CACHE_HOME}/third-party/modrinth/<minecraft>/<loader>/<project>/<version>/`. The
 command prints the exact local JAR path, version ID, version number, and SHA-256.
 
