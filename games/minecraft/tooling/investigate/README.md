@@ -80,7 +80,6 @@ tooling/squinch mc-investigate client \
   --probe-env "SQUINCH_CASE=$CASE" \
   --result-env SQUINCH_RESULT=result.json \
   --production \
-  --cpu-list 16-31 \
   --json
 ```
 
