@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,10 +10,9 @@ from typing import Any
 
 from squinch_qa import manifest
 from squinch_qa.artifacts import (
-    default_qa_root,
     is_valid_run_id,
-    make_run_id,
     job_dir,
+    make_run_id,
     run_dir,
 )
 from squinch_qa.errors import PlanError
@@ -123,11 +123,22 @@ def run_plan(
     state: RunState,
     repo_root: Path,
     mod_dir: Path,
-    promote: bool = False,
-    clean: bool = True,
 ) -> int:
     """Execute all jobs in the plan serially. Returns exit code (0 or 4)."""
     plan = state.plan
+
+    qa_root = state.qa_runs_dir.parent
+    qa_root.mkdir(parents=True, exist_ok=True)
+    active_path = qa_root / "active.json"
+    try:
+        descriptor = os.open(active_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise PlanError(
+            f"incomplete QA work must be resolved before another run: {active_path}"
+        ) from exc
+    with os.fdopen(descriptor, "w", encoding="utf-8") as active:
+        json.dump({"schema_version": 1, "run_id": state.run_id}, active, sort_keys=True)
+        active.write("\n")
 
     rdir = run_dir(state.qa_runs_dir, state.run_id)
     rdir.mkdir(parents=True, exist_ok=True)
@@ -180,7 +191,7 @@ def run_plan(
                     detail=str(exc),
                 ),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - executor failures become job results
             finished_at = _now_iso()
             result = JobResult(
                 status="error",
@@ -216,39 +227,6 @@ def run_plan(
         plan_bytes=state.plan_bytes,
     )
 
-    if promote and exit_code == 0:
-        from squinch_qa.replace import promote_run, recover_pending
-
-        qa_root = default_qa_root(repo_root)
-        recover_pending(qa_root)
-        _emit({"type": "promote_start", "run_id": state.run_id})
-        promote_results = promote_run(qa_root, rdir)
-        for r in promote_results:
-            _emit(
-                {
-                    "type": "promote_job",
-                    "mod_id": r.mod_id,
-                    "target": r.target_id,
-                    "test": r.test_id,
-                    "promoted": r.promoted,
-                    "reason": r.reason,
-                }
-            )
-        _emit({"type": "promote_done", "run_id": state.run_id})
-        if any(r.is_failure for r in promote_results):
-            exit_code = 6
-
-    if clean:
-        from squinch_qa.cleanup import clean_qa
-
-        try:
-            actions = clean_qa(default_qa_root(repo_root))
-            _emit({"type": "clean_done", "count": len(actions), "dry_run": False})
-        except Exception as exc:
-            _emit({"type": "clean_error", "error": str(exc)})
-
-    # Emitted after promotion (not right after emit_all) so status/exit_code
-    # reflect promotion's outcome too, not just the test run's.
     _emit(
         {
             "type": "run_complete",
@@ -257,5 +235,6 @@ def run_plan(
             "exit_code": exit_code,
         }
     )
+    active_path.unlink()
 
     return exit_code

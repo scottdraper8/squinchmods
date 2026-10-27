@@ -25,6 +25,7 @@ from .presets import load_preset
 from .scenario import _java_seed
 from .server import (
     OWNERSHIP,
+    gradle_project_cache_arguments,
     load_owned_active,
     new_run_id,
     sourced_environment,
@@ -54,8 +55,6 @@ CELL_FIELDS = {
     "river_zone",
     "temperature",
     "moisture",
-    "region_temperature",
-    "region_moisture",
     "erosion",
     "terrain_erosion",
     "weirdness",
@@ -347,11 +346,13 @@ def run_cell_scan(args) -> dict:
         ":fabric:squinchCellScan",
         "--console=plain",
         "--no-daemon",
+        *gradle_project_cache_arguments(artifact_dir),
         "--init-script",
         str(CELL_SCAN_OVERLAY),
         f"-PsquinchCellScanHarness={CELL_SCAN_ROOT}",
         f"-PsquinchCellScanRequest={request_path}",
         f"-PsquinchCellScanResult={result_path}",
+        f"-PsquinchBuildRoot={artifact_dir / 'gradle-build'}",
     ]
     started = time.monotonic()
 

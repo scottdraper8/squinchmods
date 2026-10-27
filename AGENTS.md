@@ -24,3 +24,16 @@
   artifacts, and reusable investigation recipes when the active work is complete.
 - Keep commit hashes, artifact hashes, investigation run IDs, ephemeral counts, and run inventories
   out of `AGENTS.md` and routine routing notes.
+
+## Task scratch tranches
+
+- Create one scratch tranche for each feature or fix with `tooling/squinch tranche create <id>`.
+  Select that tranche for game and QA tools with `tooling/squinch --tranche <id> ...` or
+  `SQUINCH_TRANCHE=<id>`.
+- Put task-local inputs below the path reported by `tooling/squinch tranche path <id>`. Repository
+  tools place generated state in the same workspace. Source, maintained tests, generic tooling,
+  shared download caches, shared source checkouts, and Gradle's shared cache stay outside it.
+- Preview exact cleanup with `tooling/squinch tranche clean <id>` and apply it with
+  `tooling/squinch tranche clean <id> --apply`. Cleanup targets one tranche across every game and
+  removes its ownership metadata. Resolve incomplete teardown or modified external staging before
+  applying cleanup.

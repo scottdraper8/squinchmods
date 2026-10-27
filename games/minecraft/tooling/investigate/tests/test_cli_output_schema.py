@@ -118,6 +118,7 @@ def test_scenario_handler_rejects_cleanup_failure_and_main_exits_nonzero(
         cli, "load_scenario", lambda _path: SimpleNamespace(name="smoke")
     )
     monkeypatch.setattr(cli, "run_scenario", lambda _definition: result)
+    monkeypatch.setattr(cli, "validate_scenario_inputs", lambda _definition: None)
 
     value, _message = cli._scenario(
         argparse.Namespace(scenario_file=Path("smoke.toml"))

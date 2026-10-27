@@ -10,7 +10,10 @@ from .errors import InvestigationError
 PACKAGE_DIR = Path(__file__).resolve().parents[2]
 NMS_DIR = PACKAGE_DIR.parents[1]
 REPOSITORY_ROOT = NMS_DIR.parents[1]
-STATE_ROOT = NMS_DIR / "investigation-state"
+_TRANCHE_WORKSPACE = os.environ.get("SQUINCH_TRANCHE_WORKSPACE")
+if not _TRANCHE_WORKSPACE:
+    raise RuntimeError("SQUINCH_TRANCHE_WORKSPACE is required")
+STATE_ROOT = Path(_TRANCHE_WORKSPACE) / "no-mans-sky" / "investigate"
 RUNS_ROOT = STATE_ROOT / "runs"
 STAGES_ROOT = STATE_ROOT / "stages"
 TOOLCHAIN_CONFIG = PACKAGE_DIR / "toolchain.toml"

@@ -1,10 +1,15 @@
 # Minecraft Agentic Development Guide
 
-Use `tooling/squinch mc-investigate` for managed Minecraft server and client checks. The
-[tool reference](../../../games/minecraft/tooling/investigate/README.md) documents current commands
-and result formats. Mod-specific contracts live under `.agent-docs/games/minecraft/mods/<mod>/`.
+Use `tooling/squinch --tranche <id> mc-investigate` for managed Minecraft server and client checks.
+The [tool reference](../../../games/minecraft/tooling/investigate/README.md) documents current
+commands and result formats. Mod-specific contracts live under
+`.agent-docs/games/minecraft/mods/<mod>/`.
 
 ## Investigation inputs and outputs
+
+Create and select a repository scratch tranche before running Minecraft tools. Store scenario TOMLs,
+benchmark matrices, presets, probe packs, datapacks, and other task inputs below that tranche's
+workspace. The runner rejects these inputs from source or another tranche.
 
 Start from a specific behavior and the exact project worktree that will be checked. Supply the
 loader and any task-local inputs explicitly. `--project` names the target worktree; it is not
@@ -14,9 +19,9 @@ FTF preset input is a complete preset supplied for the active task. The exporter
 generated datapack. Keep those terms distinct. Scenario TOMLs and probe packs are also task-local
 inputs: do not maintain FTF catalogs or retain one-off inputs after the active work is complete.
 
-Generated runs, worlds, logs, screenshots, measurements, and manifests under
-`games/minecraft/investigation-state/` are scratch output, not a persistent evidence archive. Remove
-them when the investigation is done. Put long-lived behavior in CI/CD tests.
+Generated runs, worlds, logs, screenshots, measurements, Gradle build state, and manifests live in
+the selected tranche workspace. Clean the tranche when the feature or fix is done. Put long-lived
+behavior in CI/CD tests.
 
 ## Result authority
 

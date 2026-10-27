@@ -9,6 +9,8 @@ def compileArtifactsProperty = gradle.startParameter.projectProperties.get("squi
 def runtimeArtifactsProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntimeArtifactsJson") ?: "[]"
 def runtimeOutputProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntimeOutput")
 def clientRunDirProperty = gradle.startParameter.projectProperties.get("squinchClientRunDir")
+def serverRunDirProperty = gradle.startParameter.projectProperties.get("squinchServerRunDir")
+def buildRootProperty = gradle.startParameter.projectProperties.get("squinchBuildRoot")
 def runtimeEvidenceProperty = gradle.startParameter.projectProperties.get("squinchProbeRuntimeEvidence")
 def productionProperty = gradle.startParameter.projectProperties.get("squinchProbeProduction") == "true"
 def neoForgeClientHomeProperty = gradle.startParameter.projectProperties.get("squinchNeoForgeClientHome")
@@ -76,6 +78,11 @@ def mergeProbeServices = { task ->
 }
 
 gradle.beforeProject { project ->
+    if (buildRootProperty != null) {
+        def buildKey = project.path == ":" ? "root" : project.path.substring(1).replace(':', '/')
+        project.layout.buildDirectory.set(
+                new File(buildRootProperty, buildKey).canonicalFile)
+    }
     if (project.path != ":${loaderProperty}") {
         return
     }
@@ -97,6 +104,12 @@ gradle.beforeProject { project ->
             def clientRunDirectory = new File(clientRunDirProperty).canonicalFile
             project.loom.runs.named("client").configure {
                 runDir project.relativePath(clientRunDirectory)
+            }
+        }
+        if (serverRunDirProperty != null) {
+            def serverRunDirectory = new File(serverRunDirProperty).canonicalFile
+            project.loom.runs.named("server").configure {
+                runDir project.relativePath(serverRunDirectory)
             }
         }
 
@@ -344,7 +357,8 @@ displayName = "Squinch Investigation Probe"
                 task.jvmArgs.add("-XX:ActiveProcessorCount=8")
             }
         }
-        if (loaderProperty == "fabric" && productionProperty) {
+        if (loaderProperty == "fabric" && productionProperty
+                && serverRunDirProperty != null) {
             project.afterEvaluate {
                 if (project.tasks.findByName("prodServer") == null) {
                     def loomPlugin = project.plugins.findPlugin("dev.architectury.loom")
@@ -356,7 +370,7 @@ displayName = "Squinch Investigation Probe"
                         task.description = "Runs an isolated production-mapped Fabric server"
                         task.loaderVersion = project.rootProject.property("fabric_loader_version").toString()
                         task.minecraftVersion = project.rootProject.property("minecraft_version").toString()
-                        task.runDir = project.file("run")
+                        task.runDir = new File(serverRunDirProperty).canonicalFile
                         task.jvmArgs.add("-Xmx4G")
                     }
                 }
@@ -377,10 +391,15 @@ displayName = "Squinch Investigation Probe"
                     })
                 }
                 task.doFirst {
-                    def runDirectory = task.name in ["runClient", "squinchProdClient"]
-                            && clientRunDirProperty != null
-                            ? new File(clientRunDirProperty)
-                            : project.file("run")
+                    def clientTask = task.name in ["runClient", "squinchProdClient"]
+                    def selectedRunDir = clientTask
+                            ? clientRunDirProperty
+                            : serverRunDirProperty
+                    if (selectedRunDir == null) {
+                        throw new GradleException(
+                                "managed probe task ${task.name} requires an owned run directory")
+                    }
+                    def runDirectory = new File(selectedRunDir).canonicalFile
                     project.copy {
                         from(selectedProbeJar.flatMap { it.archiveFile })
                         into(new File(runDirectory, "mods"))

@@ -5,14 +5,12 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.executors._server import ServerLaunchError, launch_server
 from squinch_qa.executors.command_script import CommandScriptExecutor
-from squinch_qa.executors.server_smoke import ServerSmokeExecutor
 from squinch_qa.executors.pregen import PregenExecutor
+from squinch_qa.executors.server_smoke import ServerSmokeExecutor
 from squinch_qa.models import Target
 from squinch_qa.pregen_tools import AcquiredJar, AcquisitionError, acquire_jar
-
 
 # ── Shared env patch ──────────────────────────────────────────────────────────
 
@@ -120,7 +118,7 @@ class TestServerSmoke:
             _fake_env,
         )
         ctx = make_job_context(test_id="server-smoke", target_id="forge-1.20.1")
-        _seed_crash_report(ctx.mod_dir / "forge" / "run", name="stale-crash.txt")
+        _seed_crash_report(ctx.job_dir / "runtime", name="stale-crash.txt")
 
         result = ServerSmokeExecutor().run(ctx)
 
@@ -140,7 +138,7 @@ class TestServerSmoke:
         result = ServerSmokeExecutor().run(ctx)
 
         assert result.status == "pass"
-        properties = (ctx.mod_dir / "forge" / "run" / "server.properties").read_text()
+        properties = (ctx.job_dir / "runtime" / "server.properties").read_text()
         assert "level-name=qa-test-run-forge-1.20.1-server-smoke" in properties
         assert "server-port=0" in properties
 
@@ -226,7 +224,7 @@ class TestServerSmokeErrorClassification:
             target_id="forge-1.20.1",
             config={"timeout_s": 0.3, "shutdown_timeout_s": 0.2},
         )
-        loader_run_dir = ctx.mod_dir / "forge" / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         _configure_fake_crash_writer(monkeypatch, loader_run_dir, mode="before-ready")
 
         result = ServerSmokeExecutor().run(ctx)
@@ -242,7 +240,7 @@ class TestServerSmokeErrorClassification:
             _fake_env,
         )
         ctx = make_job_context(test_id="server-smoke", target_id="forge-1.20.1")
-        loader_run_dir = ctx.mod_dir / "forge" / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         _configure_fake_crash_writer(monkeypatch, loader_run_dir, mode="on-stop")
 
         result = ServerSmokeExecutor().run(ctx)
@@ -284,7 +282,7 @@ class TestCommandScript:
         assert result.status == "pass"
         log = (ctx.job_dir / "logs" / "server.stdout.log").read_text()
         assert "The game is frozen" in log
-        properties = (ctx.mod_dir / "forge/run/server.properties").read_text()
+        properties = (ctx.job_dir / "runtime/server.properties").read_text()
         assert "level-seed=-7829413372109845" in properties
 
     @pytest.mark.parametrize("value", ["", True, [], {}])
@@ -602,7 +600,7 @@ class TestPregenErrorClassification:
                 "tool_preference": ["chunksmith"],
             },
         )
-        loader_run_dir = ctx.mod_dir / "forge" / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         _configure_fake_crash_writer(monkeypatch, loader_run_dir, mode="on-stop")
 
         result = PregenExecutor().run(ctx)

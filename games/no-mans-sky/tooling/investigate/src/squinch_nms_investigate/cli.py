@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 from pathlib import Path
 
 from .asset_validation import verify_asset_compile
@@ -21,10 +20,10 @@ from .mods import (
     write_analysis_report,
 )
 from .output import emit, envelope, timestamp
-from .paths import STAGES_ROOT, resolve_game_root
+from .paths import resolve_game_root
 from .patterns import inspect_pattern_catalog
 from .pe_functions import inspect_functions, parse_address
-from .runs import create_run, resolve_run, write_json
+from .runs import create_run, write_json
 from .scenario import run_scenario
 from .source import snapshot_source
 from .staging import collect_evidence, stage, stage_status, unstage
@@ -39,6 +38,7 @@ from .toolchain import (
 from .toolchain import (
     config as toolchain_config,
 )
+from .tranche import prepare_owned_directory, require_scratch_input
 from .xmlmodel import compare_xml, verify_export
 
 DEFAULT_STRING_PATTERNS = [
@@ -228,10 +228,6 @@ def parser() -> argparse.ArgumentParser:
     remove.add_argument("--run", required=True)
     remove.add_argument("--apply", action="store_true")
 
-    clean = sub.add_parser("clean", help="Dry-run or remove exact owned investigation runs")
-    _common(clean)
-    clean.add_argument("--run", action="append", required=True, dest="runs")
-    clean.add_argument("--apply", action="store_true")
     return root
 
 
@@ -342,28 +338,26 @@ def _analyze_with_current(mod_root: Path, game_root: Path, run_path: Path) -> di
     return result
 
 
-def _clean(runs: list[str], *, apply: bool) -> dict:
-    if len(set(runs)) != len(runs):
-        raise InvestigationError("duplicate_run", "Each clean --run value must be unique")
-    targets = [resolve_run(run_id) for run_id in runs]
-    active = [run_id for run_id in runs if (STAGES_ROOT / f"{run_id}.json").exists()]
-    if active:
-        raise InvestigationError(
-            "run_has_active_stage", "Unstage these runs before cleaning them", runs=active
-        )
-    result = {"apply": apply, "targets": [str(path) for path in targets]}
-    if apply:
-        for target in targets:
-            shutil.rmtree(target)
-        result["removed"] = [path.name for path in targets]
-    return result
-
-
 def main(argv: list[str] | None = None) -> None:
     args = parser().parse_args(argv)
     run = None
     json_mode = args.json
     try:
+        prepare_owned_directory("no-mans-sky", "investigate")
+        if args.command == "scenario":
+            args.scenario_file = require_scratch_input(args.scenario_file)
+        elif args.command == "roundtrip" and args.files:
+            args.files = [require_scratch_input(path) for path in args.files]
+        elif args.command == "compare":
+            args.left = require_scratch_input(args.left)
+            args.right = require_scratch_input(args.right)
+        elif args.command == "verify-export":
+            args.patch = require_scratch_input(args.patch)
+            args.exported = require_scratch_input(args.exported)
+            if args.vanilla is not None:
+                args.vanilla = require_scratch_input(args.vanilla)
+        elif args.command == "exe-patterns":
+            args.catalog = require_scratch_input(args.catalog)
         if args.command == "doctor":
             started = timestamp()
             game_root = resolve_game_root(args.game_root)
@@ -497,6 +491,7 @@ def main(argv: list[str] | None = None) -> None:
 
         if args.command == "collect":
             started = timestamp()
+            args.screenshot = [require_scratch_input(path) for path in args.screenshot]
             data = collect_evidence(args.run, args.screenshot)
             emit(
                 envelope(
@@ -507,17 +502,6 @@ def main(argv: list[str] | None = None) -> None:
                     finished_at=timestamp(),
                     artifact_paths=[data["artifact_path"]],
                     data=data,
-                ),
-                json_mode=json_mode,
-            )
-            return
-
-        if args.command == "clean":
-            started = timestamp()
-            data = _clean(args.runs, apply=args.apply)
-            emit(
-                envelope(
-                    "clean", "succeeded", started_at=started, finished_at=timestamp(), data=data
                 ),
                 json_mode=json_mode,
             )

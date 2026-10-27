@@ -26,11 +26,12 @@ extraction, semantic MBIN round trips, EXML/mod analysis, conflict detection, me
 executable string probes, declarative scenarios, and transaction-safe staging:
 
 ```bash
-tooling/squinch nms-investigate --help
+tooling/squinch tranche create example-fix
+tooling/squinch --tranche example-fix nms-investigate --help
 ```
 
-Runs live below the ignored `games/no-mans-sky/investigation-state/` boundary. See the
-[investigation runner README](investigate/README.md) and the
+Runs live in the selected task tranche. See the [investigation runner README](investigate/README.md)
+and the
 [NMS agentic development guide](../../../.agent-docs/games/no-mans-sky/agentic-development-guide.md).
 
 ## Client operator helper

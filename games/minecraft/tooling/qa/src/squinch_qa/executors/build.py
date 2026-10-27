@@ -9,6 +9,7 @@ from squinch_qa.artifacts import sha256_file
 from squinch_qa.executors._gradle import (
     GradleEnvError,
     qa_gradle_args,
+    qa_loader_build_dir,
     resolve_gradle_env,
     run_gradle,
 )
@@ -29,7 +30,7 @@ def _find_primary_jar(libs_dir: Path) -> Path | None:
     ]
     if not candidates:
         return None
-    return sorted(candidates)[-1]
+    return max(candidates)
 
 
 def _now_iso() -> str:
@@ -74,7 +75,7 @@ class BuildExecutor:
             )
 
         returncode = run_gradle(
-            args=qa_gradle_args(ctx.repo_root) + [gradle_task],
+            args=qa_gradle_args(ctx.repo_root, ctx.job_dir) + [gradle_task],
             cwd=ctx.mod_dir,
             env=env,
             stdout_log=stdout_log,
@@ -95,7 +96,7 @@ class BuildExecutor:
                 ),
             )
 
-        libs_dir = ctx.mod_dir / loader / "build" / "libs"
+        libs_dir = qa_loader_build_dir(ctx.job_dir, loader) / "libs"
         primary_jar = _find_primary_jar(libs_dir)
 
         if primary_jar is None:

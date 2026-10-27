@@ -45,7 +45,7 @@ class ServerSmokeExecutor:
         )
         shutdown_timeout_s: float = float(ctx.test_config.get("shutdown_timeout_s", 15))
         loader = _loader_from_target_id(ctx.target_id)
-        loader_run_dir = ctx.mod_dir / loader / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         logs_dir = ctx.job_dir / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         log_path = logs_dir / "server.stdout.log"
@@ -84,7 +84,7 @@ class ServerSmokeExecutor:
                 ctx.mod_dir,
                 env,
                 logs_dir,
-                gradle_args=qa_gradle_args(ctx.repo_root),
+                gradle_args=qa_gradle_args(ctx.repo_root, ctx.job_dir),
             )
         except ServerLaunchError as e:
             return _result(

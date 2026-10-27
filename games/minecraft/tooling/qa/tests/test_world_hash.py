@@ -5,9 +5,8 @@ import stat
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.errors import ValidationError
-from squinch_qa.replace.world_hash import world_hash
+from squinch_qa.world_hash import world_hash
 
 
 def _make_world(root: Path) -> Path:
@@ -26,10 +25,10 @@ class TestWorldHash:
     def test_deterministic_across_identical_copies(self, tmp_path: Path) -> None:
         import shutil
 
-        w1 = _make_world(tmp_path / "a")
-        w2 = tmp_path / "b" / "world"
-        shutil.copytree(w1, w2)
-        assert world_hash(w1) == world_hash(w2)
+        first = _make_world(tmp_path / "a")
+        second = tmp_path / "b" / "world"
+        shutil.copytree(first, second)
+        assert world_hash(first) == world_hash(second)
 
     def test_content_change_changes_hash(self, tmp_path: Path) -> None:
         world = _make_world(tmp_path)

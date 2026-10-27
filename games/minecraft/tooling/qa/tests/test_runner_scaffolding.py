@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.artifacts import (
     default_qa_runs_dir,
     job_dir,
@@ -179,8 +178,8 @@ class TestRunPlanWiring:
     """End-to-end: run_plan must call manifest.emit_all and return its exit code."""
 
     def _stub_executor(self, tmp_path: Path, monkeypatch, status: str):
-        from squinch_qa.executors import base as base_mod
         from squinch_qa import runner as runner_mod
+        from squinch_qa.executors import base as base_mod
 
         class _StubExec:
             def run(self, ctx):
@@ -231,7 +230,7 @@ class TestRunPlanWiring:
         self._stub_executor(tmp_path, monkeypatch, status="pass")
         plan_bytes = self._plan_bytes_one_job()
         state = create_run_state(plan_bytes, tmp_path / "qa-runs")
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, clean=False)
+        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
         rdir = tmp_path / "qa-runs" / state.run_id
         manifest = json.loads((rdir / "qa-manifest.json").read_text())
         result = json.loads((rdir / "result.json").read_text())
@@ -255,7 +254,7 @@ class TestRunPlanWiring:
 
         self._stub_executor(tmp_path, monkeypatch, status="pass")
         state = create_run_state(self._plan_bytes_one_job(), tmp_path / "qa-runs")
-        run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, clean=False)
+        run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
         jdir = tmp_path / "qa-runs" / state.run_id / "jobs" / "forge-1.20.1" / "build"
         manifest = json.loads((jdir / "manifest.json").read_text())
         result = json.loads((jdir / "result.json").read_text())
@@ -276,46 +275,6 @@ class TestRunPlanWiring:
         exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
         assert exit_code == 4
 
-    def test_run_cleans_after_execution_by_default(self, tmp_path, monkeypatch):
-        from squinch_qa.cleanup import CleanAction
-        from squinch_qa.runner import create_run_state, run_plan
-
-        calls = []
-
-        def fake_clean_qa(qa_root):
-            calls.append(qa_root)
-            return [
-                CleanAction(
-                    state="runs",
-                    path=qa_root / "runs" / "old",
-                    reason="test",
-                    removed=True,
-                )
-            ]
-
-        self._stub_executor(tmp_path, monkeypatch, status="pass")
-        monkeypatch.setattr("squinch_qa.cleanup.clean_qa", fake_clean_qa)
-        state = create_run_state(self._plan_bytes_one_job(), tmp_path / "qa-runs")
-
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
-
-        assert exit_code == 0
-        assert calls == [tmp_path / "games" / "minecraft" / "qa-state"]
-
-    def test_run_clean_false_skips_cleanup(self, tmp_path, monkeypatch):
-        from squinch_qa.runner import create_run_state, run_plan
-
-        self._stub_executor(tmp_path, monkeypatch, status="pass")
-        monkeypatch.setattr(
-            "squinch_qa.cleanup.clean_qa",
-            lambda *a, **k: pytest.fail("cleanup should be disabled"),
-        )
-        state = create_run_state(self._plan_bytes_one_job(), tmp_path / "qa-runs")
-
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, clean=False)
-
-        assert exit_code == 0
-
     def test_run_converts_executor_exception_to_error_result(
         self, tmp_path, monkeypatch
     ):
@@ -334,7 +293,7 @@ class TestRunPlanWiring:
         monkeypatch.setattr(runner_mod, "get_executor", lambda _tid: _RaisingExec)
         state = create_run_state(self._plan_bytes_one_job(), tmp_path / "qa-runs")
 
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, clean=False)
+        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
 
         jdir = tmp_path / "qa-runs" / state.run_id / "jobs" / "forge-1.20.1" / "build"
         result = json.loads((jdir / "result.json").read_text())
@@ -357,7 +316,7 @@ class TestRunPlanWiring:
         )
         state = create_run_state(plan_bytes, tmp_path / "qa-runs")
 
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, clean=False)
+        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path)
 
         jdir = (
             tmp_path
@@ -376,8 +335,8 @@ class TestRunPlanWiring:
 
 
 class TestRunCliDefaults:
-    def test_run_defaults_to_minecraft_qa_runs_dir(
-        self, fake_repo: Path, monkeypatch
+    def test_run_defaults_to_selected_tranche_qa_runs_dir(
+        self, fake_repo: Path, selected_tranche: Path, monkeypatch
     ) -> None:
         from squinch_qa import cli as cli_mod
         from squinch_qa import runner as runner_mod
@@ -405,7 +364,7 @@ class TestRunCliDefaults:
 
         assert code == 0
         assert captured[0][0].qa_runs_dir == default_qa_runs_dir(fake_repo)
-        assert not (fake_repo / ".qa-runs").exists()
+        assert captured[0][0].qa_runs_dir == selected_tranche / "minecraft/qa/runs"
 
     def test_run_plan_mod_id_must_match_selected_mod(
         self, fake_repo: Path, tmp_path: Path, monkeypatch
@@ -435,112 +394,6 @@ class TestRunCliDefaults:
         )
 
         assert code == 2
-
-
-class TestRunPlanPromote:
-    """End-to-end: run_plan(promote=True) must promote a passing world into .qa-current."""
-
-    def _stub_world_executor(self, monkeypatch):
-        from squinch_qa.executors import base as base_mod
-        from squinch_qa import runner as runner_mod
-
-        class _StubExec:
-            def run(self, ctx):
-                world = ctx.job_dir / "world"
-                (world / "region").mkdir(parents=True)
-                (world / "region" / "r.0.0.mca").write_bytes(b"chunk data")
-                return base_mod.JobResult(
-                    status="pass",
-                    started_at="2026-01-01T00:00:00+00:00",
-                    finished_at="2026-01-01T00:00:01+00:00",
-                    duration_s=1.0,
-                    logs=[],
-                    artifacts=["world"],
-                    failure=None,
-                )
-
-        monkeypatch.setattr(runner_mod, "get_executor", lambda _tid: _StubExec)
-
-    def _plan_bytes_pregen_job(self) -> bytes:
-        return json.dumps(
-            {
-                "schema": 1,
-                "mod": {"id": "test-mod", "display_name": "Test Mod"},
-                "profile": {
-                    "name": "quick",
-                    "resolved_from": ["quick"],
-                    "max_jobs": 256,
-                },
-                "jobs": [
-                    {
-                        "target": {
-                            "id": "forge-1.20.1",
-                            "minecraft": "1.20.1",
-                            "loader": "forge",
-                            "loader_version": "47.0.0",
-                            "java": 17,
-                        },
-                        "test": {"id": "pregen", "config": {}},
-                    }
-                ],
-            }
-        ).encode()
-
-    def test_promote_true_populates_qa_current(self, tmp_path, monkeypatch):
-        from squinch_qa.artifacts import default_qa_root
-        from squinch_qa.replace.layout import current_job_dir
-        from squinch_qa.runner import create_run_state, run_plan
-
-        self._stub_world_executor(monkeypatch)
-        state = create_run_state(self._plan_bytes_pregen_job(), tmp_path / "qa-runs")
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, promote=True)
-
-        assert exit_code == 0
-        cur = current_job_dir(
-            default_qa_root(tmp_path), "test-mod", "forge-1.20.1", "pregen"
-        )
-        assert (cur / "world" / "region" / "r.0.0.mca").read_bytes() == b"chunk data"
-
-    def test_promote_false_leaves_qa_current_untouched(self, tmp_path, monkeypatch):
-        from squinch_qa.artifacts import default_qa_root
-        from squinch_qa.replace.layout import current_job_dir
-        from squinch_qa.runner import create_run_state, run_plan
-
-        self._stub_world_executor(monkeypatch)
-        state = create_run_state(self._plan_bytes_pregen_job(), tmp_path / "qa-runs")
-        run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, promote=False)
-
-        assert not current_job_dir(
-            default_qa_root(tmp_path), "test-mod", "forge-1.20.1", "pregen"
-        ).exists()
-
-    def test_promote_skipped_on_failing_run(self, tmp_path, monkeypatch):
-        from squinch_qa.executors import base as base_mod
-        from squinch_qa import runner as runner_mod
-        from squinch_qa.artifacts import default_qa_root
-        from squinch_qa.replace.layout import current_job_dir
-        from squinch_qa.runner import create_run_state, run_plan
-
-        class _FailingExec:
-            def run(self, ctx):
-                return base_mod.JobResult(
-                    status="fail",
-                    started_at="2026-01-01T00:00:00+00:00",
-                    finished_at="2026-01-01T00:00:01+00:00",
-                    duration_s=1.0,
-                    logs=[],
-                    artifacts=[],
-                    failure=base_mod.FailureDetail("x", "y"),
-                )
-
-        monkeypatch.setattr(runner_mod, "get_executor", lambda _tid: _FailingExec)
-        state = create_run_state(self._plan_bytes_pregen_job(), tmp_path / "qa-runs")
-        exit_code = run_plan(state, repo_root=tmp_path, mod_dir=tmp_path, promote=True)
-
-        assert exit_code == 4
-        assert not current_job_dir(
-            default_qa_root(tmp_path), "test-mod", "forge-1.20.1", "pregen"
-        ).exists()
 
 
 class TestExecutorRegistry:

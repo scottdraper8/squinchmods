@@ -4,7 +4,6 @@ import stat as _stat
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.executors._forge_production import _find_java_bin, find_primary_mod_jar
 from squinch_qa.executors._server import ServerLaunchError
 
@@ -86,7 +85,7 @@ class TestFindJavaBin:
 
 class TestFindPrimaryModJar:
     def test_excludes_sources_and_dev_jars(self, tmp_path: Path):
-        libs = tmp_path / "build" / "libs"
+        libs = tmp_path / "libs"
         libs.mkdir(parents=True)
         (libs / "mymod-1.0.0-sources.jar").write_bytes(b"x")
         (libs / "mymod-1.0.0-dev.jar").write_bytes(b"x")
@@ -97,7 +96,7 @@ class TestFindPrimaryModJar:
         assert result == libs / "mymod-1.0.0.jar"
 
     def test_returns_none_when_no_jars_present(self, tmp_path: Path):
-        (tmp_path / "build" / "libs").mkdir(parents=True)
+        (tmp_path / "libs").mkdir(parents=True)
 
         assert find_primary_mod_jar(tmp_path) is None
 
@@ -105,7 +104,7 @@ class TestFindPrimaryModJar:
         assert find_primary_mod_jar(tmp_path) is None
 
     def test_picks_highest_sorted_name_when_multiple_candidates(self, tmp_path: Path):
-        libs = tmp_path / "build" / "libs"
+        libs = tmp_path / "libs"
         libs.mkdir(parents=True)
         (libs / "mymod-1.0.0.jar").write_bytes(b"x")
         (libs / "mymod-2.0.0.jar").write_bytes(b"x")

@@ -450,8 +450,9 @@ Recommended validation order:
 7. Repeat after every affected NMS update; record the Steam build ID and compiler commit/release.
 
 The repository automates the static and deterministic portions through
-[`tooling/squinch nms-investigate`](../../../games/no-mans-sky/tooling/investigate/README.md). Use
-its versioned run envelopes and committed scenarios rather than ad hoc extraction directories.
+[`tooling/squinch --tranche <id> nms-investigate`](../../../games/no-mans-sky/tooling/investigate/README.md).
+Use its versioned run envelopes and task-local tranche scenarios rather than ad hoc extraction
+directories.
 
 ## Runtime-hook mods
 

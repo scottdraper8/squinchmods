@@ -1,16 +1,9 @@
-# Minecraft investigations
+# Minecraft investigation integrations
 
-This tree contains source-controlled investigation inputs and reusable probe code. Commit the things
-needed to reproduce or extend an investigation:
+This tree contains source integrations required by generic investigation tooling, including the
+vanilla control project and the FTF cell scanner adapter. These files are maintained tooling rather
+than task inputs.
 
-- probe source, Gradle definitions, mixins, and their README instructions;
-- canonical fixture inputs and JSON patches; and
-- small control-project source/configuration files.
-
-Do not commit execution products or tool caches. Gradle `.gradle/` directories, `build/` outputs,
-`run/` directories, logs, classes, and JARs belong in local investigation state. The repository
-already ignores `games/minecraft/investigation-state/` for larger generated reports and worlds.
-
-The existing `vanilla-control` tree previously contained historically tracked generated files from
-earlier runs. Those products have been removed; the remaining Gradle wrapper is source/configuration
-support, while new execution output belongs in ignored investigation state.
+Put scenarios, benchmark matrices, presets, probe packs, datapacks, patches, reports, and other
+feature or fix material below the selected tranche workspace. Repository tools redirect their Gradle
+project state, build output, server directories, generated reports, and worlds into that workspace.

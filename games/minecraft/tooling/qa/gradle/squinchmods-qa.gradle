@@ -1,6 +1,23 @@
 import org.gradle.api.tasks.compile.JavaCompile
 
+def buildRootProperty = gradle.startParameter.projectProperties.get("squinchQaBuildRoot")
+def runDirProperty = gradle.startParameter.projectProperties.get("squinchQaRunDir")
+
 allprojects { project ->
+    if (buildRootProperty != null) {
+        def buildKey = project.path == ":" ? "root" : project.path.substring(1).replace(':', '/')
+        project.layout.buildDirectory.set(
+                new File(buildRootProperty, buildKey).canonicalFile)
+    }
+    ["dev.architectury.loom", "fabric-loom", "org.quiltmc.loom"].each { pluginId ->
+        project.pluginManager.withPlugin(pluginId) {
+            if (runDirProperty != null) {
+                project.loom.runs.named("server").configure {
+                    runDir new File(runDirProperty).canonicalPath
+                }
+            }
+        }
+    }
     project.pluginManager.withPlugin("net.ltgt.errorprone") {
         if (project.name != "forge") {
             return

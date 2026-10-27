@@ -1,23 +1,22 @@
 # Local Minecraft checks
 
-The `squinch qa` commands plan and run configured checks against Minecraft mod submodules. They
-record plans, logs, built artifacts, results, and generated worlds under
-`games/minecraft/qa-state/`.
+The `squinch qa` package plans and runs configured checks against Minecraft mod worktrees. Its
+profiles, planners, executors, artifact validation, and tests are maintained tooling. Every plan
+execution, log, generated world, build directory, Gradle project cache, and server runtime is
+task-local scratch inside the selected repository tranche.
 
-## Setup
+## Setup and ownership
 
-The dispatcher uses [uv](https://docs.astral.sh/uv/) to run this package:
-
-```sh
-tooling/squinch qa --help
-```
-
-For package development, install its dependencies from the tool directory:
+Use the root dispatcher and select one existing tranche:
 
 ```sh
-cd games/minecraft/tooling/qa
-uv sync
+tooling/squinch tranche create example-fix
+tooling/squinch --tranche example-fix qa --help
 ```
+
+The shared Gradle user home and downloaded pregeneration tools remain in the external Squinchmods
+cache. They are shared dependencies and tranche cleanup does not remove them. QA source projects and
+repository configuration also remain outside scratch ownership.
 
 ## Configuration
 
@@ -25,104 +24,48 @@ Shared check profiles and defaults are in `.squinch/config.yml`. Per-mod targets
 are in `.squinch/games/minecraft/mods/<mod>/config.yml`; source projects remain in
 `games/minecraft/mods/<mod>/`.
 
-Each target identifies a Minecraft version, loader, loader version, and Java version. The shared
-profiles are:
+Each target identifies a Minecraft version, loader, loader version, and Java version. The current
+check IDs are `build`, `server-smoke`, `pregen`, `tick-freeze`, and `crafter-basic`. Profile values
+merge from shared check defaults, mod check settings, and then the profile entry. `max_jobs` bounds
+the resulting target/check matrix.
 
-| Profile    | Checks                                   |
-| ---------- | ---------------------------------------- |
-| `quick`    | `build`, `server-smoke`                  |
-| `default`  | `build`, `server-smoke`, `pregen`        |
-| `extended` | Inherits `default`; allows a larger plan |
+## Plan and run checks
 
-Mod configuration can add checks to a profile or supply its complete check list. Profile entries can
-set check-specific values. Values merge in this order: shared check defaults, mod check settings,
-then profile entry settings. Later values replace earlier values with the same key.
-
-The current check IDs are `build`, `server-smoke`, `pregen`, `tick-freeze`, and `crafter-basic`. The
-last two send configured commands to a test server and check for expected output. `max_jobs` limits
-the number of target/check combinations in a profile. The shared configuration sets limits of 32 for
-`default` and 64 for `extended`.
-
-## Plan checks
-
-`plan` prints deterministic JSON with the selected target/check jobs:
+`plan` prints deterministic JSON:
 
 ```sh
-tooling/squinch qa plan redstone-backport --profile default
-tooling/squinch qa plan FreeTerraForged --profile extended --target neoforge-1.21.1
-tooling/squinch qa plan redstone-backport --profile default > plan.json
+tooling/squinch --tranche example-fix qa plan FreeTerraForged --profile extended
 ```
 
-A plan contains the mod identity, resolved profile, and jobs. Each job includes its target metadata
-and the resolved check configuration. Emitted jobs are sorted by target ID and then by profile check
-order; `--target` selects one target.
-
-The repository root is discovered by walking up to `.squinch/config.yml`. Set `SQUINCHMODS_ROOT` or
-pass `--repo-root` to select it explicitly. A mod can be selected by its config directory name or
-its `mod.id`.
-
-## Run checks
+To edit or retain that JSON as a task input, write it below the tranche path:
 
 ```sh
-tooling/squinch qa run redstone-backport --profile quick
-tooling/squinch qa run redstone-backport --profile extended --target forge-1.20.1
-tooling/squinch qa run FreeTerraForged --profile extended --promote
-tooling/squinch qa run redstone-backport --plan plan.json --no-clean
+workspace="$(tooling/squinch tranche path example-fix)"
+mkdir -p "${workspace}/inputs"
+tooling/squinch --tranche example-fix qa plan FreeTerraForged --profile extended \
+  > "${workspace}/inputs/plan.json"
+tooling/squinch --tranche example-fix qa run FreeTerraForged \
+  --plan "${workspace}/inputs/plan.json"
 ```
 
-The runner executes jobs sequentially. A run records a copy of the plan, a run manifest, an overall
-result, and per-job manifests, results, logs, and artifacts. Check executors build the mod, launch a
-test server, run a configured command check, or generate a world with a configured pregeneration
-tool.
-
-Pregeneration uses the configured tool preference (default: `chunksmith`, then `chunky`). Tool JARs
-are cached below the Squinchmods cache directory. Set `SQINCHMODS_QA_OFFLINE=1` to use cached tools
-only.
-
-`--promote` promotes generated worlds from a passing run into `games/minecraft/qa-state/current/`.
-The `promote` command can also select worlds from a completed run:
+The runner executes jobs sequentially. A run records its plan, manifest, result, logs, artifacts,
+and generated worlds below `minecraft/qa/runs/<run-id>/` in the tranche. `summary` renders one run:
 
 ```sh
-tooling/squinch qa promote --run-id <run-id> --dry-run
-tooling/squinch qa promote --run-id <run-id> --target forge-1.20.1 --test pregen
+tooling/squinch --tranche example-fix qa summary <run-id>
 ```
 
-Promotion validates the run and its artifacts before replacing the matching current world. Replaced
-worlds are retained in `trash/`.
-
-## Run records and cleanup
-
-```text
-games/minecraft/qa-state/
-  runs/<run-id>/                         plans, results, logs, artifacts, generated worlds
-  current/<mod>/<target>/<check>/        promoted worlds
-  incoming/ and staging/                 promotion state
-  trash/                                 replaced promoted worlds
-```
-
-`summary` renders a completed run from its saved result files:
+Clean all QA and investigation scratch for the completed feature or fix through the repository
+tranche command:
 
 ```sh
-tooling/squinch qa summary <run-id>
+tooling/squinch tranche clean example-fix
+tooling/squinch tranche clean example-fix --apply
 ```
-
-`clean` prunes old run records and retained replaced worlds. It applies cleanup by default; pass
-`--dry-run` to preview it. Select states and retention limits with:
-
-```sh
-tooling/squinch qa clean --dry-run
-tooling/squinch qa clean --runs --keep-runs 20 --max-run-age-days 30
-tooling/squinch qa clean --trash --keep-trash 2
-```
-
-Runs also clean retained run and trash state after execution. Use `--no-clean` to keep those records
-for inspection.
 
 ## Package checks
 
-The Python package has a local test suite and a pre-push hook:
-
 ```sh
-cd games/minecraft/tooling/qa
-uv run --extra dev pytest
+uv run --project games/minecraft/tooling/qa --extra dev \
+  pytest games/minecraft/tooling/qa/tests
 ```

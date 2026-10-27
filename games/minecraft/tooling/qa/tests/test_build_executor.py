@@ -3,10 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from squinch_qa.executors.build import BuildExecutor
 from squinch_qa.executors.base import JobContext
-
+from squinch_qa.executors.build import BuildExecutor
 
 # ── Fake gradle helpers ───────────────────────────────────────────────────────
 
@@ -20,7 +18,12 @@ def _fake_resolve_gradle_env(repo_root: Path) -> dict:
 def _fake_run_gradle_success(args, cwd, env, stdout_log, stderr_log, tee_fn=None):
     task = next(arg for arg in args if arg.endswith(":build"))
     loader = task.split(":")[1]
-    jar_dir = cwd / loader / "build" / "libs"
+    build_root = Path(
+        next(arg for arg in args if arg.startswith("-PsquinchQaBuildRoot=")).split(
+            "=", 1
+        )[1]
+    )
+    jar_dir = build_root / loader / "libs"
     jar_dir.mkdir(parents=True, exist_ok=True)
     (jar_dir / "mymod-1.0.0.jar").write_bytes(b"PK\x03\x04" + b"\x00" * 26)
     Path(stdout_log).write_text("BUILD SUCCESSFUL\n")
@@ -40,7 +43,12 @@ def _fake_run_gradle_success_no_jar(
     """Gradle reports success but doesn't leave a jar in build/libs (edge case)."""
     task = next(arg for arg in args if arg.endswith(":build"))
     loader = task.split(":")[1]
-    jar_dir = cwd / loader / "build" / "libs"
+    build_root = Path(
+        next(arg for arg in args if arg.startswith("-PsquinchQaBuildRoot=")).split(
+            "=", 1
+        )[1]
+    )
+    jar_dir = build_root / loader / "libs"
     jar_dir.mkdir(parents=True, exist_ok=True)
     Path(stdout_log).write_text("BUILD SUCCESSFUL\n")
     Path(stderr_log).write_text("")
@@ -112,7 +120,9 @@ class TestBuildExecutorSuccess:
         script.write_text("// test init script\n")
         result = BuildExecutor().run(ctx)
         assert result.status == "pass"
-        assert calls[0][:2] == ["--init-script", str(script)]
+        init_index = calls[0].index("--init-script")
+        assert calls[0][init_index : init_index + 2] == ["--init-script", str(script)]
+        assert any(arg.startswith("-PsquinchQaBuildRoot=") for arg in calls[0])
 
 
 # ── Class 2: BuildExecutor failure ───────────────────────────────────────────

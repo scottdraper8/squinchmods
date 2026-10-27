@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 from .catalog import ResolvedArtifact
 from .errors import InvestigationError
@@ -13,12 +14,24 @@ from .paths import PROBE_OVERLAY, PROBE_RUNTIME_ROOT
 
 def git_status(project: Path) -> str | None:
     result = subprocess.run(
-        ["git", "-C", str(project), "status", "--porcelain=v2", "-z", "--untracked-files=no"],
+        [
+            "git",
+            "-C",
+            str(project),
+            "status",
+            "--porcelain=v2",
+            "-z",
+            "--untracked-files=no",
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         check=False,
     )
-    return result.stdout.decode("utf-8", errors="replace") if result.returncode == 0 else None
+    return (
+        result.stdout.decode("utf-8", errors="replace")
+        if result.returncode == 0
+        else None
+    )
 
 
 def _probe_pack_details(root: Path) -> dict:
@@ -35,28 +48,38 @@ def _probe_pack_details(root: Path) -> dict:
             "probe_pack_invalid", f"cannot read probe pack manifest {manifest}: {exc}"
         ) from exc
     if value.get("schema_version") != 1:
-        raise InvestigationError("probe_pack_invalid", f"unsupported probe pack: {manifest}")
+        raise InvestigationError(
+            "probe_pack_invalid", f"unsupported probe pack: {manifest}"
+        )
     pack_id = value.get("id")
     if not isinstance(pack_id, str) or not pack_id:
-        raise InvestigationError("probe_pack_invalid", f"probe pack id is missing: {manifest}")
+        raise InvestigationError(
+            "probe_pack_invalid", f"probe pack id is missing: {manifest}"
+        )
     sources = value.get("sources", [])
     resources = value.get("resources", [])
     mixins = value.get("mixins", [])
     if not all(
-        isinstance(items, list) and all(isinstance(item, str) and item for item in items)
+        isinstance(items, list)
+        and all(isinstance(item, str) and item for item in items)
         for items in (sources, resources, mixins)
     ):
         raise InvestigationError(
-            "probe_pack_invalid", f"sources, resources, and mixins must be string arrays: {manifest}"
+            "probe_pack_invalid",
+            f"sources, resources, and mixins must be string arrays: {manifest}",
         )
     source_paths = [(resolved / item).resolve() for item in sources]
     resource_paths = [(resolved / item).resolve() for item in resources]
     paths = [*source_paths, *resource_paths]
     if any(path != resolved and resolved not in path.parents for path in paths):
-        raise InvestigationError("probe_pack_invalid", f"probe pack path escapes its root: {manifest}")
+        raise InvestigationError(
+            "probe_pack_invalid", f"probe pack path escapes its root: {manifest}"
+        )
     missing = next((path for path in paths if not path.is_dir()), None)
     if missing is not None:
-        raise InvestigationError("probe_pack_invalid", f"probe pack input is missing: {missing}")
+        raise InvestigationError(
+            "probe_pack_invalid", f"probe pack input is missing: {missing}"
+        )
     input_files = []
     content = hashlib.sha256()
     for path in sorted(
@@ -119,6 +142,8 @@ def probe_overlay_command(
     runtime_artifacts: tuple[ResolvedArtifact, ...] = (),
     runtime_output: Path | None = None,
     client_run_dir: Path | None = None,
+    server_run_dir: Path | None = None,
+    build_root: Path | None = None,
     runtime_evidence: Path | None = None,
     project: Path | None = None,
     production: bool = False,
@@ -127,7 +152,8 @@ def probe_overlay_command(
 ) -> tuple[list[str], dict]:
     if loader not in {"fabric", "neoforge"}:
         raise InvestigationError(
-            "probe_overlay_unsupported", f"the probe overlay does not support loader {loader!r}"
+            "probe_overlay_unsupported",
+            f"the probe overlay does not support loader {loader!r}",
         )
     if not PROBE_OVERLAY.is_file():
         raise InvestigationError(
@@ -175,6 +201,8 @@ def probe_overlay_command(
         "runtime_artifacts": runtime_inputs,
         "runtime_output": None if runtime_output is None else str(runtime_output),
         "client_run_dir": None if client_run_dir is None else str(client_run_dir),
+        "server_run_dir": None if server_run_dir is None else str(server_run_dir),
+        "build_root": None if build_root is None else str(build_root),
         "runtime_evidence": None if runtime_evidence is None else str(runtime_evidence),
         "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
     }
@@ -192,6 +220,10 @@ def probe_overlay_command(
         arguments.append(f"-PsquinchProbeRuntimeOutput={runtime_output}")
     if client_run_dir is not None:
         arguments.append(f"-PsquinchClientRunDir={client_run_dir}")
+    if server_run_dir is not None:
+        arguments.append(f"-PsquinchServerRunDir={server_run_dir}")
+    if build_root is not None:
+        arguments.append(f"-PsquinchBuildRoot={build_root}")
     if runtime_evidence is not None:
         arguments.append(f"-PsquinchProbeRuntimeEvidence={runtime_evidence}")
     if production:
@@ -199,5 +231,7 @@ def probe_overlay_command(
     if neoforge_client_home is not None:
         arguments.append(f"-PsquinchNeoForgeClientHome={neoforge_client_home}")
     if launcher_profile_template is not None:
-        arguments.append(f"-PsquinchLauncherProfileTemplate={launcher_profile_template}")
+        arguments.append(
+            f"-PsquinchLauncherProfileTemplate={launcher_profile_template}"
+        )
     return arguments, details

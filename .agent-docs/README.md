@@ -53,20 +53,23 @@ flowchart LR
         README.md                   mod documentation entry point
         plans/                      active technical plans
         refs/                       durable technical findings
-  runs/                             retained investigation analysis
-  tmp/                              disposable scratch files
   .cache/                           generated documentation cache
   private/                          local-only notes
 ```
 
 The Minecraft tool guides are `.agent-docs/games/minecraft/README.md` and
-[`games/minecraft/tooling/qa/README.md`](../games/minecraft/tooling/qa/README.md). Minecraft
-investigation inputs live in `games/minecraft/investigations/`; generated runs live in the ignored
-`games/minecraft/investigation-state/`. Scenario definitions and artifact catalogs are under
-`.squinch/games/minecraft/`.
+[`games/minecraft/tooling/qa/README.md`](../games/minecraft/tooling/qa/README.md). Maintained
+integration helpers live in `games/minecraft/investigations/`; task inputs and generated runs belong
+to the selected scratch tranche. `.squinch/games/minecraft/` contains durable tool configuration,
+not investigation recipes.
 
 The No Man's Sky reference entry point is `.agent-docs/games/no-mans-sky/README.md`; its executable
 tools live under `games/no-mans-sky/tooling/` and are available through `tooling/squinch`.
+
+Create task scratch with `tooling/squinch tranche create <id>`, locate it with
+`tooling/squinch tranche path <id>`, and remove it with the tranche-scoped clean command when the
+feature or fix is complete. Do not store raw run evidence or investigation recipes in
+`.agent-docs/`.
 
 ## Documentation maintenance
 

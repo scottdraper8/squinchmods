@@ -7,6 +7,7 @@ def resultProperty = gradle.startParameter.projectProperties.get("squinchCellSca
 def presetInputProperty = gradle.startParameter.projectProperties.get("squinchPresetInput")
 def canonicalPresetOutputProperty = gradle.startParameter.projectProperties.get("squinchCanonicalPresetOutput")
 def generatedDatapackOutputProperty = gradle.startParameter.projectProperties.get("squinchGeneratedDatapackOutput")
+def buildRootProperty = gradle.startParameter.projectProperties.get("squinchBuildRoot")
 
 def scanMode = requestProperty != null && resultProperty != null
 def presetExportMode = presetInputProperty != null && canonicalPresetOutputProperty != null && generatedDatapackOutputProperty != null
@@ -23,6 +24,11 @@ if (!sourceRoot.isDirectory()) {
 }
 
 gradle.beforeProject { project ->
+    if (buildRootProperty != null) {
+        def buildKey = project.path == ":" ? "root" : project.path.substring(1).replace(':', '/')
+        project.layout.buildDirectory.set(
+                new File(buildRootProperty, buildKey).canonicalFile)
+    }
     if (project.path != ":fabric") {
         return
     }

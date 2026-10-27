@@ -34,7 +34,7 @@ fi
 
 # 2. Shared Monorepo Caches
 export SQINCHMODS_CACHE_HOME="${SQINCHMODS_CACHE_HOME:-${XDG_CACHE_HOME:-${HOME}/.cache}/squinchmods}"
-export GRADLE_USER_HOME="${SQINCHMODS_CACHE_HOME}/gradle"
+export GRADLE_USER_HOME="${GRADLE_USER_HOME:-${SQINCHMODS_CACHE_HOME}/gradle}"
 export npm_config_cache="${SQINCHMODS_CACHE_HOME}/npm"
 export YARN_CACHE_FOLDER="${SQINCHMODS_CACHE_HOME}/yarn"
 export PIP_CACHE_DIR="${SQINCHMODS_CACHE_HOME}/pip"

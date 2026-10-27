@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 
 class GradleEnvError(Exception):
@@ -23,11 +23,23 @@ def qa_init_script(repo_root: Path) -> Path:
     )
 
 
-def qa_gradle_args(repo_root: Path) -> list[str]:
+def qa_gradle_args(repo_root: Path, job_dir: Path) -> list[str]:
     script = qa_init_script(repo_root)
-    if not script.is_file():
-        return []
-    return ["--init-script", str(script)]
+    run_root = job_dir.parents[2]
+    build_root = run_root / "gradle-build" / job_dir.parent.name
+    project_cache = run_root / "gradle-project-cache"
+    return [
+        "--project-cache-dir",
+        str(project_cache),
+        "--init-script",
+        str(script),
+        f"-PsquinchQaBuildRoot={build_root}",
+        f"-PsquinchQaRunDir={job_dir / 'runtime'}",
+    ]
+
+
+def qa_loader_build_dir(job_dir: Path, loader: str) -> Path:
+    return job_dir.parents[2] / "gradle-build" / job_dir.parent.name / loader
 
 
 def resolve_gradle_env(repo_root: Path) -> dict[str, str]:

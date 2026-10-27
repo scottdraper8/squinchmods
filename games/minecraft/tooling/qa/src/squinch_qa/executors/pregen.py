@@ -4,12 +4,14 @@ import datetime
 import shutil
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from squinch_qa.executors._forge_production import launch_forge_production_server
 from squinch_qa.executors._gradle import (
     GradleEnvError,
     qa_gradle_args,
+    qa_loader_build_dir,
     resolve_gradle_env,
 )
 from squinch_qa.executors._server import (
@@ -30,7 +32,6 @@ from squinch_qa.executors._server import (
     wait_for_ready,
     watch_for_tool_completion,
 )
-from squinch_qa.executors._forge_production import launch_forge_production_server
 from squinch_qa.executors.base import FailureDetail, JobContext, JobResult
 from squinch_qa.pregen_tools import AcquisitionError, acquire_jar
 
@@ -99,7 +100,7 @@ def _launch_pregen_server(
             )
         return launch_forge_production_server(
             server_dir=temp_root / "server",
-            mod_dir=ctx.mod_dir,
+            mod_build_dir=qa_loader_build_dir(ctx.job_dir, loader),
             tool_jar=tool_jar,
             minecraft_version=ctx.target.minecraft,
             forge_version=ctx.target.loader_version,
@@ -115,9 +116,9 @@ def _launch_pregen_server(
             ctx.mod_dir,
             env,
             logs_dir,
-            gradle_args=qa_gradle_args(ctx.repo_root),
+            gradle_args=qa_gradle_args(ctx.repo_root, ctx.job_dir),
         )
-        return proc, log_path, ctx.mod_dir / loader / "run"
+        return proc, log_path, ctx.job_dir / "runtime"
 
     raise ServerLaunchError(f"Unknown pregen server_runtime: {runtime!r}")
 
@@ -137,7 +138,7 @@ class PregenExecutor:
 
         loader = _loader_from_target_id(ctx.target_id)
         mc_version = _mc_version_from_target_id(ctx.target_id)
-        loader_run_dir = ctx.mod_dir / loader / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         level_name = qa_level_name(ctx.run_id, ctx.target_id, ctx.test_id)
         loader_run_mods = loader_run_dir / "mods"
         logs_dir = ctx.job_dir / "logs"
@@ -206,7 +207,7 @@ class PregenExecutor:
                 jar_sha256=jar_sha256,
             )
 
-        with tempfile.TemporaryDirectory(prefix=f"squinch-pregen-{ctx.run_id}-") as td:
+        with tempfile.TemporaryDirectory(prefix="temporary-", dir=ctx.job_dir) as td:
             # ── Launch server ───────────────────────────────────────────
             try:
                 proc, log_path, server_run_dir = _launch_pregen_server(

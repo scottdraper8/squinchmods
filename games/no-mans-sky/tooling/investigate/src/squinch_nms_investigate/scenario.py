@@ -94,6 +94,27 @@ def _relative(base: Path, value: object, field: str) -> Path:
     return (path if path.is_absolute() else base / path).resolve()
 
 
+def _task_relative(base: Path, value: object, field: str) -> Path:
+    if not isinstance(value, str) or not value:
+        raise InvestigationError("invalid_scenario", f"Scenario {field} must be a path string")
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise InvestigationError(
+            "invalid_scenario", f"Scenario {field} must be scenario-relative without traversal"
+        )
+    current = base.resolve()
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise InvestigationError(
+                "invalid_scenario", f"Scenario {field} traverses a symbolic link: {current}"
+            )
+    resolved = (base / relative).resolve()
+    if resolved == base.resolve() or not resolved.is_relative_to(base.resolve()):
+        raise InvestigationError("invalid_scenario", f"Scenario {field} escapes its directory")
+    return resolved
+
+
 class Context:
     def __init__(self, game_root: Path | None, run_path: Path) -> None:
         self.game_root = game_root
@@ -198,8 +219,8 @@ def _run_step(context: Context, base: Path, step: dict, destination: Path) -> tu
         return state, data
     if operation == "compare":
         data = compare_xml(
-            _relative(base, step.get("left"), f"step {step['id']} left"),
-            _relative(base, step.get("right"), f"step {step['id']} right"),
+            _task_relative(base, step.get("left"), f"step {step['id']} left"),
+            _task_relative(base, step.get("right"), f"step {step['id']} right"),
         )
         expected = step.get("comparison", "any")
         if expected not in {"any", "equal", "different"}:
@@ -209,9 +230,9 @@ def _run_step(context: Context, base: Path, step: dict, destination: Path) -> tu
         return ("succeeded" if met else "failed"), data
     if operation == "verify-export":
         data = verify_export(
-            _relative(base, step.get("patch"), f"step {step['id']} patch"),
-            _relative(base, step.get("exported"), f"step {step['id']} exported"),
-            _relative(base, step["vanilla"], f"step {step['id']} vanilla")
+            _task_relative(base, step.get("patch"), f"step {step['id']} patch"),
+            _task_relative(base, step.get("exported"), f"step {step['id']} exported"),
+            _task_relative(base, step["vanilla"], f"step {step['id']} vanilla")
             if "vanilla" in step
             else None,
         )

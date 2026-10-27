@@ -1,45 +1,31 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import re
-import shutil
 import signal
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 from .artifact_inspection import inspect_artifact
-from .benchmark import (
-    BENCHMARK_ROOT,
-    accepted_checkpoint_references,
-    load_benchmark,
-    run_benchmark,
-)
+from .benchmark import load_benchmark, run_benchmark
 from .catalog import resolve_artifact_closure, resolve_artifacts
 from .cell_scan import run_cell_scan
 from .client import run_client
-from .comparison import COMPARISONS_ROOT, run_exact_comparison, structured_diff
+from .comparison import run_exact_comparison, structured_diff
 from .errors import InvestigationError
 from .generation import generate_regions
 from .output import emit, envelope, timestamp
 from .paths import (
-    ACTIVE_ROOT,
     LOCKS_ROOT,
-    RETENTION_INDEX,
-    RUNS_ROOT,
-    WORKTREES_ROOT,
+    STATE_ROOT,
     lock_path,
     resolve_project,
     validate_loader,
 )
 from .preset_export import run_preset_export
 from .probe_requests import submit_probe
-from .retention import RUN_ID_PATTERN, load_protected_run_ids
 from .scenario import load_scenario, run_scenario
 from .server import (
-    OWNERSHIP,
     load_active,
     recover,
     run_commands,
@@ -47,7 +33,13 @@ from .server import (
     status,
     stop_server,
 )
-from .state import blocking_lock, project_lock, read_json
+from .state import project_lock, read_json
+from .tranche import (
+    prepare_owned_directory,
+    require_scratch_input,
+    validate_cli_inputs,
+    validate_scenario_inputs,
+)
 
 RETENTIONS = ("discard", "keep-on-failure", "keep")
 COMPARISON_ID_PATTERN = re.compile(r"^compare-\d{8}T\d{6}Z-[0-9a-f]{10}$")
@@ -336,37 +328,6 @@ def parser() -> argparse.ArgumentParser:
     preset_export.add_argument("--timeout", type=float, default=300.0)
     preset_export.add_argument(
         "--json", action="store_true", help="Emit the versioned JSON envelope"
-    )
-
-    clean = subparsers.add_parser(
-        "clean", help="Enumerate and remove exact owned run artifacts"
-    )
-    _common(clean, project=False)
-    selection = clean.add_mutually_exclusive_group(required=True)
-    selection.add_argument("--run", action="append", dest="runs")
-    selection.add_argument("--benchmark", action="append", dest="benchmarks")
-    selection.add_argument(
-        "--benchmark-scenario",
-        help="Select owned benchmark artifacts whose manifest names this exact base scenario",
-    )
-    selection.add_argument("--comparison", action="append", dest="comparisons")
-    selection.add_argument("--older-than-days", type=float)
-    clean.add_argument(
-        "--project",
-        help="Restrict cleanup to runs whose manifest names this exact project/worktree",
-    )
-    clean.add_argument(
-        "--apply", action="store_true", help="Delete; without this flag, dry-run"
-    )
-    clean.add_argument(
-        "--include-protected",
-        action="store_true",
-        help="Allow exact --run deletion of evidence listed in the retention index",
-    )
-    clean.add_argument(
-        "--discard-checkpoints",
-        action="store_true",
-        help="Allow benchmark deletion even when it owns accepted resumable checkpoints",
     )
 
     return root
@@ -709,6 +670,8 @@ def _client(args: argparse.Namespace) -> tuple[dict, str]:
     probe_environment = _named_values(args.probe_env, kind="probe environment")
     result_files = _named_values(args.result_env, kind="result environment")
     runtime_files = _client_runtime_files(args.runtime_file)
+    for source, _target in runtime_files:
+        require_scratch_input(source)
     overlap = set(probe_environment) & set(result_files)
     if overlap:
         raise InvestigationError(
@@ -757,6 +720,7 @@ def _client(args: argparse.Namespace) -> tuple[dict, str]:
 
 def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
     definition = load_scenario(args.scenario_file)
+    validate_scenario_inputs(definition)
     result = run_scenario(definition)
     state = result["state"]
     artifact_paths = [
@@ -818,6 +782,7 @@ def _scenario(args: argparse.Namespace) -> tuple[dict, str]:
 
 def _benchmark(args: argparse.Namespace) -> tuple[dict, str]:
     definition = load_benchmark(args.benchmark_file)
+    require_scratch_input(definition.scenario_path)
     result = run_benchmark(
         definition,
         resume_run_id=args.resume,
@@ -948,6 +913,8 @@ def _compare(args: argparse.Namespace) -> tuple[dict, str]:
                 "file comparison requires --left and --right",
             )
         left_path, right_path = args.left.resolve(), args.right.resolve()
+        require_scratch_input(left_path)
+        require_scratch_input(right_path)
         left, right = read_json(left_path), read_json(right_path)
         differences = structured_diff(left, right)
         data = {
@@ -970,6 +937,7 @@ def _compare(args: argparse.Namespace) -> tuple[dict, str]:
             )
         project = resolve_project(args.project)
         scenario = load_scenario(args.scenario)
+        validate_scenario_inputs(scenario)
         with project_lock(LOCKS_ROOT / "exact-comparison.lock"):
             result = run_exact_comparison(project, args.before, args.after, scenario)
         data = {
@@ -1096,274 +1064,6 @@ def _preset_export(args: argparse.Namespace) -> tuple[dict, str]:
     )
 
 
-def _active_run_ids() -> set[str]:
-    values: set[str] = set()
-    if not ACTIVE_ROOT.exists():
-        return values
-    for path in ACTIVE_ROOT.glob("*.json"):
-        with contextlib.suppress(InvestigationError):
-            values.add(str(read_json(path).get("run_id")))
-    return values
-
-
-def _clean_aggregate_artifacts(
-    args: argparse.Namespace,
-) -> tuple[dict, str] | None:
-    benchmark_scenario = getattr(args, "benchmark_scenario", None)
-    scenario_filter: Path | None = None
-    if getattr(args, "benchmarks", None):
-        kind = "benchmark"
-        root = BENCHMARK_ROOT
-        identifiers = args.benchmarks
-        metadata_name = "manifest.json"
-        identifier_key = "run_id"
-        pattern = RUN_ID_PATTERN
-    elif benchmark_scenario:
-        kind = "benchmark"
-        root = BENCHMARK_ROOT
-        identifiers = (
-            sorted(path.name for path in root.iterdir()) if root.exists() else []
-        )
-        metadata_name = "manifest.json"
-        identifier_key = "run_id"
-        pattern = RUN_ID_PATTERN
-        scenario_filter = Path(benchmark_scenario).expanduser().resolve()
-    elif getattr(args, "comparisons", None):
-        kind = "comparison"
-        root = COMPARISONS_ROOT
-        identifiers = args.comparisons
-        metadata_name = "comparison-summary.json"
-        identifier_key = "comparison_id"
-        pattern = COMPARISON_ID_PATTERN
-    else:
-        return None
-
-    targets: list[dict[str, Any]] = []
-    benchmark_references = (
-        accepted_checkpoint_references(root) if kind == "benchmark" else {}
-    )
-    for identifier in identifiers:
-        if not identifier or pattern.fullmatch(identifier) is None:
-            raise InvestigationError(
-                f"invalid_{kind}_id", f"invalid exact {kind} ID: {identifier!r}"
-            )
-        path = root / identifier
-        resolved = path.resolve()
-        if not path.is_dir() or path.is_symlink() or resolved.parent != root.resolve():
-            raise InvestigationError(
-                "unsafe_clean_target",
-                f"{kind} target failed ownership validation: {path}",
-            )
-        metadata = read_json(path / metadata_name)
-        if metadata.get(identifier_key) != identifier:
-            raise InvestigationError(
-                "unsafe_clean_target", f"{kind} identity validation failed: {path}"
-            )
-        if kind == "benchmark":
-            if (
-                metadata.get("schema_version") != 1
-                or not (path / "benchmark.toml").is_file()
-            ):
-                raise InvestigationError(
-                    "unsafe_clean_target",
-                    f"benchmark structure validation failed: {path}",
-                )
-            if scenario_filter is not None:
-                scenario_value = metadata.get("scenario_path")
-                scenario_path = (
-                    Path(scenario_value).expanduser().resolve()
-                    if isinstance(scenario_value, str) and scenario_value
-                    else None
-                )
-                if scenario_path != scenario_filter:
-                    continue
-        else:
-            preserved = metadata.get("preserved_worktrees", [])
-            worktree_root = WORKTREES_ROOT / identifier
-            if preserved or worktree_root.exists() or worktree_root.is_symlink():
-                raise InvestigationError(
-                    "cleanup_incomplete",
-                    f"comparison still owns preserved worktrees: {identifier}",
-                    details={"preserved_worktrees": preserved},
-                )
-        target = {"kind": kind, f"{kind}_id": identifier, "artifact_dir": str(path)}
-        if kind == "benchmark":
-            checkpoints = [
-                reference
-                for references in benchmark_references.values()
-                for reference in references
-                if reference.get("benchmark_id") == identifier
-            ]
-            target["accepted_checkpoints"] = len(checkpoints)
-            if (
-                checkpoints
-                and args.apply
-                and not getattr(args, "discard_checkpoints", False)
-            ):
-                raise InvestigationError(
-                    "benchmark_checkpoints_protected",
-                    f"benchmark {identifier} owns {len(checkpoints)} accepted checkpoint(s); "
-                    "resume it or pass --discard-checkpoints to deliberately destroy them",
-                    details={"benchmark_id": identifier, "checkpoints": checkpoints},
-                )
-        targets.append(target)
-
-    if args.apply:
-        for item in targets:
-            shutil.rmtree(Path(item["artifact_dir"]))
-    action = "deleted" if args.apply else "dry-run"
-    return envelope(
-        "clean",
-        "succeeded",
-        finished_at=timestamp(),
-        artifact_paths=[item["artifact_dir"] for item in targets],
-        data={"action": action, "targets": targets, "protected": []},
-    ), f"{action}: {len(targets)} owned {kind} artifact(s)"
-
-
-def _clean(args: argparse.Namespace) -> tuple[dict, str]:
-    with blocking_lock(LOCKS_ROOT / "benchmark-matrix.lock"):
-        return _clean_locked(args)
-
-
-def _clean_locked(args: argparse.Namespace) -> tuple[dict, str]:
-    aggregate = _clean_aggregate_artifacts(args)
-    if aggregate is not None:
-        return aggregate
-
-    candidates: list[Path] = []
-    project_filter = (
-        resolve_project(args.project) if getattr(args, "project", None) else None
-    )
-    protected = load_protected_run_ids(RETENTION_INDEX)
-    benchmark_references = accepted_checkpoint_references(BENCHMARK_ROOT)
-    protected_candidates: list[str] = []
-    checkpoint_protected: list[dict[str, Any]] = []
-    if args.runs:
-        for run_id in args.runs:
-            if not run_id or RUN_ID_PATTERN.fullmatch(run_id) is None:
-                raise InvestigationError(
-                    "invalid_run_id", f"invalid exact run ID: {run_id!r}"
-                )
-            if run_id in protected and not args.include_protected:
-                raise InvestigationError(
-                    "run_protected",
-                    f"run is protected by the investigation retention index: {run_id}",
-                )
-            if run_id in benchmark_references:
-                raise InvestigationError(
-                    "benchmark_checkpoint_protected",
-                    f"run is an accepted checkpoint of an existing benchmark: {run_id}",
-                    details={"references": benchmark_references[run_id]},
-                )
-            candidates.append(RUNS_ROOT / run_id)
-    else:
-        if args.older_than_days < 0:
-            raise InvestigationError("invalid_age", "age must be nonnegative")
-        cutoff = datetime.now(UTC) - timedelta(days=args.older_than_days)
-        for path in RUNS_ROOT.iterdir() if RUNS_ROOT.exists() else []:
-            if (
-                path.is_dir()
-                and datetime.fromtimestamp(path.stat().st_mtime, UTC) < cutoff
-            ):
-                if path.name in protected:
-                    protected_candidates.append(path.name)
-                    continue
-                if path.name in benchmark_references:
-                    checkpoint_protected.append(
-                        {
-                            "run_id": path.name,
-                            "references": benchmark_references[path.name],
-                        }
-                    )
-                    continue
-                candidates.append(path)
-    active = _active_run_ids()
-    inspected = []
-    for path in sorted(set(candidates)):
-        resolved = path.resolve()
-        if resolved.parent != RUNS_ROOT.resolve() or path.is_symlink():
-            raise InvestigationError(
-                "unsafe_clean_target", f"run target escaped ownership root: {path}"
-            )
-        manifest_path = path / "manifest.json"
-        manifest = read_json(manifest_path)
-        run_id = manifest.get("run_id")
-        if manifest.get("ownership") != OWNERSHIP or run_id != path.name:
-            raise InvestigationError(
-                "unsafe_clean_target", f"run ownership validation failed: {path}"
-            )
-        manifest_project_value = manifest.get("project")
-        manifest_project = (
-            Path(manifest_project_value).expanduser().resolve()
-            if isinstance(manifest_project_value, str) and manifest_project_value
-            else None
-        )
-        if project_filter is not None and manifest_project != project_filter:
-            continue
-        if run_id in active:
-            raise InvestigationError(
-                "run_active", f"refusing to clean active run: {run_id}"
-            )
-        retained_world = manifest.get("retained_world")
-        if retained_world:
-            expected_world = Path(manifest.get("run_dir", "")) / str(
-                manifest.get("level_name", "")
-            )
-            if (
-                Path(retained_world) != expected_world
-                or expected_world.name != f"squinch-{run_id.lower()}"
-            ):
-                raise InvestigationError(
-                    "unsafe_clean_target",
-                    f"retained world ownership failed: {retained_world}",
-                )
-        inspected.append(
-            {
-                "run_id": run_id,
-                "project": str(manifest_project)
-                if manifest_project is not None
-                else None,
-                "artifact_dir": str(path),
-                "retained_world": retained_world,
-            }
-        )
-    if args.apply:
-        for item in inspected:
-            world_value = item["retained_world"]
-            if world_value:
-                world = Path(world_value)
-                if world.exists():
-                    if (
-                        world.is_symlink()
-                        or not world.is_dir()
-                        or world.name != f"squinch-{item['run_id'].lower()}"
-                    ):
-                        raise InvestigationError(
-                            "unsafe_clean_target",
-                            f"retained world validation failed: {world}",
-                        )
-                    shutil.rmtree(world)
-            shutil.rmtree(Path(item["artifact_dir"]))
-    action = "deleted" if args.apply else "dry-run"
-    return envelope(
-        "clean",
-        "succeeded",
-        finished_at=timestamp(),
-        artifact_paths=[item["artifact_dir"] for item in inspected],
-        data={
-            "action": action,
-            "targets": inspected,
-            "protected": sorted(protected_candidates),
-            "checkpoint_protected": checkpoint_protected,
-        },
-    ), (
-        f"{action}: {len(inspected)} owned run(s), "
-        f"{len(protected_candidates)} retention-protected, "
-        f"{len(checkpoint_protected)} benchmark-checkpoint-protected"
-    )
-
-
 HANDLERS = {
     "start": _start,
     "stop": _stop,
@@ -1380,7 +1080,6 @@ HANDLERS = {
     "inspect-artifact": _inspect_artifact,
     "cell-scan": _cell_scan,
     "preset-export": _preset_export,
-    "clean": _clean,
 }
 
 
@@ -1395,6 +1094,13 @@ def main(argv: list[str] | None = None) -> int:
         for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
     }
     try:
+        expected_state_root = prepare_owned_directory("minecraft", "investigate")
+        if STATE_ROOT != expected_state_root:
+            raise InvestigationError(
+                "invalid_tranche",
+                f"Minecraft investigation state must be {expected_state_root}",
+            )
+        validate_cli_inputs(args)
         value, human = HANDLERS[args.command](args)
         emit(value, json_mode=args.json, human=human)
         return (

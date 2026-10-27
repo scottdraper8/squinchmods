@@ -5,7 +5,7 @@ servers for controlled investigations, and acquires catalogued third-party artif
 references live beside each tool:
 
 - [`qa/README.md`](../../../games/minecraft/tooling/qa/README.md): local check profiles, plans,
-  runs, world promotion, summaries, and cleanup.
+  runs, summaries, and tranche-owned outputs.
 - [`investigate/README.md`](../../../games/minecraft/tooling/investigate/README.md): managed server
   and client investigations.
 - [`third-party/README.md`](../../../games/minecraft/tooling/third-party/README.md): runtime JAR and
@@ -27,9 +27,7 @@ games/minecraft/
     investigate/          managed Minecraft server and client tooling
     third-party/          catalog-backed artifact and source acquisition
   investigations/        source integrations required by investigation tooling
-  investigation-state/   temporary generated runs, worlds, and logs
   reference/             local vanilla and third-party source checkouts
-  qa-state/               local check runs and promoted worlds
 
 .squinch/
   config.yml                                      shared Minecraft check profiles
@@ -38,17 +36,16 @@ games/minecraft/
   games/minecraft/third-party/artifacts.toml      third-party artifact catalog
 ```
 
-Use `tooling/squinch <tool>` from the repository root to reach the package CLIs. Local check and
-investigation outputs use the corresponding game-owned state directories as temporary scratch space;
-completed investigations are not kept as a persistent archive.
+Use `tooling/squinch tranche create <id>` for each feature or fix, then
+`tooling/squinch --tranche <id> <tool>` to reach game package CLIs. Local check and investigation
+inputs and outputs use that tranche's workspace.
 
 ## Local checks
 
-`tooling/squinch qa` resolves a shared profile and a mod's target/check configuration, prints a
-plan, and can execute its jobs against the mod submodule. The runner currently supports builds,
-server smoke checks, pregeneration, and command-based server checks. Jobs run sequentially. A
-successful run can promote generated worlds into `games/minecraft/qa-state/current/`; the CLI also
-provides run summaries and cleanup.
+`tooling/squinch --tranche <id> qa` resolves a shared profile and a mod's target/check
+configuration, prints a plan, and can execute its jobs against the mod submodule. The runner
+supports builds, server smoke checks, pregeneration, command-based server checks, and run summaries.
+Jobs run sequentially and all generated state stays in the tranche.
 
 Shared profiles are `quick`, `default`, and `extended`. Per-mod settings can select a complete check
 list or add checks to an inherited profile, and can override check configuration. The operational

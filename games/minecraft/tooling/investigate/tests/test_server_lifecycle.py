@@ -770,8 +770,10 @@ def test_unpublished_live_server_retains_recoverable_state_and_prepared_files(
     assert failure.value.details["recovery_required"] is True
     assert recorded[0]["lifecycle"] == "cleanup_failed"
     assert recorded[0]["launcher"] == launcher
-    assert properties.read_text() != "motd=preserve\n"
-    assert (run_dir / "eula.txt").exists()
+    owned_run_dir = state_root / "runs" / "fixed-run" / "server-run"
+    assert properties.read_text() == "motd=preserve\n"
+    assert (owned_run_dir / "server.properties").read_text() != "motd=preserve\n"
+    assert (owned_run_dir / "eula.txt").exists()
     assert (state_root / "runs" / "fixed-run").exists()
     assert not list((state_root / "locks/server-port-reservations").glob("*.json"))
 
@@ -806,7 +808,7 @@ def test_forceload_removal_is_persisted_per_acknowledged_region(
 
 
 @pytest.mark.slow
-def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
+def test_real_process_group_cleanup_kills_ignoring_child_and_preserves_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Catches cleanup that stops only Gradle's parent while a child listener survives."""
@@ -870,9 +872,17 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
         "first.zip",
         "second.zip",
     ]
-    assert config_target.read_text() == runtime_config.read_text()
-    assert second_config_target.read_text() == second_runtime_config.read_text()
-    assert not absent_config_target.exists()
+    owned_run_dir = Path(state["run_dir"])
+    assert config_target.read_text() == original_config
+    assert second_config_target.read_text() == second_original_config
+    assert absent_config_target.read_text() == "preserve me\n"
+    assert (owned_run_dir / "config/terrablender.toml").read_text() == (
+        runtime_config.read_text()
+    )
+    assert (owned_run_dir / "config/nested/terrablender.toml").read_text() == (
+        second_runtime_config.read_text()
+    )
+    assert not (owned_run_dir / "config/generated-on-first-start.json").exists()
 
     result = server.stop_server(
         project.resolve(), "fabric", successful=True, timeout=0.5
@@ -886,6 +896,7 @@ def test_real_process_group_cleanup_kills_ignoring_child_and_restores_files(
     assert second_config_target.read_text() == second_original_config
     assert absent_config_target.read_text() == "preserve me\n"
     assert not (run_dir / "eula.txt").exists()
+    assert Path(state["artifact_dir"]).exists()
     assert not Path(state["world_dir"]).exists()
     assert not (state_root / "active.json").exists()
 

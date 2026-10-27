@@ -92,13 +92,16 @@ def _write_scenario(
     *,
     authority: str = "generation",
 ) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    (path.parent / "test-pack.zip").write_bytes(b"datapack")
+    (path.parent / "probe.json").write_text('{"radius": 4}\n')
     path.write_text(
         f'''schema_version = 1
 name = "relative-path-control"
 project = "{project}"
 loader = "fabric"
 seed = 12345
-datapacks = ["games/minecraft/investigations/test-pack.zip"]
+datapacks = ["test-pack.zip"]
 retention = "discard"
 
 [server_properties]
@@ -115,7 +118,7 @@ required_mods = []
 [[probes]]
 id = "finished-chunk"
 version = "1"
-config_file = "games/minecraft/investigations/probe.json"
+config_file = "probe.json"
 
 [[steps]]
 id = "generate"
@@ -151,7 +154,7 @@ def test_scenario_paths_resolve_from_toml_not_current_directory(
     scenario = load_scenario(scenario_path)
 
     assert scenario.project == project.resolve()
-    assert scenario.datapacks == ((assets / "test-pack.zip").resolve(),)
+    assert scenario.datapacks == ((scenario_path.parent / "test-pack.zip").resolve(),)
     assert scenario.probes["finished-chunk"].config == {"radius": 4}
     assert scenario.steps[0].values["bounds"] == [0, 0, 16, 16]
 
@@ -338,7 +341,7 @@ def test_packaged_subject_can_export_preset_from_ftf_project(
     (tmp_path / "games/minecraft/vanilla-control").mkdir(parents=True)
     ftf_project = tmp_path / "games/minecraft/ftf-source"
     ftf_project.mkdir(parents=True)
-    preset_definition = tmp_path / "games/minecraft/preset.toml"
+    preset_definition = tmp_path / "preset.toml"
     preset_definition.write_text("schema_version = 2\n")
     path = tmp_path / "packaged.toml"
     path.write_text("""schema_version = 1
@@ -346,8 +349,8 @@ name = "packaged-preset-control"
 project = "games/minecraft/vanilla-control"
 loader = "fabric"
 seed = 1
-ftf_preset = "games/minecraft/preset.toml"
-subject_artifact = "games/minecraft/ftf-source/build/subject.jar"
+ftf_preset = "preset.toml"
+subject_artifact = "subject.jar"
 subject_source_project = "games/minecraft/ftf-source"
 
 [[steps]]
@@ -361,16 +364,14 @@ command = "list"
     assert loaded.project == (tmp_path / "games/minecraft/vanilla-control").resolve()
     assert loaded.subject_source_project == ftf_project.resolve()
 
-    path.write_text(
-        path.read_text().replace('ftf_preset = "games/minecraft/preset.toml"\n', "")
-    )
+    path.write_text(path.read_text().replace('ftf_preset = "preset.toml"\n', ""))
     with pytest.raises(
         InvestigationError, match="requires ftf_preset and subject_artifact"
     ):
         load_scenario(path)
 
 
-def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
+def test_local_subject_artifact_is_task_scoped_and_typed_as_a_jar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = tmp_path / "games/minecraft/project"
@@ -379,20 +380,19 @@ def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
     assets.mkdir(parents=True)
     (assets / "test-pack.zip").write_bytes(b"datapack")
     (assets / "probe.json").write_text("{}\n")
-    subject = project / "build/libs/subject.jar"
-    subject.parent.mkdir(parents=True)
-    subject.write_bytes(b"jar")
-    subject_compile = project / "build/libs/subject-named.jar"
-    subject_compile.write_bytes(b"named jar")
     scenario_path = tmp_path / ".squinch/subject.toml"
     scenario_path.parent.mkdir()
+    subject = scenario_path.parent / "subject.jar"
+    subject.write_bytes(b"jar")
+    subject_compile = scenario_path.parent / "subject-named.jar"
+    subject_compile.write_bytes(b"named jar")
     _write_scenario(scenario_path)
     scenario_path.write_text(
         scenario_path.read_text().replace(
             "seed = 12345",
             "seed = 12345\n"
-            'subject_artifact = "games/minecraft/project/build/libs/subject.jar"\n'
-            'subject_compile_artifact = "games/minecraft/project/build/libs/subject-named.jar"\n'
+            'subject_artifact = "subject.jar"\n'
+            'subject_compile_artifact = "subject-named.jar"\n'
             'probe_compile_artifacts = [{ id = "api", loader = "neoforge", mapping = "named" }]',
         )
     )
@@ -408,23 +408,19 @@ def test_local_subject_artifact_is_repository_scoped_and_typed_as_a_jar(
     scenario_path.write_text(
         scenario_path.read_text().replace("subject.jar", "subject.zip")
     )
-    with pytest.raises(
-        InvestigationError, match="must be a repository-root-relative JAR"
-    ):
+    with pytest.raises(InvestigationError, match="must be a scenario-relative JAR"):
         load_scenario(scenario_path)
 
 
-def test_runtime_files_are_repository_inputs_confined_to_run_config(
+def test_runtime_files_are_task_inputs_confined_to_run_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = tmp_path / "games/minecraft/project"
     project.mkdir(parents=True)
-    inputs = tmp_path / "games/minecraft/investigations"
-    inputs.mkdir(parents=True)
-    config = inputs / "terrablender.toml"
-    config.write_text("[general]\noverworld_region_size = 2\n")
     scenario_path = tmp_path / ".squinch/runtime-file.toml"
     scenario_path.parent.mkdir()
+    config = scenario_path.parent / "terrablender.toml"
+    config.write_text("[general]\noverworld_region_size = 2\n")
     scenario_path.write_text(
         """schema_version = 1
 name = "runtime-file-control"
@@ -434,7 +430,7 @@ seed = 1
 runtime_absent_files = ["config/generated-on-first-start.json"]
 
 [[runtime_files]]
-source = "games/minecraft/investigations/terrablender.toml"
+source = "terrablender.toml"
 target = "config/terrablender.toml"
 
 [[steps]]

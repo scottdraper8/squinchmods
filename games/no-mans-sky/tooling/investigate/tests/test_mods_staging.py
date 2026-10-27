@@ -79,6 +79,29 @@ def test_stage_lifecycle_and_modified_tree_refusal(
     assert not Path(applied["destination"]).exists()
 
 
+def test_unstage_rejects_mount_point(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = mod_tree(tmp_path)
+    game = tmp_path / "game"
+    (game / "GAMEDATA/PCBANKS").mkdir(parents=True)
+    stages = tmp_path / "stage-state"
+    run_id = "20260911T120000Z-stage-1234abcd"
+    monkeypatch.setattr(staging, "STAGES_ROOT", stages)
+    monkeypatch.setattr(staging, "running_processes", lambda: [])
+    applied = staging.stage(root, game, run_id, apply=True)
+    destination = Path(applied["destination"])
+    actual_ismount = staging.os.path.ismount
+    monkeypatch.setattr(
+        staging.os.path,
+        "ismount",
+        lambda path: Path(path) == destination or actual_ismount(path),
+    )
+
+    with pytest.raises(InvestigationError, match="mount point"):
+        staging.unstage(run_id, apply=True)
+    assert destination.exists()
+    assert (stages / f"{run_id}.json").exists()
+
+
 def test_mod_analysis_rejects_missing_file_reference(tmp_path: Path) -> None:
     root = tmp_path / "referencing-mod"
     patch = root / "METADATA/TEST.EXML"

@@ -19,11 +19,12 @@ def _git_head_sha(path: Path) -> str | None:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception:
-        pass
+    except (OSError, subprocess.SubprocessError):
+        return None
     return None
 
 
@@ -139,9 +140,8 @@ def emit_all(
 
         world_sha256 = None
         if "world" in result.artifacts:
-            # Lazy import: only jobs that actually produced a world pay for this,
-            # and it keeps replace/ out of the manifest module's own import graph.
-            from squinch_qa.replace.world_hash import world_hash
+            # Lazy import: only jobs that actually produced a world pay for this.
+            from squinch_qa.world_hash import world_hash
 
             try:
                 world_sha256 = world_hash(jdir / "world")

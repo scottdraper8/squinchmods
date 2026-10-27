@@ -5,8 +5,8 @@ import shutil
 import subprocess
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 from squinch_qa.executors._server import ServerLaunchError
 
@@ -105,20 +105,20 @@ def _install_forge_server(
         raise ServerLaunchError(f"Forge installer exited with code {proc.returncode}")
 
 
-def find_primary_mod_jar(loader_dir: Path) -> Path | None:
-    libs_dir = loader_dir / "build" / "libs"
+def find_primary_mod_jar(loader_build_dir: Path) -> Path | None:
+    libs_dir = loader_build_dir / "libs"
     candidates = [
         p
         for p in libs_dir.glob("*.jar")
         if not (p.stem.endswith("-sources") or p.stem.endswith("-dev"))
     ]
-    return sorted(candidates)[-1] if candidates else None
+    return max(candidates) if candidates else None
 
 
 def launch_forge_production_server(
     *,
     server_dir: Path,
-    mod_dir: Path,
+    mod_build_dir: Path,
     tool_jar: Path | None,
     minecraft_version: str,
     forge_version: str,
@@ -140,9 +140,9 @@ def launch_forge_production_server(
         env=env,
     )
 
-    mod_jar = find_primary_mod_jar(mod_dir / "forge")
+    mod_jar = find_primary_mod_jar(mod_build_dir)
     if mod_jar is None:
-        raise ServerLaunchError(f"No Forge mod jar found under {mod_dir / 'forge'}")
+        raise ServerLaunchError(f"No Forge mod jar found under {mod_build_dir}")
 
     mods_dir = server_dir / "mods"
     mods_dir.mkdir(parents=True, exist_ok=True)

@@ -8,10 +8,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
-
-from squinch_qa import cli
-
 from conftest import FIXTURES, REAL_REPO_ROOT, _build_fake_repo
+from squinch_qa import cli
 
 
 def _run_plan(repo_root: Path, *args: str) -> tuple[int, str]:
@@ -209,35 +207,19 @@ class TestExitCodes:
         code, _ = _run_plan(fake_repo, "redstone-backport", "--profile", "default")
         assert code == 2
 
-    def test_validation_error_exits_5(self, tmp_path):
-        qa_root = tmp_path / "repo"
-        qa_root.mkdir()
-        qa_runs_dir = tmp_path / "qa-runs"
-        qa_runs_dir.mkdir()
-
-        code = cli.main(
-            [
-                "promote",
-                "--run-id",
-                "no-such-run",
-                "--repo-root",
-                str(qa_root),
-                "--qa-runs-dir",
-                str(qa_runs_dir),
-            ]
-        )
-
-        assert code == 5
-
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not on PATH")
 class TestSubprocessSmoke:
     def test_squinch_qa_plan_via_subprocess(self, fake_repo):
-        squinch_script = REAL_REPO_ROOT / "tooling" / "squinch"
         result = subprocess.run(
             [
-                str(squinch_script),
-                "qa",
+                "uv",
+                "run",
+                "--project",
+                str(REAL_REPO_ROOT / "games/minecraft/tooling/qa"),
+                "python",
+                "-m",
+                "squinch_qa",
                 "plan",
                 "redstone-backport",
                 "--profile",
@@ -247,6 +229,7 @@ class TestSubprocessSmoke:
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)

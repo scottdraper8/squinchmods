@@ -10,6 +10,7 @@ from squinch_qa.executors._forge_production import launch_forge_production_serve
 from squinch_qa.executors._gradle import (
     GradleEnvError,
     qa_gradle_args,
+    qa_loader_build_dir,
     resolve_gradle_env,
 )
 from squinch_qa.executors._server import (
@@ -51,7 +52,9 @@ def _level_seed(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise ValueError("level_seed must be a nonempty string or integer")
+        raise ValueError(  # noqa: TRY004 - this is invalid plan data, not an API type contract
+            "level_seed must be a nonempty string or integer"
+        )
     seed = str(value)
     if not seed:
         raise ValueError("level_seed must be a nonempty string or integer")
@@ -76,7 +79,7 @@ def _launch_command_server(
             )
         return launch_forge_production_server(
             server_dir=temp_root / "server",
-            mod_dir=ctx.mod_dir,
+            mod_build_dir=qa_loader_build_dir(ctx.job_dir, loader),
             tool_jar=None,
             minecraft_version=ctx.target.minecraft,
             forge_version=ctx.target.loader_version,
@@ -95,9 +98,9 @@ def _launch_command_server(
             ctx.mod_dir,
             env,
             logs_dir,
-            gradle_args=qa_gradle_args(ctx.repo_root),
+            gradle_args=qa_gradle_args(ctx.repo_root, ctx.job_dir),
         )
-        return proc, log_path, ctx.mod_dir / loader / "run"
+        return proc, log_path, ctx.job_dir / "runtime"
 
     raise ServerLaunchError(
         f"Unknown command-script server_runtime: {server_runtime!r}"
@@ -154,7 +157,7 @@ class CommandScriptExecutor:
                     detail=f"unknown server_runtime: {server_runtime!r}",
                 ),
             )
-        loader_run_dir = ctx.mod_dir / loader / "run"
+        loader_run_dir = ctx.job_dir / "runtime"
         level_name = qa_level_name(ctx.run_id, ctx.target_id, ctx.test_id)
         logs_dir = ctx.job_dir / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +195,7 @@ class CommandScriptExecutor:
                 "error", FailureDetail(reason="gradle-env-error", detail=str(e))
             )
 
-        with tempfile.TemporaryDirectory(prefix=f"squinch-command-{ctx.run_id}-") as td:
+        with tempfile.TemporaryDirectory(prefix="temporary-", dir=ctx.job_dir) as td:
             try:
                 proc, log_path, server_run_dir = _launch_command_server(
                     loader=loader,

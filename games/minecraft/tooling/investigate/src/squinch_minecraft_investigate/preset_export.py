@@ -223,13 +223,14 @@ def export_preset(*, project_value: str | Path, preset: Path, timeout: float) ->
         ":fabric:squinchPresetExport",
         "--console=plain",
         "--no-daemon",
-        *gradle_project_cache_arguments(),
+        *gradle_project_cache_arguments(artifact_dir),
         "--init-script",
         str(CELL_SCAN_OVERLAY),
         f"-PsquinchCellScanHarness={CELL_SCAN_ROOT}",
         f"-PsquinchPresetInput={preset_path}",
         f"-PsquinchCanonicalPresetOutput={canonical_preset_path}",
         f"-PsquinchGeneratedDatapackOutput={output_path}",
+        f"-PsquinchBuildRoot={artifact_dir / 'gradle-build'}",
     ]
     started = time.monotonic()
 

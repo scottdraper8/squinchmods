@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import shutil
+import stat
 import tempfile
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -34,20 +36,37 @@ def _write_manifest(path: Path, manifest: dict) -> None:
 
 
 def _tree_hashes(root: Path) -> dict[str, str]:
-    if not root.exists():
+    if not os.path.lexists(root):
         return {}
     if not root.is_dir() or root.is_symlink():
         raise InvestigationError("unsafe_stage_tree", f"Stage tree is not a directory: {root}")
+    if os.path.ismount(root):
+        raise InvestigationError("unsafe_stage_tree", f"Stage tree is a mount point: {root}")
     files: dict[str, str] = {}
-    for path in root.rglob("*"):
-        if path.is_symlink():
-            raise InvestigationError("unsafe_stage_tree", f"Stage tree contains a symlink: {path}")
-        if path.is_file():
-            files[path.relative_to(root).as_posix().casefold()] = sha256_file(path)
-        elif not path.is_dir():
-            raise InvestigationError(
-                "unsafe_stage_tree", f"Stage tree contains a special file: {path}"
-            )
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                mode = entry.stat(follow_symlinks=False).st_mode
+                path = Path(entry.path)
+                if stat.S_ISLNK(mode):
+                    raise InvestigationError(
+                        "unsafe_stage_tree", f"Stage tree contains a symlink: {path}"
+                    )
+                if stat.S_ISDIR(mode):
+                    if os.path.ismount(path):
+                        raise InvestigationError(
+                            "unsafe_stage_tree",
+                            f"Stage tree contains a mount point: {path}",
+                        )
+                    pending.append(path)
+                elif stat.S_ISREG(mode):
+                    files[path.relative_to(root).as_posix().casefold()] = sha256_file(path)
+                else:
+                    raise InvestigationError(
+                        "unsafe_stage_tree", f"Stage tree contains a special file: {path}"
+                    )
     return files
 
 
@@ -160,7 +179,6 @@ def stage(mod_root: Path, game_root: Path, run_id: str, *, apply: bool) -> dict:
         raise InvestigationError(
             "stage_pending_exists", f"Pending stage destination already exists: {pending}"
         )
-    destination.parent.mkdir(parents=True, exist_ok=True)
     expected = {item["logical_path"]: item["sha256"] for item in source_files}
     manifest = {
         "schema_version": 2,
@@ -174,6 +192,7 @@ def stage(mod_root: Path, game_root: Path, run_id: str, *, apply: bool) -> dict:
     }
     _write_manifest(manifest_path, manifest)
     try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
         pending.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(deployment, pending, symlinks=False)
         deployed = inventory_mod(pending)
@@ -195,7 +214,7 @@ def stage(mod_root: Path, game_root: Path, run_id: str, *, apply: bool) -> dict:
                     current[path] == expected[path] for path in current
                 ):
                     shutil.rmtree(owned)
-        remaining = [str(path) for path in (destination, pending) if path.exists()]
+        remaining = [str(path) for path in (destination, pending) if os.path.lexists(path)]
         if remaining:
             raise InvestigationError(
                 "stage_rollback_incomplete",

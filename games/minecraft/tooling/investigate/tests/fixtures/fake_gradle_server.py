@@ -7,6 +7,8 @@ import struct
 import time
 from pathlib import Path
 
+RUN_DIR = Path(os.environ["SQUINCH_INVESTIGATE_RUN_DIR"])
+
 
 def receive_exact(connection: socket.socket, length: int) -> bytes:
     value = b""
@@ -25,14 +27,16 @@ def packet(connection: socket.socket) -> tuple[int, int, str]:
     return packet_id, packet_type, body[8:-2].decode()
 
 
-def reply(connection: socket.socket, packet_id: int, packet_type: int, payload: str) -> None:
+def reply(
+    connection: socket.socket, packet_id: int, packet_type: int, payload: str
+) -> None:
     body = struct.pack("<ii", packet_id, packet_type) + payload.encode() + b"\x00\x00"
     connection.sendall(struct.pack("<i", len(body)) + body)
 
 
 def properties() -> dict[str, str]:
     values = {}
-    for line in Path("fabric/run/server.properties").read_text().splitlines():
+    for line in (RUN_DIR / "server.properties").read_text().splitlines():
         key, value = line.split("=", 1)
         values[key] = value
     return values
@@ -54,7 +58,7 @@ def main() -> None:
     delayed_command_prefix = values.get("fake-delay-command-prefix", "")
     command_delay = float(values.get("fake-command-delay", "0"))
     delayed_command = False
-    world = Path("fabric/run") / values["level-name"]
+    world = RUN_DIR / values["level-name"]
     world.mkdir(parents=True, exist_ok=True)
     (world / "level.dat").write_bytes(b"fake-level-identity")
 

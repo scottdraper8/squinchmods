@@ -143,8 +143,22 @@ def _repository_path(value: Any, context: str) -> Path:
     return resolved
 
 
-def _scenario_path(_scenario_file: Path, value: Any, context: str) -> Path:
-    return _repository_path(value, context)
+def _task_path(scenario_file: Path, value: Any, context: str) -> Path:
+    if not isinstance(value, str) or not value:
+        raise _error(f"{context} must be a nonempty scenario-relative path")
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise _error(f"{context} must be a scenario-relative path without traversal")
+    base = scenario_file.parent.resolve()
+    current = base
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise _error(f"{context} traverses a symbolic link: {current}")
+    resolved = (base / relative).resolve()
+    if resolved == base or not resolved.is_relative_to(base):
+        raise _error(f"{context} escapes the scenario directory")
+    return resolved
 
 
 def _json_object(value: Any, context: str) -> dict[str, Any]:
@@ -204,7 +218,7 @@ def load_scenario(path: str | Path) -> Scenario:
     name = raw.get("name")
     if not isinstance(name, str) or not name.strip():
         raise _error("name must be a nonempty string")
-    project = _scenario_path(scenario_path, raw.get("project"), "project")
+    project = _repository_path(raw.get("project"), "project")
     loader = raw.get("loader")
     if loader not in {"fabric", "forge", "neoforge", "quilt"}:
         raise _error(f"unsupported loader: {loader!r}")
@@ -222,21 +236,21 @@ def load_scenario(path: str | Path) -> Scenario:
 
     ftf_preset = None
     if "ftf_preset" in raw:
-        ftf_preset = _scenario_path(scenario_path, raw["ftf_preset"], "ftf_preset")
+        ftf_preset = _task_path(scenario_path, raw["ftf_preset"], "ftf_preset")
     subject_source_project = None
     if "subject_source_project" in raw:
         if ftf_preset is None or "subject_artifact" not in raw:
             raise _error(
                 "subject_source_project requires ftf_preset and subject_artifact"
             )
-        subject_source_project = _scenario_path(
-            scenario_path, raw["subject_source_project"], "subject_source_project"
+        subject_source_project = _repository_path(
+            raw["subject_source_project"], "subject_source_project"
         )
     datapack_values = raw.get("datapacks", [])
     if not isinstance(datapack_values, list):
         raise _error("datapacks must be an array of paths")
     datapacks = tuple(
-        _scenario_path(scenario_path, value, f"datapacks[{index}]")
+        _task_path(scenario_path, value, f"datapacks[{index}]")
         for index, value in enumerate(datapack_values)
     )
     runtime_file_values = raw.get("runtime_files", [])
@@ -250,7 +264,7 @@ def load_scenario(path: str | Path) -> Scenario:
         _known_keys(value, {"source", "target"}, f"runtime_files[{index}]")
         if set(value) != {"source", "target"}:
             raise _error(f"runtime_files[{index}] must set source and target")
-        source = _scenario_path(
+        source = _task_path(
             scenario_path, value["source"], f"runtime_files[{index}].source"
         )
         target = value["target"]
@@ -300,21 +314,21 @@ def load_scenario(path: str | Path) -> Scenario:
     companion_artifacts = tuple(companion_artifact_values)
     subject_artifact = None
     if "subject_artifact" in raw:
-        subject_artifact = _scenario_path(
+        subject_artifact = _task_path(
             scenario_path, raw["subject_artifact"], "subject_artifact"
         )
         if subject_artifact.suffix != ".jar":
-            raise _error("subject_artifact must be a repository-root-relative JAR path")
+            raise _error("subject_artifact must be a scenario-relative JAR path")
     subject_compile_artifact = None
     if "subject_compile_artifact" in raw:
         if subject_artifact is None:
             raise _error("subject_compile_artifact requires subject_artifact")
-        subject_compile_artifact = _scenario_path(
+        subject_compile_artifact = _task_path(
             scenario_path, raw["subject_compile_artifact"], "subject_compile_artifact"
         )
         if subject_compile_artifact.suffix != ".jar":
             raise _error(
-                "subject_compile_artifact must be a repository-root-relative JAR path"
+                "subject_compile_artifact must be a scenario-relative JAR path"
             )
     probe_compile_values = raw.get("probe_compile_artifacts", [])
     if not isinstance(probe_compile_values, list):
@@ -352,7 +366,7 @@ def load_scenario(path: str | Path) -> Scenario:
     if not isinstance(probe_pack_values, list):
         raise _error("probe_packs must be an array of paths")
     probe_packs = tuple(
-        _scenario_path(scenario_path, value, f"probe_packs[{index}]")
+        _task_path(scenario_path, value, f"probe_packs[{index}]")
         for index, value in enumerate(probe_pack_values)
     )
     server_properties_raw = raw.get("server_properties", {})
@@ -398,7 +412,7 @@ def load_scenario(path: str | Path) -> Scenario:
         if "config" in probe and "config_file" in probe:
             raise _error(f"probes[{index}] cannot set both config and config_file")
         if "config_file" in probe:
-            config_path = _scenario_path(
+            config_path = _task_path(
                 scenario_path, probe["config_file"], "probe config_file"
             )
             try:
@@ -653,7 +667,7 @@ def load_scenario(path: str | Path) -> Scenario:
                     raise _error(
                         f"steps[{index}] candidate_file generation uses block coordinates"
                     )
-                candidate_file = _scenario_path(
+                candidate_file = _task_path(
                     scenario_path,
                     values["candidate_file"],
                     f"steps[{index}].candidate_file",

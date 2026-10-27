@@ -20,9 +20,10 @@ import tomllib
 from .catalog import CATALOG_PATH
 from .errors import InvestigationError
 from .output import timestamp
-from .paths import LOCKS_ROOT, REPOSITORY_ROOT, RUNS_ROOT, STATE_ROOT
+from .paths import LOCKS_ROOT, RUNS_ROOT, STATE_ROOT
 from .scenario import RETENTIONS, Scenario, load_scenario, run_scenario
 from .state import atomic_write_json, blocking_lock, read_json
+from .tranche import validate_scenario_inputs
 
 BENCHMARK_VERSION = 1
 LIFECYCLE_BLOCKER_CODES = frozenset(
@@ -98,15 +99,21 @@ def _number(value: Any, context: str, *, minimum: float = 0) -> float:
     return result
 
 
-def _repository_file(value: Any, context: str) -> Path:
+def _task_file(matrix_file: Path, value: Any, context: str) -> Path:
     if not isinstance(value, str) or not value:
-        raise _error(f"{context} must be a nonempty repository-relative path")
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
-        raise _error(f"{context} must be a repository-relative path")
-    resolved = (REPOSITORY_ROOT / path).resolve()
-    if not resolved.is_relative_to(REPOSITORY_ROOT):
-        raise _error(f"{context} escapes the repository root")
+        raise _error(f"{context} must be a nonempty matrix-relative path")
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise _error(f"{context} must be a matrix-relative path without traversal")
+    base = matrix_file.parent.resolve()
+    current = base
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise _error(f"{context} traverses a symbolic link: {current}")
+    resolved = (base / relative).resolve()
+    if resolved == base or not resolved.is_relative_to(base):
+        raise _error(f"{context} escapes the matrix directory")
     if not resolved.is_file():
         raise _error(f"{context} does not exist: {value}")
     return resolved
@@ -145,7 +152,7 @@ def load_benchmark(path: str | Path) -> BenchmarkMatrix:
     name = raw.get("name")
     if not isinstance(name, str) or not name.strip():
         raise _error("name must be a nonempty string")
-    scenario_path = _repository_file(raw.get("scenario"), "scenario")
+    scenario_path = _task_file(benchmark_path, raw.get("scenario"), "scenario")
     repetitions = raw.get("repetitions", 1)
     if (
         isinstance(repetitions, bool)
@@ -901,26 +908,7 @@ def _verify_checkpoint(path: Path, record: dict[str, Any], *, artifacts: bool) -
             )
 
 
-def _archive_legacy_attempt(
-    run_dir: Path, entry: dict[str, Any], record: dict[str, Any]
-) -> int:
-    attempt = record.get("attempt")
-    if not isinstance(attempt, int) or attempt < 1:
-        attempt = 1
-        record = {**record, "attempt": attempt}
-    path = _attempt_path(run_dir, entry, attempt)
-    if not path.is_file():
-        atomic_write_json(path, record)
-    return attempt
-
-
-def _next_attempt_number(
-    run_dir: Path,
-    entry: dict[str, Any],
-    existing: dict[str, Any] | None,
-) -> int:
-    if existing is not None:
-        _archive_legacy_attempt(run_dir, entry, existing)
+def _next_attempt_number(run_dir: Path, entry: dict[str, Any]) -> int:
     directory = _attempt_path(run_dir, entry, 1).parent
     attempts = (
         [int(path.stem) for path in directory.glob("*.json") if path.stem.isdigit()]
@@ -1040,6 +1028,8 @@ def run_benchmark(
     plan = build_plan(matrix)
     base = load_scenario(matrix.scenario_path)
     validate_artifacts = scenario_runner is run_scenario
+    if validate_artifacts:
+        validate_scenario_inputs(base)
     input_identity = _campaign_input_identity(base) if validate_artifacts else None
     auto_resumed = False
 
@@ -1146,7 +1136,7 @@ def run_benchmark(
             if max_new_runs is not None and new_runs >= max_new_runs:
                 break
 
-            attempt = _next_attempt_number(run_dir, entry, existing)
+            attempt = _next_attempt_number(run_dir, entry)
             effective = _effective_scenario(base, matrix, entry)
             started_at = timestamp()
             host_before: dict[str, Any] | None = None

@@ -5,7 +5,6 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
-
 from squinch_qa import cli
 from squinch_qa.errors import SummaryError
 from squinch_qa.executors.base import FailureDetail, JobResult
@@ -190,7 +189,8 @@ class TestRenderSummary:
             render_summary(run_dir)
 
 
-def _run_summary_cli(qa_runs_dir: Path, run_id: str) -> tuple[int, str]:
+def _run_summary_cli(qa_runs_dir: Path, run_id: str, monkeypatch) -> tuple[int, str]:
+    monkeypatch.setattr(cli, "default_qa_runs_dir", lambda _repo_root: qa_runs_dir)
     buf = io.StringIO()
     with redirect_stdout(buf):
         code = cli.main(
@@ -198,8 +198,6 @@ def _run_summary_cli(qa_runs_dir: Path, run_id: str) -> tuple[int, str]:
                 "summary",
                 run_id,
                 "--repo-root",
-                str(qa_runs_dir),  # unused by _cmd_summary when --qa-runs-dir is set
-                "--qa-runs-dir",
                 str(qa_runs_dir),
             ]
         )
@@ -207,22 +205,24 @@ def _run_summary_cli(qa_runs_dir: Path, run_id: str) -> tuple[int, str]:
 
 
 class TestSummaryCLI:
-    def test_exits_0_and_prints_summary_for_a_real_run(self, tmp_path: Path):
+    def test_exits_0_and_prints_summary_for_a_real_run(
+        self, tmp_path: Path, monkeypatch
+    ):
         run_dir = _build_run(
             tmp_path, [(_job("forge-1.20.1", "build"), _result("pass"))]
         )
-        code, output = _run_summary_cli(run_dir.parent, run_dir.name)
+        code, output = _run_summary_cli(run_dir.parent, run_dir.name, monkeypatch)
         assert code == 0
         assert "forge-1.20.1/build" in output
 
-    def test_exits_10_on_unknown_run_id(self, tmp_path: Path):
+    def test_exits_10_on_unknown_run_id(self, tmp_path: Path, monkeypatch):
         qa_runs_dir = tmp_path / "runs"
         qa_runs_dir.mkdir()
-        code, _ = _run_summary_cli(qa_runs_dir, "no-such-run")
+        code, _ = _run_summary_cli(qa_runs_dir, "no-such-run", monkeypatch)
         assert code == 10
 
-    def test_rejects_path_traversal_run_id(self, tmp_path: Path):
+    def test_rejects_path_traversal_run_id(self, tmp_path: Path, monkeypatch):
         qa_runs_dir = tmp_path / "runs"
         qa_runs_dir.mkdir()
-        code, _ = _run_summary_cli(qa_runs_dir, "../../etc")
-        assert code == 6  # ReplaceError, from assert_within
+        code, _ = _run_summary_cli(qa_runs_dir, "../../etc", monkeypatch)
+        assert code == 10

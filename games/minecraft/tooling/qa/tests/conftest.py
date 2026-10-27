@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import stat as _stat
 import shutil
+import stat as _stat
 from pathlib import Path
 
 import pytest
@@ -12,6 +12,27 @@ FIXTURES = Path(__file__).parent / "fixtures"
 REAL_REPO_ROOT = Path(__file__).parents[5]
 
 FAKE_SERVER_SCRIPT = Path(__file__).parent / "fixtures" / "fake_server.py"
+
+
+@pytest.fixture(autouse=True)
+def selected_tranche(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    workspace = tmp_path / "tranche"
+    workspace.mkdir()
+    tranche_id = "test-tranche"
+    (workspace / ".tranche.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "tranche": tranche_id,
+                "workspace": str(workspace),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SQUINCH_TRANCHE", tranche_id)
+    monkeypatch.setenv("SQUINCH_TRANCHE_WORKSPACE", str(workspace))
+    return workspace
 
 
 def _build_fake_repo(
@@ -76,115 +97,6 @@ def fake_repo(tmp_path: Path) -> Path:
     )
 
 
-@pytest.fixture
-def qa_run_factory(tmp_path: Path):
-    """
-    Factory fixture: build a fake completed run dir (qa-manifest.json plus
-    per-job manifest.json/result.json) for replace-pipeline tests. Hashes are
-    computed correctly from the actual on-disk bytes by default; pass
-    jar_sha256_override / world_sha256_override to simulate a mismatch.
-    """
-    from squinch_qa.artifacts import sha256_file
-    from squinch_qa.replace.world_hash import world_hash
-
-    def _make(
-        *,
-        jobs: list[dict],
-        run_id: str = "run-1",
-        runs_root: Path | None = None,
-        mod_id: str = "fake-mod",
-    ) -> Path:
-        rdir = (runs_root or tmp_path / "qa-runs") / run_id
-        rdir.mkdir(parents=True, exist_ok=True)
-
-        job_refs = []
-        for j in jobs:
-            target_id = j["target_id"]
-            test_id = j["test_id"]
-            status = j.get("status", "pass")
-            jdir = rdir / "jobs" / target_id / test_id
-            jdir.mkdir(parents=True, exist_ok=True)
-            matrix_id = f"{target_id}/{test_id}"
-
-            artifacts = []
-            jar_sha256 = None
-            if j.get("jar_bytes") is not None:
-                jar_path = jdir / "mod.jar"
-                jar_path.write_bytes(j["jar_bytes"])
-                artifacts.append("mod.jar")
-                jar_sha256 = j.get("jar_sha256_override", sha256_file(jar_path))
-
-            world_sha256 = None
-            if j.get("world_src") is not None:
-                world_dst = jdir / "world"
-                shutil.copytree(j["world_src"], world_dst)
-                artifacts.append("world")
-                world_sha256 = j.get("world_sha256_override", world_hash(world_dst))
-
-            (jdir / "manifest.json").write_text(
-                json.dumps(
-                    {
-                        "schema": 1,
-                        "run_id": j.get("run_id_override", run_id),
-                        "profile": "default",
-                        "matrix_id": j.get("matrix_id_override", matrix_id),
-                        "target": {
-                            "id": target_id,
-                            "java": 17,
-                            "loader": "neoforge",
-                            "loader_version": None,
-                            "minecraft": "1.21.1",
-                        },
-                        "mod": {"id": mod_id, "jar_sha256": jar_sha256},
-                        "test": {"id": test_id, "status": status},
-                        "world_sha256": world_sha256,
-                    }
-                )
-            )
-            (jdir / "result.json").write_text(
-                json.dumps(
-                    {
-                        "status": status,
-                        "started_at": "2026-01-01T00:00:00+00:00",
-                        "finished_at": "2026-01-01T00:01:00+00:00",
-                        "duration_s": 60.0,
-                        "logs": [],
-                        "artifacts": artifacts,
-                        "failure": None,
-                    }
-                )
-            )
-
-            job_refs.append(
-                {
-                    "manifest": f"jobs/{target_id}/{test_id}/manifest.json",
-                    "matrix_id": matrix_id,
-                    "result": f"jobs/{target_id}/{test_id}/result.json",
-                    "status": status,
-                    "target": target_id,
-                    "test": test_id,
-                }
-            )
-
-        (rdir / "qa-manifest.json").write_text(
-            json.dumps(
-                {
-                    "schema": 1,
-                    "run_id": run_id,
-                    "profile": "default",
-                    "mod_id": mod_id,
-                    "plan_sha256": "deadbeef",
-                    "repo_commit": None,
-                    "mod_commit": None,
-                    "jobs": job_refs,
-                }
-            )
-        )
-        return rdir
-
-    return _make
-
-
 def _make_stub_gradlew(mod_dir: Path) -> None:
     """Write an executable stub gradlew that routes *:runServer to fake_server.py."""
     gradlew = mod_dir / "gradlew"
@@ -220,8 +132,7 @@ def runner_repo(tmp_path: Path) -> Path:
     ]:
         mod_dir = repo / "games" / "minecraft" / "mods" / mod_name
         for loader in loaders:
-            (mod_dir / loader / "build" / "libs").mkdir(parents=True)
-            (mod_dir / loader / "run" / "mods").mkdir(parents=True)
+            (mod_dir / loader).mkdir(parents=True)
         _make_stub_gradlew(mod_dir)
     return repo
 

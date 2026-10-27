@@ -38,12 +38,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-    -   id: investigation-retention-index
-        name: enforce investigation citation and retention discipline
-        entry: tooling/check-investigation-retention
-        language: system
-        pass_filenames: false
-        always_run: true
     -   id: prettier
         name: prettier (markdown, SCSS, and site config)
         entry: prettier --write

@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import time
 import uuid
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Iterable
+from typing import IO
 
 RUN_ID_RE = re.compile(r"^\d+-[0-9a-f]{8}$")
 
 
 def default_qa_root(repo_root: Path) -> Path:
-    return repo_root / "games" / "minecraft" / "qa-state"
+    del repo_root
+    workspace = os.environ.get("SQUINCH_TRANCHE_WORKSPACE")
+    if not workspace:
+        raise RuntimeError("SQUINCH_TRANCHE_WORKSPACE is required")
+    return Path(workspace) / "minecraft" / "qa"
 
 
 def default_qa_runs_dir(repo_root: Path) -> Path:

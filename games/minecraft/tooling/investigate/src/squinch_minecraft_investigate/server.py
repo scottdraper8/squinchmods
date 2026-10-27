@@ -174,11 +174,8 @@ def sourced_environment() -> dict[str, str]:
     return environment
 
 
-def gradle_project_cache_arguments() -> list[str]:
-    value = os.environ.get("SQUINCH_GRADLE_PROJECT_CACHE_DIR")
-    if not value:
-        return []
-    path = Path(value).expanduser().resolve()
+def gradle_project_cache_arguments(artifact_dir: Path) -> list[str]:
+    path = artifact_dir / "gradle-project-cache"
     path.mkdir(parents=True, exist_ok=True)
     return ["--project-cache-dir", str(path)]
 
@@ -402,7 +399,7 @@ def load_owned_active(project: Path, loader: str) -> dict:
         raise InvestigationError("invalid_state", "active state has an invalid run ID")
     expected_artifact = RUNS_ROOT / run_id
     if operation == "server":
-        expected_run_dir = project / loader / "run"
+        expected_run_dir = expected_artifact / "server-run"
     elif operation == "client":
         expected_run_dir = expected_artifact / "client-run"
     else:
@@ -845,7 +842,7 @@ def start_server(
     launch_task: str = "runServer",
 ) -> dict:
     startup_started = time.monotonic()
-    loader_dir = validate_loader(project, loader)
+    validate_loader(project, loader)
     if launch_task not in {"runServer", "prodServer"}:
         raise InvestigationError(
             "invalid_launch_task", f"unsupported Gradle launch task: {launch_task}"
@@ -875,12 +872,17 @@ def start_server(
             "probe_compile_artifact_invalid",
             "probe compile artifact mapping must be named or loader",
         )
+    run_id = new_run_id()
+    artifact_dir = RUNS_ROOT / run_id
+    run_dir = artifact_dir / "server-run"
     overlay_arguments, overlay_details = probe_overlay_command(
         loader,
         probe_packs,
         tuple(compile_artifacts),
         project=probe_source_project or project,
         production=launch_task == "prodServer",
+        server_run_dir=run_dir,
+        build_root=artifact_dir / "gradle-build",
     )
     tracked_status_before = git_status(project)
     with project_lock(lock_path(project, loader)):
@@ -903,10 +905,6 @@ def start_server(
             )
 
         validate_gradle_wrapper_bootstrap(project)
-        run_id = new_run_id()
-        artifact_dir = RUNS_ROOT / run_id
-        run_dir = loader_dir / "run"
-        run_dir.mkdir(parents=True, exist_ok=True)
         probe_cleanup_failures = _remove_development_probe_jar(run_dir)
         if probe_cleanup_failures:
             raise InvestigationError(
@@ -1015,6 +1013,7 @@ def start_server(
         installed_companion_artifacts: list[dict[str, str]] = []
         try:
             artifact_dir.mkdir(parents=True, exist_ok=False)
+            run_dir.mkdir()
             managed_files.append(_backup_file(run_dir / "eula.txt", artifact_dir))
             managed_files.append(
                 _backup_file(run_dir / "server.properties", artifact_dir)
@@ -1091,7 +1090,7 @@ def start_server(
             f":{loader}:{launch_task}",
             "--console=plain",
             "--no-daemon",
-            *gradle_project_cache_arguments(),
+            *gradle_project_cache_arguments(artifact_dir),
             *overlay_arguments,
         ]
         started_at = timestamp()
@@ -1164,6 +1163,7 @@ def start_server(
             with log_path.open("wb") as log_file:
                 launch_environment = sourced_environment()
                 launch_environment["SQUINCH_INVESTIGATE_RUN_ID"] = run_id
+                launch_environment["SQUINCH_INVESTIGATE_RUN_DIR"] = str(run_dir)
                 # Managed investigation servers are unattended. Force AWT headless mode so a
                 # subject project's development run configuration cannot open a Swing server
                 # window and steal focus after removing Loom's ordinary `nogui` argument.

@@ -3,31 +3,66 @@
 # Top-level squinchmods tooling dispatcher.
 #
 # Usage:
-#   squinch <tool> [args...]
+#   squinch [--tranche <id>] <tool> [args...]
 #
 # Tools:
 #   qa    Local Minecraft checks (uv-managed Python package)
 #   mc-investigate  Minecraft development investigation runner
 #   nms-investigate  No Man's Sky static and controlled-runtime investigation runner
 #   third-party  Game-specific third-party acquisition and inspection
+#   tranche  Task scratch lifecycle and exact cleanup
 #
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+tranche_id="${SQUINCH_TRANCHE:-}"
+
+if [[ "${1:-}" == "--tranche" ]]; then
+    if [[ $# -lt 2 ]]; then
+        echo "error: --tranche requires an ID" >&2
+        exit 2
+    fi
+    tranche_id="$2"
+    shift 2
+fi
 
 if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    echo "Usage: squinch <tool> [args...]"
+    echo "Usage: squinch [--tranche <id>] <tool> [args...]"
     echo ""
     echo "Tools:"
     echo "  qa    Local Minecraft checks — run 'squinch qa --help' for details"
     echo "  mc-investigate  Minecraft investigation tooling"
     echo "  nms-investigate  No Man's Sky investigation tooling"
     echo "  third-party  Game-specific third-party acquisition and inspection"
+    echo "  tranche  Create, locate, and clean one task scratch tranche"
     exit 0
 fi
 
 tool="$1"
 shift
+
+if [[ "${tool}" == "tranche" ]]; then
+    export PYTHONPATH="${script_dir}/tranche/src${PYTHONPATH:+:${PYTHONPATH}}"
+    exec python3 -m squinch_tranche --repo-root "${repo_root}" "$@"
+fi
+
+case "${tool}" in
+    qa | mc-investigate | nms-investigate)
+        if [[ -z "${tranche_id}" ]]; then
+            echo "error: ${tool} requires --tranche <id> or SQUINCH_TRANCHE" >&2
+            exit 2
+        fi
+        tranche_workspace="$({
+            PYTHONPATH="${script_dir}/tranche/src${PYTHONPATH:+:${PYTHONPATH}}" \
+                python3 -m squinch_tranche --repo-root "${repo_root}" \
+                resolve "${tranche_id}"
+        })" || exit $?
+        export SQUINCH_TRANCHE="${tranche_id}"
+        export SQUINCH_TRANCHE_WORKSPACE="${tranche_workspace}"
+        lock_path="${tranche_workspace}/.lock"
+        ;;
+esac
 
 case "${tool}" in
     qa)
@@ -35,24 +70,27 @@ case "${tool}" in
             echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
             exit 127
         fi
-        exec uv run --project "${script_dir}/../games/minecraft/tooling/qa" \
-            python -m squinch_qa "$@"
+        exec flock --shared --nonblock "${lock_path}" \
+            uv run --project "${script_dir}/../games/minecraft/tooling/qa" \
+                python -m squinch_qa "$@"
         ;;
     mc-investigate)
         if ! command -v uv &>/dev/null; then
             echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
             exit 127
         fi
-        exec uv run --project "${script_dir}/../games/minecraft/tooling/investigate" \
-            python -m squinch_minecraft_investigate "$@"
+        exec flock --shared --nonblock "${lock_path}" \
+            uv run --project "${script_dir}/../games/minecraft/tooling/investigate" \
+                python -m squinch_minecraft_investigate "$@"
         ;;
     nms-investigate)
         if ! command -v uv &>/dev/null; then
             echo "Install uv: https://docs.astral.sh/uv/getting-started/installation/" >&2
             exit 127
         fi
-        exec uv run --project "${script_dir}/../games/no-mans-sky/tooling/investigate" \
-            python -m squinch_nms_investigate "$@"
+        exec flock --shared --nonblock "${lock_path}" \
+            uv run --project "${script_dir}/../games/no-mans-sky/tooling/investigate" \
+                python -m squinch_nms_investigate "$@"
         ;;
     third-party)
         exec "${script_dir}/third-party" "$@"

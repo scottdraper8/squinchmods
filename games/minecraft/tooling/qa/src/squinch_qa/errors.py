@@ -38,15 +38,7 @@ class UnknownMod(SquinchQAError):
 
 
 class ValidationError(SquinchQAError):
-    """A completed run failed promotion validation (bad/missing manifest, hash mismatch, path traversal)."""
-
-    def __init__(self, reason: str, message: str) -> None:
-        self.reason = reason
-        super().__init__(message)
-
-
-class ReplaceError(SquinchQAError):
-    """The atomic replace pipeline itself failed (cross-device root, filesystem error)."""
+    """A generated QA artifact failed structural validation."""
 
     def __init__(self, reason: str, message: str) -> None:
         self.reason = reason

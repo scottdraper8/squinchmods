@@ -38,7 +38,7 @@ command = "benchmark run"
     benchmark.write_text(
         """schema_version = 1
 name = "matrix"
-scenario = ".squinch/base.toml"
+scenario = "base.toml"
 repetitions = 2
 order = "bracketed"
 random_seed = 7
@@ -65,7 +65,6 @@ required_mods = ["examplemod"]
 
 def test_bracketed_plan_has_start_and_end_controls(tmp_path: Path, monkeypatch) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
 
     matrix = load_benchmark(path)
     plan = build_plan(matrix)
@@ -94,7 +93,6 @@ def test_variant_expected_startup_failure_removes_workload_steps(
             'log_contains = ["Feature order cycle found"] }\n',
         )
     )
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
 
     matrix = load_benchmark(path)
@@ -116,7 +114,6 @@ def test_matrix_run_is_resumable_and_aggregates_metrics(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -172,7 +169,6 @@ def test_matrix_can_pause_after_bounded_new_runs_and_resume(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -223,7 +219,6 @@ def test_matrix_can_pause_after_bounded_new_runs_and_resume(
 
 def test_resume_rejects_changed_base_scenario(tmp_path: Path, monkeypatch) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -251,7 +246,6 @@ def test_resume_retries_lifecycle_blocker_before_continuing(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -305,7 +299,6 @@ def test_host_not_quiet_stops_and_is_retried_on_resume(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -348,7 +341,6 @@ def test_auto_resume_preserves_clean_checkpoints_across_lifecycle_failure(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -430,7 +422,6 @@ def test_rejected_attempt_requires_explicit_retry_and_completed_campaign_require
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -494,7 +485,6 @@ def test_resume_rejects_modified_accepted_checkpoint(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     matrix = load_benchmark(path)
@@ -542,7 +532,7 @@ command = "benchmark run"
     matrix.write_text(
         """schema_version = 1
 name = "paired matrix"
-scenario = ".squinch/paired-base.toml"
+scenario = "paired-base.toml"
 repetitions = 1
 order = "paired-bracketed"
 random_seed = 11
@@ -585,7 +575,6 @@ def test_paired_bracketed_plan_pairs_loaders_between_controls(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_paired_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
 
     plan = build_plan(load_benchmark(path))
 
@@ -603,7 +592,6 @@ def test_paired_matrix_overrides_loader_and_normalizes_each_group(
     tmp_path: Path, monkeypatch
 ) -> None:
     path = _write_paired_files(tmp_path)
-    monkeypatch.setattr(benchmark_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(scenario_module, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(benchmark_module, "LOCKS_ROOT", tmp_path / "locks")
     seen: list[tuple[str, str]] = []

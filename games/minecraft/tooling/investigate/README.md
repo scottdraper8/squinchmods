@@ -1,32 +1,37 @@
 # Minecraft Investigation Tooling
 
-This package manages local Minecraft server and client sessions for controlled development
-investigations.
+This package manages local Minecraft server/client sessions and task-local checks for compatible
+Fabric/NeoForge mod worktrees. Core lifecycle, scenario, probe, benchmark, and exact-comparison
+features are project-agnostic. FTF adapters provide preset export and standalone cell scanning.
 
-Use the repository dispatcher from any working directory and always name the exact target worktree:
+Use the repository dispatcher from any working directory, select an existing task tranche, and
+always name the exact target worktree. Generated runs, Gradle build and project state, worlds,
+worktrees, comparisons, and benchmarks live below that tranche's `minecraft/investigate/` root.
 
 ```bash
+tooling/squinch tranche create example-fix
+export SQUINCH_TRANCHE=example-fix
 tooling/squinch mc-investigate run \
-  --project games/minecraft/mods/FreeTerraForged \
+  --project "$PROJECT" \
   --loader fabric \
-  --seed 12345 \
+  --seed "$SEED" \
   --command list
 ```
 
 The public commands are `start`, `stop`, `status`, `doctor`, `command`, `run`, `client`, `scenario`,
-`benchmark`, `generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, `preset-export`, and
-`clean`. Add `--json` to any command for the committed `schemas/cli-output-v1.json` envelope.
-`cell-scan`, `preset-export`, and the `ftf_preset` scenario field are FTF adapters; lifecycle
-workflows otherwise target any compatible project. Inputs are supplied for the active task, not from
-a persistent FTF catalog. The states `starting`, `running`, and `stopping` are non-terminal; `ready`
-means RCON authentication succeeded; `succeeded`, `failed`, `inconclusive`, and `error` are terminal
-outcomes; `inactive` means no service is tracked; and `degraded` or `unknown` requires diagnosis
-rather than an assumption of success.
+`benchmark`, `generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, and `preset-export`.
+Add `--json` to any command for the committed `schemas/cli-output-v1.json` envelope. `cell-scan`,
+`preset-export`, and the `ftf_preset` scenario field are FTF adapters; lifecycle workflows otherwise
+target any compatible project. Inputs are supplied for the active task, not from a persistent FTF
+catalog. The states `starting`, `running`, and `stopping` are non-terminal; `ready` means RCON
+authentication succeeded; `succeeded`, `failed`, `inconclusive`, and `error` are terminal outcomes;
+`inactive` means no service is tracked; and `degraded` or `unknown` requires diagnosis rather than
+an assumption of success.
 
-Run a scenario supplied for the current investigation. Scenario files and target projects are
-otherwise independent. Every repository-owned project, datapack, preset, patch, and probe path is
-repository-root-relative (`games/minecraft/...`) and resolved from the repository root rather than
-the caller's directory:
+Run a scenario supplied for the current investigation. The target project and optional source
+project use repository-root-relative `games/minecraft/...` paths. Datapacks, presets, runtime-file
+sources, probe packs, probe configurations, candidate files, and packaged subject artifacts use
+paths relative to the scenario file, which keeps those inputs inside the selected tranche:
 
 ```bash
 tooling/squinch mc-investigate scenario "$SCENARIO_FILE" --json
@@ -34,18 +39,18 @@ tooling/squinch mc-investigate scenario "$SCENARIO_FILE" --json
 
 Scenario schema version 1 requires an exact seed and ordered steps. It supports command, generation,
 and selected-probe steps; multiple datapacks; server properties; startup/step/shutdown timeouts;
-retention; required runtime mods; managed `[[runtime_files]]` inputs copied from repository-relative
-sources to targets below the loader's `config/` directory; managed `runtime_absent_files` paths for
-first-start behavior; and response/region/terminal expectations. Managed files are fingerprinted
-where applicable, backed up, installed or removed before launch, and restored on every cleanup path.
-A generation step has `generation` authority unless it names a selected terminal probe and
-explicitly requests `finished-chunk` authority. Force-load acknowledgment alone is never labeled
-finished-chunk proof. Each `companion_artifacts` entry is a catalog root: its transitive
-`required_dependencies` closure is validated, deduplicated, conflict-checked, and staged in
-dependency-first order. Do not manually flatten a mod's dependency list into every scenario. Set
-`launch_task = "prodServer"` to execute production-mapped Fabric/NeoForge code. For Fabric revision
-comparisons, the probe overlay supplies the standard Loom production-server task when an older clean
-revision does not declare one, while preserving an existing project-owned task.
+retention; required runtime mods; managed `[[runtime_files]]` inputs copied from scenario-relative
+sources to targets below the owned server run's `config/` directory; managed `runtime_absent_files`
+paths for first-start behavior; and response/region/terminal expectations. Managed inputs are
+fingerprinted and the source worktree is never used as the server runtime. A generation step has
+`generation` authority unless it names a selected terminal probe and explicitly requests
+`finished-chunk` authority. Force-load acknowledgment alone is never labeled finished-chunk proof.
+Each `companion_artifacts` entry is a catalog root: its transitive `required_dependencies` closure
+is validated, deduplicated, conflict-checked, and staged in dependency-first order. Do not manually
+flatten a mod's dependency list into every scenario. Set `launch_task = "prodServer"` to execute
+production-mapped Fabric/NeoForge code. For Fabric revision comparisons, the probe overlay supplies
+the standard Loom production-server task when an older clean revision does not declare one, while
+preserving an existing project-owned task.
 
 A command step can own an asynchronous measurement by setting `wait_for_log`, `fail_on_log`, and
 `capture_files`. The runner snapshots output files before issuing RCON commands, accepts only files
@@ -167,16 +172,9 @@ tooling/squinch mc-investigate benchmark path/to/matrix.toml --resume RUN_ID --j
 Matrix inputs and campaign state are scratch for the active comparison. Remove them when its
 analysis is complete; do not keep campaigns as a historical archive.
 
-Normal run cleanup treats scenario runs referenced by accepted benchmark checkpoints as protected,
-even if an age or project selector would otherwise match them. Deleting a benchmark that owns
-accepted checkpoints requires the explicit `clean --benchmark RUN_ID --discard-checkpoints --apply`
-combination. Rejected and superseded attempt runs are not checkpoint-protected and can be removed by
-normal owned cleanup after they are no longer active; compact attempt records remain only in the
-task's benchmark scratch state.
-
-Matrix runtime state lives below the investigation cache's `benchmarks/` directory. Workload
-adapters remain task-local scenarios, so the matrix runner contains no mod-specific command or
-report knowledge. Remove the matrix and its scratch results when the active comparison is complete.
+Matrix runtime state lives below the tranche's `benchmarks/` directory. Workload adapters remain
+task-local scenarios, so the matrix runner contains no mod-specific command or report knowledge.
+Remove the matrix and its scratch results when the active comparison is complete.
 
 Use a task-local scenario with `scenario` or pass it to exact `compare` as shown below. Exact
 comparisons hold a global lock and run the two sides sequentially, preventing before/after benchmark
@@ -193,7 +191,7 @@ tooling/squinch mc-investigate compare \
   --expect different --json
 ```
 
-The command creates two detached worktrees under `investigation-state/worktrees/`, runs them
+The command creates two detached worktrees under the tranche's `worktrees/` directory, runs them
 sequentially, and requires identical scenario-input and injected-probe fingerprints. It removes
 request IDs, timestamps, polling/timing fields, and placement CPU time from behavioral equality;
 list order and all remaining numbers stay exact. The comparison output includes both normalized
@@ -223,10 +221,10 @@ model. Neither result establishes final block placement. Use command help for th
 options and remove its input and output when the active work is complete.
 
 The probe runtime is injected into development runs by an external Gradle init overlay. It adds no
-tracked target source or resources. Requests appear atomically under
-`<loader>/run/.squinch-investigate/requests/`; the runtime claims them on the Minecraft server
-thread and atomically publishes JSONL transcripts under `results/`. Every transcript record carries
-the run, request, probe, and probe-version identity, and exactly one final record has terminal state
+tracked target source or resources. Requests appear atomically under the run's
+`server-run/.squinch-investigate/requests/`; the runtime claims them on the Minecraft server thread
+and atomically publishes JSONL transcripts under `results/`. Every transcript record carries the
+run, request, probe, and probe-version identity, and exactly one final record has terminal state
 `pass`, `fail`, `inconclusive`, or `error`. A terminal also records its observation phase and
 inspected/skipped/completeness counts. Logs remain diagnostics; the structured terminal is the
 authority used by the CLI and scenario runner.
@@ -255,8 +253,7 @@ registers a handful of probes by ID/version, callable directly through
   predicate matches/examples. Predicates may select `block_ids`, `biome_ids`, `min_height`, and
   `max_height`; omitted fields are unconstrained. `pass` only if every chunk became a real
   `LevelChunk` in time; otherwise it is `inconclusive` with bounded `not_ready_examples` and honest
-  completeness. The legacy `top_block_ids` and `top_biome_ids` result aliases remain for consumers
-  of the original example probe.
+  completeness.
 - `squinch:runtime-smoke`, `squinch:partial-control`, `squinch:exception-control`,
   `squinch:isolation-control`, and `squinch:stop-flush-control` are protocol negative/positive
   controls, not investigation probes; see `BuiltinProbes.java` for their exact behavior.
@@ -267,12 +264,10 @@ the runtime mod list parsed from the real loader log. Startup verifies the actua
 world before steps run. A crash, fatal server condition, timeout, assertion failure, missing or
 non-passing probe terminal result, incomplete scan, or cleanup failure makes the command nonzero.
 
-Generated state lives beneath `games/minecraft/investigation-state/` and is ignored by Git. Every
-run owns a unique ID, artifact directory, log, manifest, command stream, summary, and level name.
-This is task-local scratch, not a persistent archive; remove completed run state after the active
-work is done. Target `eula.txt` and `server.properties` files are backed up and restored. The
-launcher invokes a non-executable wrapper as `bash ./gradlew`, uses `env.sh`, disables reusable
-Gradle daemons for the launch command, and never changes the wrapper's tracked mode.
+Every run owns a unique ID, artifact directory, isolated server directory, log, manifest, command
+stream, summary, and level name inside the tranche. The launcher invokes a non-executable wrapper as
+`bash ./gradlew`, uses `env.sh`, disables reusable Gradle daemons for the launch command, and never
+changes the wrapper's tracked mode. Gradle's shared user cache stays outside tranche ownership.
 
 Every launch runs as a dedicated transient user-systemd service with control-group kill semantics.
 The exact unit intent is published as recoverable `launching` state before `systemd-run` is spawned,
@@ -291,11 +286,9 @@ phase consumes the same monotonic timeout budget; the timeout is not restarted f
 Choose a timeout that includes launch/transformation, the probe, normal shutdown, and fallback
 cleanup; a short diagnostic timeout can expire before cleanup has any remaining budget.
 
-`clean` is a dry run unless `--apply` is supplied. It accepts exact `--run` IDs or an explicit
-`--older-than-days` selection and rejects active runs, symlinks, foreign manifests, or paths outside
-the owned state root. The repository's `protected_runs` list in
-`.squinch/games/minecraft/investigation-retention.toml` is empty. Cleanup deletes directly after
-validation; there is no speculative trash layer.
+Preview and apply task cleanup with `tooling/squinch tranche clean <id>` and
+`tooling/squinch tranche clean <id> --apply`. The repository command removes the complete selected
+tranche across games after verifying that no owned process or incomplete teardown remains.
 
 ## Verification and test policy
 

@@ -32,9 +32,10 @@ or conflict compatibility.
 
 ## Organize investigations
 
-Put repeatable, non-secret workflows in `games/no-mans-sky/investigations/scenarios/`. Scenarios
-declare exact inputs, expected positive or negative outcomes, and fail-fast behavior. Raw output
-belongs to the ignored run tree; durable current-state conclusions belong in focused
+Create and select a repository scratch tranche before running NMS tools. Put scenario TOMLs and
+other task inputs in that tranche workspace. Scenarios declare exact inputs, expected positive or
+negative outcomes, and fail-fast behavior. Generated output stays in the same tranche; durable
+current-state conclusions belong in maintained source, tests, or focused
 `.agent-docs/games/no-mans-sky/refs/` documents. Never commit extracted copyrighted mod files, game
 assets, saves, logs, compiler binaries, or runtime staging trees.
 
@@ -65,6 +66,15 @@ Suspend or close the preview before collecting live game evidence or asking the 
 preview rebuilds must not open a window or take focus while NMS is running. The preview launcher
 automatically suspends on NMS process detection and resumes after the game exits. Keep the in-game
 overlay available during gameplay.
+
+For an operator-loaded investigation session, keep NMS available while analysing a capture and
+collecting any follow-up fields that can be read safely in that same session. Do not force an
+operator restart after each individual snapshot. Honour the operator's end-of-session instruction:
+close NMS before stopping work or handing off a request for a fresh operator-loaded session, and
+restore/verify the authorised production installation. Keep the game open for instructions that are
+part of an already authorised live test, such as asking the operator to travel while a recorder is
+running. A collector that deliberately holds the session must have an explicit finish path; run it
+before yielding the session.
 
 Develop outside the live installation. `stage` is dry-run by default and `--apply` owns exactly one
 uniquely named child under `GAMEDATA/MODS`; it does not launch, enable, reorder, or clean another

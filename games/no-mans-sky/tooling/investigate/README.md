@@ -1,16 +1,28 @@
 # No Man's Sky investigation runner
 
-`tooling/squinch nms-investigate` turns NMS asset and loose-mod inspection into reproducible,
-machine-readable runs. It is intentionally an extraction and overlay tool, not a Minecraft-style
-build-server wrapper: NMS exposes HGPAK assets, MBIN templates, EXML overlays, loose resources, and
-an executable boundary rather than public loader mappings and a headless dedicated-server API.
+`tooling/squinch --tranche <id> nms-investigate` turns NMS asset and loose-mod inspection into
+reproducible, machine-readable runs. It is intentionally an extraction and overlay tool, not a
+Minecraft-style build-server wrapper: NMS exposes HGPAK assets, MBIN templates, EXML overlays, loose
+resources, and an executable boundary rather than public loader mappings and a headless
+dedicated-server API.
+
+Create and select a tranche before using the examples below:
+
+```bash
+tooling/squinch tranche create example-fix
+export SQUINCH_TRANCHE=example-fix
+workspace="$(tooling/squinch tranche path example-fix)"
+mkdir -p "${workspace}/inputs"
+```
 
 ## Evidence and ownership
 
-Every evidence-bearing command creates a unique run below the ignored
-`games/no-mans-sky/investigation-state/runs/<run-id>/` tree. `request.json` records normalized
-inputs; `result.json` uses `schemas/cli-output-v1.json`; intermediate inventories, extracted inputs,
-compiler products, hashes, and bounded diffs stay beside them. Runs are never silently reused.
+Every evidence-bearing command creates a unique run below the selected tranche's
+`no-mans-sky/investigate/runs/<run-id>/` tree. `request.json` records normalized inputs;
+`result.json` uses `schemas/cli-output-v1.json`; intermediate inventories, extracted inputs,
+compiler products, hashes, and bounded diffs stay beside them. Local MBIN/XML inputs, byte-signature
+catalogs, scenario files, and screenshots are task scratch and must come from the selected tranche.
+Mod roots and source checkouts are maintained/shared source and remain outside tranche cleanup.
 
 The committed `toolchain.toml` targets public Cosmos 7.04, Steam build `25442159`, and pins
 HGPAKtool `1.1.3` plus the latest published MBINCompiler release (`v7.02.0-pre2`) by URL and
@@ -89,9 +101,12 @@ Compare XML or validate a merged export:
 
 ```bash
 tooling/squinch nms-investigate compare \
-  --left before.MXML --right after.MXML --expect different
+  --left "${workspace}/inputs/before.MXML" \
+  --right "${workspace}/inputs/after.MXML" --expect different
 tooling/squinch nms-investigate verify-export \
-  --patch authored.EXML --exported merged.MXML --vanilla vanilla.MXML
+  --patch "${workspace}/inputs/authored.EXML" \
+  --exported "${workspace}/inputs/merged.MXML" \
+  --vanilla "${workspace}/inputs/vanilla.MXML"
 ```
 
 `verify-export` proves intended leaf name/value presence (and removal absence) and optionally
@@ -130,7 +145,7 @@ Verify named NMS.py-style byte signatures against the exact installed executable
 
 ```bash
 tooling/squinch nms-investigate exe-patterns \
-  --catalog /exact/NMS.py/tools/data.json \
+  --catalog "${workspace}/inputs/patterns.json" \
   --name 'cGcSolarSystemQuery::Run' \
   --name 'cGcScanEventManager::PassesPlanetInfoChecks' \
   --disassemble-bytes 4096
@@ -182,11 +197,11 @@ investigation tools do not import the Search Probes runtime or require NMS.py.
 
 ## Declarative scenarios
 
-Run a committed TOML workflow:
+Run a task-local TOML workflow from the selected tranche:
 
 ```bash
-tooling/squinch nms-investigate scenario \
-  games/no-mans-sky/investigations/scenarios/current-ui-assets.toml
+tooling/squinch --tranche example-fix nms-investigate scenario \
+  "${workspace}/inputs/current-ui-assets.toml"
 ```
 
 Scenario schema version 1 requires a kebab-case `id` and one or more unique `[[steps]]`. Supported
@@ -210,7 +225,8 @@ launches the game nor edits `GCMODSETTINGS.MXML`, `DISABLEMODS.TXT`, saves, or a
 tooling/squinch nms-investigate stage --mod-root /exact/mod/root
 tooling/squinch nms-investigate stage --mod-root /exact/mod/root --apply
 tooling/squinch nms-investigate stage-status --run <run-id>
-tooling/squinch nms-investigate collect --run <run-id> --screenshot result.png
+tooling/squinch nms-investigate collect --run <run-id> \
+  --screenshot "${workspace}/inputs/result.png"
 tooling/squinch nms-investigate unstage --run <run-id> --apply
 ```
 
@@ -219,11 +235,13 @@ atomically moved into `MODS`; interrupted copies remain outside the active mod t
 removed with `unstage --apply`. That command refuses modified, missing, extra, symlinked,
 running-game, or incorrectly named active targets. After NMS is stopped, `collect` copies and hashes
 available `FullLog.txt`, `GCMODSETTINGS.MXML`, `MODS/EXPORTED` content, and explicit screenshots
-into a timestamped run-owned snapshot. Remove run evidence only after unstaging:
+into a timestamped run-owned snapshot. The tranche cleaner removes an unchanged registered stage
+after confirming that NMS is stopped. A modified stage must be reviewed and explicitly unstaged
+before cleanup can continue:
 
 ```bash
-tooling/squinch nms-investigate clean --run <run-id>
-tooling/squinch nms-investigate clean --run <run-id> --apply
+tooling/squinch tranche clean example-fix
+tooling/squinch tranche clean example-fix --apply
 ```
 
 ## Deliberate runtime boundary

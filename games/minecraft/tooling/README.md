@@ -52,17 +52,17 @@ manual shell initialization has not been performed.
 
 ## Live Investigation
 
-Use the managed investigation package through the root dispatcher:
+Create a task tranche and use the managed investigation package through the root dispatcher:
 
 ```sh
-tooling/squinch mc-investigate --help
+tooling/squinch tranche create example-fix
+tooling/squinch --tranche example-fix mc-investigate --help
 ```
 
 It accepts exact project/worktree paths, authenticates readiness through RCON, owns unique run
 artifacts and worlds, validates process identities and descendants during teardown, and emits a
-versioned JSON contract for agents. See [`investigate/README.md`](investigate/README.md) for
-command, state, retention, and cleanup details. This remains distinct from `qa/`, which owns release
-matrices and promotion.
+versioned JSON contract for agents. See [`investigate/README.md`](investigate/README.md) for command
+and state details. The `qa/` package also writes its local check output into the selected tranche.
 
 ## Manual Setup
 

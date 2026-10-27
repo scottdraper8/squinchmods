@@ -4,12 +4,15 @@ import hashlib
 from pathlib import Path
 
 from .errors import InvestigationError
+from .tranche import require_tranche
 
 PACKAGE_DIR = Path(__file__).resolve().parents[2]
 TOOLING_DIR = PACKAGE_DIR.parent
 MINECRAFT_DIR = TOOLING_DIR.parent
 REPOSITORY_ROOT = MINECRAFT_DIR.parents[1]
-STATE_ROOT = MINECRAFT_DIR / "investigation-state"
+
+_TRANCHE_ID, TRANCHE_WORKSPACE = require_tranche()
+STATE_ROOT = TRANCHE_WORKSPACE / "minecraft" / "investigate"
 ACTIVE_ROOT = STATE_ROOT / "active"
 RUNS_ROOT = STATE_ROOT / "runs"
 LOCKS_ROOT = STATE_ROOT / "locks"
@@ -17,8 +20,6 @@ WORKTREES_ROOT = STATE_ROOT / "worktrees"
 ENV_SH = TOOLING_DIR / "env.sh"
 PROBE_RUNTIME_ROOT = PACKAGE_DIR / "probe-runtime"
 PROBE_OVERLAY = PACKAGE_DIR / "gradle" / "probe-overlay.gradle"
-RETENTION_INDEX = REPOSITORY_ROOT / ".squinch/games/minecraft/investigation-retention.toml"
-
 LOADERS = ("fabric", "forge", "neoforge", "quilt")
 
 

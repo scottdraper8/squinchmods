@@ -139,9 +139,6 @@ final class FinishedChunkPalette implements ProbeExecution {
         data.add("biome_histogram", biomes);
         data.add("height_histogram", integerCounts(heightCounts));
         data.add("predicate_examples", examples);
-        // Backward-compatible names from the original example probe.
-        data.add("top_block_ids", blocks.deepCopy());
-        data.add("top_biome_ids", biomes.deepCopy());
         return this.selection.result(snapshot, data);
     }
 

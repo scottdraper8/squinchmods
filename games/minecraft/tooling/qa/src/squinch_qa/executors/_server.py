@@ -4,8 +4,9 @@ import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import IO, Iterator, Mapping
+from typing import IO
 
 DEFAULT_SMOKE_TIMEOUT_S: float = 300.0  # 5 min for server-smoke
 DEFAULT_PREGEN_TIMEOUT_S: float = 3600.0  # 1 hour for pregen
@@ -45,9 +46,8 @@ def configure_qa_server_properties(
     """
     Write the minimum server properties QA needs for Gradle-dev runs.
 
-    Gradle run dirs are persistent developer workspace state. A unique
-    level-name prevents stale session.lock files in `world/` from poisoning new
-    QA jobs and avoids reusing a developer's manual test world.
+    Each Gradle run directory belongs to one QA job in the selected tranche.
+    A unique level name also makes the job identity explicit in server output.
     """
     loader_run_dir.mkdir(parents=True, exist_ok=True)
     effective_properties = {
@@ -256,9 +256,8 @@ def collect_new_crash_reports(
     """
     Copy crash reports created during this job.
 
-    Gradle run dirs are persistent local state and may already contain old
-    crash reports. Those are useful to keep locally, but they are not evidence
-    that the current job crashed.
+    Only reports created after this job's initial inventory are current-job
+    evidence.
     """
     crash_src = loader_run_dir / "crash-reports"
     if not crash_src.exists():
