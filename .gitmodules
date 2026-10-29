@@ -7,3 +7,6 @@
 [submodule "games/no-mans-sky/mods/search-probes"]
 	path = games/no-mans-sky/mods/search-probes
 	url = git@github.com:scottdraper8/search-probes.git
+[submodule "games/minecraft/mods/FreeTerraForged.wiki"]
+	path = games/minecraft/mods/FreeTerraForged.wiki
+	url = git@github.com:ETcodehome/FreeTerraForged.wiki.git
