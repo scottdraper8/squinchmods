@@ -252,3 +252,6 @@ bounded product path under [`../runtime/`](../runtime/README.md), with its own e
 threading, lifecycle, and save-isolation gates. Static staging conclusions remain limited to the
 data path: use a backed-up save, collect `FullLog.txt` and `MODS/EXPORTED`, and retain any required
 human/visual observation beside the run.
+
+Search Probes backend commands:
+[product README](../../mods/search-probes/README.md#search-without-the-ui).

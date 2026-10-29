@@ -26,13 +26,20 @@ def compiler_version(path: Path, *, work_dir: Path) -> dict:
 def convert(path: Path, *, work_dir: Path) -> tuple[Path | None, dict]:
     result = run_mbincompiler([str(path)], work_dir=work_dir)
     output = (result.stdout + result.stderr).strip()
-    if path.suffix.casefold() == ".mbin":
-        generated = path.with_suffix(".MXML")
+    if path.name.casefold().endswith(".mbin.pc"):
+        candidates = [path.with_suffix("").with_suffix(".MXML")]
+    elif path.suffix.casefold() == ".mbin":
+        candidates = [path.with_suffix(".MXML")]
     elif path.suffix.casefold() == ".mxml":
-        generated = path.with_suffix(".MBIN")
+        candidates = [path.with_suffix(".MBIN"), path.with_suffix(".MBIN.PC")]
     else:
-        generated = path.with_suffix(path.suffix + ".out")
-    return (generated if generated.is_file() else None), {
+        candidates = [path.with_suffix(path.suffix + ".out")]
+    generated = [candidate for candidate in candidates if candidate.is_file()]
+    if len(generated) > 1:
+        raise InvestigationError(
+            "ambiguous_compiler_output", f"Multiple compiler outputs exist for: {path}"
+        )
+    return (generated[0] if generated else None), {
         "returncode": result.returncode,
         "output": output[-10000:],
     }

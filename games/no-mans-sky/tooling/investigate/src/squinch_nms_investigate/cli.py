@@ -63,6 +63,26 @@ def parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="Inspect game, host, and pinned toolchain health")
     _common(doctor, game=True)
 
+    search = sub.add_parser(
+        "search", help="Control the installed Search Probes backend without UI input"
+    )
+    _common(search, game=True)
+    search.add_argument("action", choices=("status", "start", "cancel", "continue", "configure"))
+    search.add_argument("--settings-dir", type=Path)
+    search_input = search.add_mutually_exclusive_group()
+    search_input.add_argument(
+        "--settings", type=Path, help="Full Settings JSON in the selected tranche"
+    )
+    search_input.add_argument("--criteria", type=Path, help="Criteria JSON in the selected tranche")
+    search.add_argument("--systems", type=int)
+    search.add_argument("--results", type=int)
+    search.add_argument("--restart", action="store_true")
+    search.add_argument("--use-cache", action="store_true")
+    search.add_argument(
+        "--no-wait", action="store_true", help="Return after enqueue acknowledgement"
+    )
+    search.add_argument("--timeout", type=float, default=120)
+
     toolchain = sub.add_parser(
         "toolchain", help="Inspect or acquire the pinned investigation toolchain"
     )
@@ -358,6 +378,43 @@ def main(argv: list[str] | None = None) -> None:
                 args.vanilla = require_scratch_input(args.vanilla)
         elif args.command == "exe-patterns":
             args.catalog = require_scratch_input(args.catalog)
+        if args.command == "search":
+            from . import search_control
+
+            if args.settings is not None:
+                args.settings = require_scratch_input(args.settings)
+            if args.criteria is not None:
+                args.criteria = require_scratch_input(args.criteria)
+            game_root = resolve_game_root(args.game_root)
+            assert_supported_build(game_root)
+            directory = search_control.settings_directory(game_root, args.settings_dir)
+            endpoint, state = search_control.status(directory)
+            run = create_run("search", _jsonable(vars(args)))
+            run.write("initial-state.json", state)
+            if args.action == "status":
+                data = {"phase": "status", "endpoint": endpoint, "state": state}
+            else:
+                action = search_control.action_from_options(args, state)
+                run.write("action.json", action)
+                data = search_control.command(
+                    directory, action, wait=not args.no_wait, timeout=args.timeout
+                )
+            health = host_health()
+            data["host_health"] = health
+            data["performance_evidence_valid"] = health["healthy"]
+            failed = data["phase"] == "failed"
+            unresolved = (data["state"].get("progress") or {}).get("unresolved_arena_planets", 0)
+            search_result = args.action in {"start", "continue"} and data["phase"] != "queued"
+            outcome = (
+                "failed"
+                if failed
+                else "inconclusive"
+                if unresolved and search_result
+                else "succeeded"
+            )
+            _finish(run, "search", outcome, data, json_mode=json_mode)
+            return
+
         if args.command == "doctor":
             started = timestamp()
             game_root = resolve_game_root(args.game_root)

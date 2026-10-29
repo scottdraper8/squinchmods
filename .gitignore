@@ -18,6 +18,7 @@ games/minecraft/reference/
 games/no-mans-sky/reference/
 
 # Agent-generated scratch
+investigation-state/
 .agent-docs/.cache/
 .agent-docs/tmp/
 .agent-docs/private/

@@ -76,10 +76,9 @@ The native classification in 7.06 distinguishes intensity from the extreme-weath
 
 This relationship was traced in the installed executable and checked by emulating only its
 classification instructions over synthetic inputs, without launching the game. The reproducible
-script and raw result remain in
-`games/no-mans-sky/investigation-state/runtime/search-probes-ui-preview/validation/native-weather-classification.py`
-and the adjacent JSON artifact. This establishes flag computation, not loaded-planet hazard-drain
-rates or visual weather behavior.
+script and raw result remain in the [weather reference](../../wiki/Weather-and-Resources.md) and the
+adjacent JSON artifact. This establishes flag computation, not loaded-planet hazard-drain rates or
+visual weather behavior.
 
 Current-runtime validation then copied those fields during the temporary planet destructor without
 retaining a pointer. The authoritative complete local graph covered 15,053 remote systems and 71,730
@@ -93,7 +92,7 @@ retained summary is
 
 The earlier raw-enum form withheld `Always`, `RedWeather`, `GreenWeather` and `BlueWeather`. The
 current user-facing controls derive storm behavior and warning families; see the
-[weather contract](../search-probes-weather-contract.md). The retained raw-enum audit distinguishes
+[weather reference](../../wiki/Weather-and-Resources.md). The retained raw-enum audit distinguishes
 ordinary generation from seasonal overrides.
 
 The current `GcPlanetInfo` schema also has a 128-byte `Weather` localization-ID field. It does not

@@ -35,13 +35,13 @@ change in any game update.
 
 Do not conflate data mods with runtime hooks.
 
-| System                    | What it changes                     | What the game receives                                       | Current status on Bazzite                                                                          |
-| ------------------------- | ----------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Loose data mod            | Serialized game data and assets     | `.EXML`, `.MBIN`, and resources under `GAMEDATA/MODS/<mod>/` | Current and works through Proton because the Windows game reads ordinary files                     |
-| Runtime-hook mod          | Live functions and memory           | Native DLL hooks; optional third-party frameworks            | Search Probes owns a Rust exact-build interface validated through Proton; no general support claim |
-| Build recipe              | Generates a data mod                | AMUMSS consumes `.lua`, then emits accepted game files       | Out of scope here; the game never executes the Lua                                                 |
-| Save editor               | Persistent player/save values       | Rewrites `.hg` save data outside the game                    | A tool, not a loaded mod                                                                           |
-| Generic graphics injector | Post-processing or API interception | Usually DLL/config/shader files beside the executable        | Separate from the NMS data loader and tool-specific                                                |
+| System                    | What it changes                     | What the game receives                                       | Current status on Bazzite                                                      |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Loose data mod            | Serialized game data and assets     | `.EXML`, `.MBIN`, and resources under `GAMEDATA/MODS/<mod>/` | Current and works through Proton because the Windows game reads ordinary files |
+| Runtime-hook mod          | Live functions and memory           | Native DLL hooks; optional third-party frameworks            | Build-specific native interfaces; compatibility depends on each mod            |
+| Build recipe              | Generates a data mod                | AMUMSS consumes `.lua`, then emits accepted game files       | Out of scope here; the game never executes the Lua                             |
+| Save editor               | Persistent player/save values       | Rewrites `.hg` save data outside the game                    | A tool, not a loaded mod                                                       |
+| Generic graphics injector | Post-processing or API interception | Usually DLL/config/shader files beside the executable        | Separate from the NMS data loader and tool-specific                            |
 
 The rest of the document uses “mod” to mean a loose data mod unless it explicitly says “runtime-hook
 mod.”
@@ -268,11 +268,6 @@ boundary: changing the Journey tab icon is a small EXML operation, while fitting
 patches per row replaces two complete UI MBINs and becomes invalid when their nested GUI schema
 changes.
 
-The live [system-search investigation](working/system-search-investigation.md) applies those seams
-to a planet finder and owns the current architecture decision. Current vanilla Guide topics already
-launch Wiki missions containing scan events, making that a substantially smaller launcher than a
-quick-menu/player-animation chain.
-
 Prefer the data seam when it fully expresses the feature. When it does not, treat a UI MBIN as a
 version-specific rebuild product: start from the exact current vanilla object, preserve unrelated
 current fields and controls, and revalidate navigation, focus, input mode, resolution, UI scale, and
@@ -474,15 +469,6 @@ This is a separate loader and risk model:
   both packages declare Win32 as their environment.[^16]
 - Upstream instructions assume Windows Python and a Windows process. Running the Linux Python
   package directly on Bazzite cannot inject into NMS under Proton.
-
-Search Probes owns a Rust native bootstrap, relocated hooks, generator workers and desktop UI. It
-validates the executable before touching native state and starts through the WinMM proxy during
-ordinary Steam launch. No NMS.py, pyMHF or Python interpreter ships with it. The retained framework
-snapshots and earlier attach experiments are source/evidence controls, not a maintained product
-path. HGPAK, MBINCompiler and PE disassembly remain useful independent host-side investigation
-tools. Current architecture, measured scope and release gates are in the
-[Rust release plan](working/search-probes-rust-overhaul.md); product build/install instructions are
-in [Search Probes](../../../games/no-mans-sky/mods/search-probes/README.md).
 
 The Reloaded-II `NoMansSky.Api` repository is useful historical evidence for C# memory-hook modding,
 but its last source change was June 2023 and its instructions involve an old executable-patching

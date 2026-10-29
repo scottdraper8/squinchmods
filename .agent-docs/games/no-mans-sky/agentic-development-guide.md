@@ -32,10 +32,11 @@ or conflict compatibility.
 
 ## Organize investigations
 
-Create and select a repository scratch tranche before running NMS tools. Put scenario TOMLs and
-other task inputs in that tranche workspace. Scenarios declare exact inputs, expected positive or
-negative outcomes, and fail-fast behavior. Generated output stays in the same tranche; durable
-current-state conclusions belong in maintained source, tests, or focused
+Create and select a repository scratch tranche before running NMS tools. Do not recreate legacy
+`investigation-state/` directories or keep one-off probes and fixtures in maintained source. Put
+scenario TOMLs and other task inputs in that tranche workspace. Scenarios declare exact inputs,
+expected positive or negative outcomes, and fail-fast behavior. Generated output stays in the same
+tranche; durable current-state conclusions belong in maintained source, tests, or focused
 `.agent-docs/games/no-mans-sky/refs/` documents. Never commit extracted copyrighted mod files, game
 assets, saves, logs, compiler binaries, or runtime staging trees.
 
@@ -52,6 +53,11 @@ resources. Rebuild a complete MBIN from current vanilla only when the UI or data
 express the change narrowly. Treat executable routes and runtime hooks as a separate mechanism with
 separate version, lifecycle, injection, teardown, and save-safety gates.
 
+During executable updates, classify each consumed value by its owner and use before changing it. A
+hexadecimal literal can be a bit mask, structure offset, test address or executable RVA; a unique
+code match does not distinguish those uses. Relocate reviewed bindings, not every occurrence of a
+numeric value. Keep changed structure fields separate from instruction-address correspondence.
+
 For the top pause-menu bar, `PAGESELECTBAR.MBIN` proves only a generic seven-slot layout. Current
 executable strings and generated templates show that page routing belongs to closed frontend page
 types and executable-owned controllers. A visual eighth slot without a new route is not a tab.
@@ -60,21 +66,6 @@ EXML or UI MBIN deployment does not supply one. Reusing or altering content insi
 Catalogue/Guide page remains data-driven and is the practical supported surface.
 
 ## Runtime safety
-
-For Search Probes, use the standalone live-reloading UI only while the NMS process is stopped.
-Suspend or close the preview before collecting live game evidence or asking the operator to travel;
-preview rebuilds must not open a window or take focus while NMS is running. The preview launcher
-automatically suspends on NMS process detection and resumes after the game exits. Keep the in-game
-overlay available during gameplay.
-
-For an operator-loaded investigation session, keep NMS available while analysing a capture and
-collecting any follow-up fields that can be read safely in that same session. Do not force an
-operator restart after each individual snapshot. Honour the operator's end-of-session instruction:
-close NMS before stopping work or handing off a request for a fresh operator-loaded session, and
-restore/verify the authorised production installation. Keep the game open for instructions that are
-part of an already authorised live test, such as asking the operator to travel while a recorder is
-running. A collector that deliberately holds the session must have an explicit finish path; run it
-before yielding the session.
 
 Develop outside the live installation. `stage` is dry-run by default and `--apply` owns exactly one
 uniquely named child under `GAMEDATA/MODS`; it does not launch, enable, reorder, or clean another

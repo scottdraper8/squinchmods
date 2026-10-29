@@ -52,7 +52,7 @@ profile or window geometry does not match its contract. See the
 
 The [Search Probes Rust workspace](../mods/search-probes/README.md) owns the runtime, native
 bootstrap, GUI, build and package verification. It ships no Python or NMS.py dependencies. The
-[runtime development notes](runtime/README.md) link release and bounded validation procedures.
+[runtime tooling](runtime/README.md) supplies the preview and Windows build container.
 
 Build and verify the distributable with the workspace's locked Cargo commands. Close NMS before
 installing one consistent package into the direct installation and Amethyst sources. Ordinary Steam

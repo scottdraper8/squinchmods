@@ -1,9 +1,9 @@
 schema_version = 1
 
 [target]
-nms_version = "7.06"
+nms_version = "Forsaken (183791)"
 branch = "public"
-steam_build_ids = ["25732212"]
+steam_build_ids = ["26271400"]
 
 [hgpaktool]
 package = "hgpaktool"
