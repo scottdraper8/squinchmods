@@ -10,3 +10,6 @@
 [submodule "games/minecraft/mods/FreeTerraForged.wiki"]
 	path = games/minecraft/mods/FreeTerraForged.wiki
 	url = git@github.com:ETcodehome/FreeTerraForged.wiki.git
+[submodule "games/no-mans-sky/mods/spsp"]
+	path = games/no-mans-sky/mods/spsp
+	url = git@github.com:scottdraper8/spsp.git
