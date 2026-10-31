@@ -13,7 +13,9 @@ allprojects { project ->
         project.pluginManager.withPlugin(pluginId) {
             if (runDirProperty != null) {
                 project.loom.runs.named("server").configure {
-                    runDir new File(runDirProperty).canonicalPath
+                    // Loom resolves this string against the loader subproject.
+                    // The QA runner supplies the corresponding relative path.
+                    runDir runDirProperty
                 }
             }
         }

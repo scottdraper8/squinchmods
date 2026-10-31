@@ -23,18 +23,30 @@ def qa_init_script(repo_root: Path) -> Path:
     )
 
 
-def qa_gradle_args(repo_root: Path, job_dir: Path) -> list[str]:
+def qa_gradle_args(
+    repo_root: Path,
+    mod_dir: Path,
+    job_dir: Path,
+    loader: str,
+) -> list[str]:
     script = qa_init_script(repo_root)
     run_root = job_dir.parents[2]
     build_root = run_root / "gradle-build" / job_dir.parent.name
     project_cache = run_root / "gradle-project-cache"
+    loader_project_dir = (mod_dir / loader).resolve()
+    runtime_dir = (job_dir / "runtime").resolve()
+    # Loom stores runDir as a string and later constructs
+    # new File(loaderProjectDir, runDir). Supplying an absolute path therefore
+    # incorrectly nests it below the loader project. A loader-relative path
+    # preserves the tranche-owned absolute destination when Loom resolves it.
+    loom_run_dir = os.path.relpath(runtime_dir, loader_project_dir)
     return [
         "--project-cache-dir",
         str(project_cache),
         "--init-script",
         str(script),
         f"-PsquinchQaBuildRoot={build_root}",
-        f"-PsquinchQaRunDir={job_dir / 'runtime'}",
+        f"-PsquinchQaRunDir={loom_run_dir}",
     ]
 
 

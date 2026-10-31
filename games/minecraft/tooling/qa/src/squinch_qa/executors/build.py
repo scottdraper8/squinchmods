@@ -75,7 +75,8 @@ class BuildExecutor:
             )
 
         returncode = run_gradle(
-            args=qa_gradle_args(ctx.repo_root, ctx.job_dir) + [gradle_task],
+            args=qa_gradle_args(ctx.repo_root, ctx.mod_dir, ctx.job_dir, loader)
+            + [gradle_task],
             cwd=ctx.mod_dir,
             env=env,
             stdout_log=stdout_log,

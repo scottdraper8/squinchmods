@@ -5,13 +5,12 @@ import stat as _stat
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.executors._gradle import (
     GradleEnvError,
+    qa_gradle_args,
     resolve_gradle_env,
     run_gradle,
 )
-
 
 # ── resolve_gradle_env: real .sdkmanrc parsing ───────────────────────────────
 #
@@ -70,6 +69,64 @@ class TestResolveGradleEnv:
         resolve_gradle_env(tmp_path)
 
         assert dict(os.environ) == before
+
+
+class TestQaGradleArgs:
+    def test_loom_run_dir_resolves_to_tranche_runtime(self, tmp_path: Path):
+        repo_root = tmp_path / "repo"
+        mod_dir = repo_root / "games" / "minecraft" / "mods" / "ExampleMod"
+        loader_dir = mod_dir / "fabric"
+        loader_dir.mkdir(parents=True)
+        job_dir = (
+            repo_root
+            / ".squinch"
+            / "scratch"
+            / "tranches"
+            / "example"
+            / "minecraft"
+            / "qa"
+            / "runs"
+            / "1234567890000-deadbeef"
+            / "jobs"
+            / "fabric-1.21.1"
+            / "server-smoke"
+        )
+        job_dir.mkdir(parents=True)
+
+        args = qa_gradle_args(repo_root, mod_dir, job_dir, "fabric")
+        run_dir_arg = next(arg for arg in args if arg.startswith("-PsquinchQaRunDir="))
+        configured = run_dir_arg.split("=", 1)[1]
+
+        assert not Path(configured).is_absolute()
+        assert (loader_dir / configured).resolve() == (job_dir / "runtime").resolve()
+
+    def test_relative_path_resolves_for_each_loader(self, tmp_path: Path):
+        repo_root = tmp_path / "repo"
+        mod_dir = repo_root / "mod"
+        job_dir = repo_root / "scratch" / "jobs" / "neoforge-1.21.1" / "server-smoke"
+        (mod_dir / "fabric").mkdir(parents=True)
+        (mod_dir / "neoforge").mkdir(parents=True)
+        job_dir.mkdir(parents=True)
+
+        fabric_args = qa_gradle_args(repo_root, mod_dir, job_dir, "fabric")
+        neoforge_args = qa_gradle_args(repo_root, mod_dir, job_dir, "neoforge")
+        fabric_run_dir = next(
+            arg.split("=", 1)[1]
+            for arg in fabric_args
+            if arg.startswith("-PsquinchQaRunDir=")
+        )
+        neoforge_run_dir = next(
+            arg.split("=", 1)[1]
+            for arg in neoforge_args
+            if arg.startswith("-PsquinchQaRunDir=")
+        )
+
+        assert (mod_dir / "fabric" / fabric_run_dir).resolve() == (
+            job_dir / "runtime"
+        ).resolve()
+        assert (mod_dir / "neoforge" / neoforge_run_dir).resolve() == (
+            job_dir / "runtime"
+        ).resolve()
 
 
 # ── run_gradle: real subprocess teeing/threading ─────────────────────────────

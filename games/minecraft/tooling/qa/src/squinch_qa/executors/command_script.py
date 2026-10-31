@@ -98,7 +98,7 @@ def _launch_command_server(
             ctx.mod_dir,
             env,
             logs_dir,
-            gradle_args=qa_gradle_args(ctx.repo_root, ctx.job_dir),
+            gradle_args=qa_gradle_args(ctx.repo_root, ctx.mod_dir, ctx.job_dir, loader),
         )
         return proc, log_path, ctx.job_dir / "runtime"
 
