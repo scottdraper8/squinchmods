@@ -27,6 +27,7 @@ def config() -> dict:
     target = value.get("target")
     hgpak = value.get("hgpaktool")
     mbin = value.get("mbincompiler")
+    search_probes = value.get("search_probes")
     if (
         not isinstance(target, dict)
         or not isinstance(target.get("nms_version"), str)
@@ -35,7 +36,7 @@ def config() -> dict:
         or not target["steam_build_ids"]
         or not all(isinstance(item, str) and item.isdigit() for item in target["steam_build_ids"])
     ):
-        raise InvestigationError("invalid_toolchain_config", "Invalid target toolchain pin")
+        raise InvestigationError("invalid_toolchain_config", "Invalid current game target pin")
     if (
         not isinstance(hgpak, dict)
         or hgpak.get("package") != "hgpaktool"
@@ -50,30 +51,89 @@ def config() -> dict:
         or not re.fullmatch(r"[0-9a-f]{64}", str(mbin.get("sha256", "")))
         or not re.search(r"@sha256:[0-9a-f]{64}$", str(mbin.get("container_image", "")))
         or not isinstance(mbin.get("dotnet_major"), int)
+        or not isinstance(mbin.get("supported_nms_version"), str)
+        or mbin.get("supported_branch") not in {"public", "experimental"}
+        or not isinstance(mbin.get("supported_steam_build_ids"), list)
+        or not mbin["supported_steam_build_ids"]
+        or not all(
+            isinstance(item, str) and item.isdigit() for item in mbin["supported_steam_build_ids"]
+        )
     ):
         raise InvestigationError("invalid_toolchain_config", "Invalid MBINCompiler pin")
+    if (
+        not isinstance(search_probes, dict)
+        or not isinstance(search_probes.get("nms_version"), str)
+        or search_probes.get("branch") not in {"public", "experimental"}
+        or not isinstance(search_probes.get("steam_build_ids"), list)
+        or not search_probes["steam_build_ids"]
+        or not all(
+            isinstance(item, str) and item.isdigit() for item in search_probes["steam_build_ids"]
+        )
+    ):
+        raise InvestigationError("invalid_toolchain_config", "Invalid Search Probes target pin")
     return value
+
+
+def _target_identity(
+    game_root: Path, *, nms_version: str, branch: str, build_ids: list[str]
+) -> dict:
+    actual = steam_build_id(game_root)
+    return {
+        "nms_version": nms_version,
+        "branch": branch,
+        "allowed_steam_build_ids": build_ids,
+        "actual_steam_build_id": actual,
+        "matches": actual in build_ids,
+    }
 
 
 def target_identity(game_root: Path) -> dict:
     target = config()["target"]
-    actual = steam_build_id(game_root)
-    allowed = target["steam_build_ids"]
-    return {
-        "nms_version": target["nms_version"],
-        "branch": target["branch"],
-        "allowed_steam_build_ids": allowed,
-        "actual_steam_build_id": actual,
-        "matches": actual in allowed,
-    }
+    return _target_identity(
+        game_root,
+        nms_version=target["nms_version"],
+        branch=target["branch"],
+        build_ids=target["steam_build_ids"],
+    )
 
 
-def assert_supported_build(game_root: Path) -> dict:
-    identity = target_identity(game_root)
+def mbincompiler_target_identity(game_root: Path) -> dict:
+    compiler = config()["mbincompiler"]
+    return _target_identity(
+        game_root,
+        nms_version=compiler["supported_nms_version"],
+        branch=compiler["supported_branch"],
+        build_ids=compiler["supported_steam_build_ids"],
+    )
+
+
+def search_probes_target_identity(game_root: Path) -> dict:
+    target = config()["search_probes"]
+    return _target_identity(
+        game_root,
+        nms_version=target["nms_version"],
+        branch=target["branch"],
+        build_ids=target["steam_build_ids"],
+    )
+
+
+def assert_mbincompiler_supported_build(game_root: Path) -> dict:
+    identity = mbincompiler_target_identity(game_root)
     if not identity["matches"]:
         raise InvestigationError(
             "unsupported_game_build",
-            "The installed Steam build is not approved for the pinned NMS toolchain",
+            "The installed Steam build is outside the pinned MBINCompiler support target",
+            **identity,
+        )
+    return identity
+
+
+def assert_search_probes_supported_build(game_root: Path) -> dict:
+    identity = search_probes_target_identity(game_root)
+    if not identity["matches"]:
+        raise InvestigationError(
+            "unsupported_search_probes_build",
+            "The installed Steam build is outside the Search Probes support target",
             **identity,
         )
     return identity
@@ -248,6 +308,9 @@ def mbin_identity(*, acquire_backend: bool = False) -> dict:
         "release": value["release"],
         "reported_version": value["reported_version"],
         "sha256": actual,
+        "supported_nms_version": value["supported_nms_version"],
+        "supported_branch": value["supported_branch"],
+        "supported_steam_build_ids": value["supported_steam_build_ids"],
     }
     identity["backend"] = mbin_backend(acquire=acquire_backend)
     return identity
