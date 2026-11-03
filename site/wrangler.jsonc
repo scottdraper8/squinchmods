@@ -3,6 +3,20 @@
   "name": "squinchmods",
   "main": "./worker.ts",
   "compatibility_date": "2026-09-27",
+  "routes": [
+    {
+      "pattern": "squinchmods.com",
+      "custom_domain": true,
+    },
+    {
+      "pattern": "minecraft.squinchmods.com",
+      "custom_domain": true,
+    },
+    {
+      "pattern": "no-mans-sky.squinchmods.com",
+      "custom_domain": true,
+    },
+  ],
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
