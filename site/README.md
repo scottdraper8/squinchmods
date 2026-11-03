@@ -66,8 +66,7 @@ site/src/
 
 The Worker is named `squinchmods`. `wrangler.jsonc` defines its entry point, static asset directory,
 binding, compatibility date, and local development settings. The Worker is also available on its
-`workers.dev` hostname. The root, Minecraft, and No Man's Sky hostnames are declared in
-`wrangler.jsonc` as custom domains. Deploying the Worker attaches them, and Cloudflare creates their
+`workers.dev` hostname. Custom domains are attached separately in Cloudflare, which creates their
 DNS records and certificates.
 
 ## Deployment and credentials
