@@ -7,15 +7,22 @@ data-mod system introduced in Worlds Part II, how that system behaves on this Ba
 and the separate runtime-hook ecosystem. It does not cover AMUMSS Lua authoring: a Lua file is a
 build recipe consumed by AMUMSS, not a file the game executes.
 
-The reference was validated on September 15, 2026 against the current public PC release, Cosmos
-7.01, and Steam build `25320008`. Hello Games shipped 7.01 on September 10, 2026.[^1] The installed
-game, its generated settings, representative deployed mods, current community tool source, and a
-real HGPAK extraction were inspected locally.[^2]
+The retained loader and asset investigation baseline was validated on September 15, 2026 against
+public Cosmos 7.01, Steam build `25320008`. Hello Games shipped 7.01 on September 10, 2026.[^1] The
+workstation has since updated to public Forsaken 7.13, Steam build `26385139`, released on November
+2, 2026.[^18] The 7.01 settings, deployment, archive, and asset observations below are historical
+evidence, not a full 7.13 schema or mod-compatibility validation. The investigation configuration
+now records 7.13 as the current game target separately from compiler support: the latest
+MBINCompiler release is v7.10.0-pre1 for NMS 7.10/build `26271400`. That compiler now has a local
+7.13/build `26385139` allowlist entry after semantic round trips passed for the three vanilla table
+objects patched by Generous Giver; this is targeted validation, not coverage of the full 7.13 asset
+set.[^2]
 
 The supplied `NMS Modding 6.04.pdf` is about a year old, but “6.04” is not the game version it
 documents. Its first page identifies document revision 1.4.2 dated September 7, 2025, and the Nexus
 upload calls the file version `6.0.4.0b`; it covers the 5.58-to-6.x loader.[^3] Its central model
-remains correct in 7.01. These parts have aged:
+was verified against the 7.01 baseline; it has not been revalidated against 7.13. These parts have
+aged:
 
 - Compatibility cannot now be inferred from the PDF's January/March 2025 update-date cutoffs. Check
   the exact game version, mod format, affected vanilla paths, and author compatibility statement.
@@ -273,9 +280,9 @@ version-specific rebuild product: start from the exact current vanilla object, p
 current fields and controls, and revalidate navigation, focus, input mode, resolution, UI scale, and
 localization after every affected update.
 
-The bar above those pages is a different ownership boundary. Current 7.01 extraction identifies
-`UI/COMPONENTS/PAGESELECTBAR.MBIN` as a generic seven-slot `cGcNGuiLayerData` layout, while current
-executable strings and generated page-hint types identify concrete Inventory, Discovery, Journey,
+The bar above those pages is a different ownership boundary. The 7.01 extraction identified
+`UI/COMPONENTS/PAGESELECTBAR.MBIN` as a generic seven-slot `cGcNGuiLayerData` layout, while the 7.01
+executable strings and generated page-hint types identified concrete Inventory, Discovery, Journey,
 Wiki/Catalogue, Mission Log, Expedition, and Options routes. The layout can draw another control but
 does not define a new frontend route or page controller. A genuinely new peer tab therefore is not
 realistic through ordinary EXML/MBIN data modding: it requires a version-qualified executable hook
@@ -305,10 +312,10 @@ Consequences:
 
 The generated settings file records `ModPriority` per mod. The priority direction is
 counterintuitive: in the supplied guide's observed behavior, the **lowest numeric priority loads
-last and wins**. Default priorities are derived from mod-folder names; the local 7.01 settings
-corroborate that folder enumeration still populates ascending numeric priorities.[^2][^3] Do not
-encode semantic dependencies in punctuation-heavy folder names when a manager or explicit settings
-order can express them.
+last and wins**. Default priorities are derived from mod-folder names; the observed 7.01 settings
+corroborate that folder enumeration populated ascending numeric priorities.[^2][^3] Do not encode
+semantic dependencies in punctuation-heavy folder names when a manager or explicit settings order
+can express them.
 
 The current serialized `GcModSettingsInfo` structure also contains `Name`, `Author`, `ID`,
 `AuthorID`, `LastUpdated`, `ModPriority`, `Enabled`, `EnabledVR`, and `Dependencies` fields.[^13]
@@ -325,8 +332,8 @@ choices. Back it up if those choices matter.
 
 Do not recreate or delete the old `GAMEDATA/PCBANKS/DISABLEMODS.TXT`. Since Beacon, modern startup
 and crash dialogs can offer to disable detected mods, and disabling is no longer their automatic
-default behavior.[^14] Current local logs also show the game probing the profile cache for a
-`DISABLEMODS` marker, which is distinct from the retired PCBANKS text-file mechanism.[^2]
+default behavior.[^14] The 7.01 local logs also showed the game probing the profile cache for a
+`DISABLEMODS` marker, distinct from the retired PCBANKS text-file mechanism.[^2]
 
 For a crash or bad load:
 
@@ -385,10 +392,10 @@ hgpaktool -U --platform windows --output ./extracted \
   "$NMS_ROOT/GAMEDATA/PCBANKS/NMSARC.globals.pak"
 ```
 
-The first command was reproduced against the local 7.01 `NMSARC.globals.pak`; the current tool read
-the archive and listed its Globals without modifying the installation.[^2] HGPAKtool's PC repacking
-support is intentionally unnecessary/unsupported for ordinary mod deployment. Use it to extract and
-inspect, not to produce PC mod archives.
+The first command was reproduced against the local 7.01 `NMSARC.globals.pak`; HGPAKtool listed that
+archive without modifying the installation.[^2] HGPAKtool's PC repacking support is intentionally
+unnecessary/unsupported for ordinary mod deployment. Use it to extract and inspect, not to produce
+PC mod archives.
 
 ### 2. Convert with the matching MBINCompiler
 
@@ -458,7 +465,8 @@ finding functions/objects in `NMS.exe`, injecting code, and detouring calls.
 NMS.py is the current actively maintained NMS-specific option found in source. It builds on pyMHF,
 maps reverse-engineered types and Globals, locates functions with byte signatures, and supports
 before/after hooks, callbacks, a generated UI, a Python REPL, and mod reloads.[^15] Its source was
-updated for the Cosmos-era executable on September 8, 2026.[^2]
+updated for executable product version 184271 on October 31, 2026; that source mapping is static
+evidence, not runtime-hook validation on the installed game.
 
 This is a separate loader and risk model:
 
@@ -472,8 +480,8 @@ This is a separate loader and risk model:
 
 The Reloaded-II `NoMansSky.Api` repository is useful historical evidence for C# memory-hook modding,
 but its last source change was June 2023 and its instructions involve an old executable-patching
-workflow.[^17] It is not a current 7.01 recommendation. The still older NMSE/script-extender path is
-also obsolete.
+workflow.[^17] It is not a current runtime-hook recommendation. The still older NMSE/script-extender
+path is also obsolete.
 
 ## Compatibility model
 
@@ -592,8 +600,8 @@ controlled Proton launch and backed-up disposable save fixture.
 
 [^15]:
     monkeyman192 et al.
-    “[NMS.py](https://github.com/monkeyman192/NMS.py/tree/626c594c8891b7d889d9ae3fffc2505793e5b3be),”
-    commit `626c594`, September 8, 2026.
+    “[NMS.py](https://github.com/monkeyman192/NMS.py/tree/4f27ff1f9c75b5f5f9e5f92eb9bf32e1fef09b10),”
+    update for executable product version `184271`, October 31, 2026.
 
 [^16]:
     monkeyman192 et al.
@@ -605,3 +613,7 @@ controlled Proton launch and backed-up disposable save fixture.
     gurrenm3.
     “[NoMansSky.Api](https://github.com/gurrenm3/NoMansSky.Api/tree/1974810b828802377129a03bb96fa2d6f10ded8a),”
     commit `1974810`, June 3, 2023.
+
+[^18]:
+    Hello Games. “[Forsaken 7.13](https://www.nomanssky.com/2026/11/forsaken-7-13/),” November
+    2, 2026.

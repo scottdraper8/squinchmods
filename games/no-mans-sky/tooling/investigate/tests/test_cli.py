@@ -56,7 +56,7 @@ def test_executable_cli_positive_and_negative_assertions(
     assert not negative["data"]["all_patterns_matched"]
 
 
-def test_doctor_explains_degraded_host(
+def test_doctor_reports_host_and_compiler_target_degradation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     game = fake_game(tmp_path)
@@ -77,6 +77,7 @@ def test_doctor_explains_degraded_host(
     )
     monkeypatch.setattr(cli, "host_capabilities", lambda: {})
     monkeypatch.setattr(cli, "target_identity", lambda _: {"matches": True})
+    monkeypatch.setattr(cli, "mbincompiler_target_identity", lambda _: {"matches": False})
     monkeypatch.setattr(cli, "hgpak_identity", lambda: {})
     monkeypatch.setattr(cli, "verify_mbincompiler", lambda: {})
     with pytest.raises(SystemExit) as stopped:
@@ -84,6 +85,8 @@ def test_doctor_explains_degraded_host(
     assert stopped.value.code == 1
     result = json.loads(capsys.readouterr().out)
     assert result["state"] == "degraded"
+    assert result["data"]["checks"]["toolchain_target"]["matches"]
+    assert not result["data"]["checks"]["mbincompiler_target"]["matches"]
     assert result["data"]["problems"] == [
         {
             "code": "uninterruptible_processes",
@@ -92,5 +95,10 @@ def test_doctor_explains_degraded_host(
                 "The host has processes in uninterruptible sleep; performance and large-file "
                 "evidence are invalid until the host recovers"
             ),
-        }
+        },
+        {
+            "code": "unsupported_game_build",
+            "component": "mbincompiler-target",
+            "message": "Installed Steam build is not validated for the pinned MBINCompiler release",
+        },
     ]

@@ -20,7 +20,7 @@ from .mods import (
 )
 from .paths import resolve_game_root
 from .runs import write_json
-from .toolchain import assert_supported_build
+from .toolchain import assert_mbincompiler_supported_build
 from .xmlmodel import compare_xml, verify_export
 
 STEP_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -174,7 +174,7 @@ def _run_step(context: Context, base: Path, step: dict, destination: Path) -> tu
         data = {"files": extract_assets(paths, catalog, destination / "extracted")}
         return "succeeded", data
     if operation == "roundtrip":
-        assert_supported_build(context.game())
+        assert_mbincompiler_supported_build(context.game())
         paths = _strings(step.get("paths"), f"step {step['id']} paths")
         catalog, _ = context.inventory()
         extracted = extract_assets(paths, catalog, destination / "extracted")
@@ -185,7 +185,7 @@ def _run_step(context: Context, base: Path, step: dict, destination: Path) -> tu
         passed = all(item["passed"] for item in results)
         return ("succeeded" if passed else "failed"), {"passed": passed, "results": results}
     if operation == "analyze-mod":
-        assert_supported_build(context.game())
+        assert_mbincompiler_supported_build(context.game())
         analysis = _analyze(
             context,
             _relative(base, step.get("mod_root"), f"step {step['id']} mod_root"),
@@ -196,7 +196,7 @@ def _run_step(context: Context, base: Path, step: dict, destination: Path) -> tu
         data = analysis_summary(analysis) | {"analysis_report": str(report)}
         return analysis["static_outcome"], data
     if operation == "conflicts":
-        assert_supported_build(context.game())
+        assert_mbincompiler_supported_build(context.game())
         roots = [
             _relative(base, value, f"step {step['id']} mod_roots")
             for value in _strings(step.get("mod_roots"), f"step {step['id']} mod_roots", minimum=2)

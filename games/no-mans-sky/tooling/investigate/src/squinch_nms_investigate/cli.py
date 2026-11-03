@@ -28,9 +28,11 @@ from .scenario import run_scenario
 from .source import snapshot_source
 from .staging import collect_evidence, stage, stage_status, unstage
 from .toolchain import (
-    assert_supported_build,
+    assert_mbincompiler_supported_build,
+    assert_search_probes_supported_build,
     hgpak_identity,
     mbin_identity,
+    mbincompiler_target_identity,
     sync_mbincompiler,
     target_identity,
     verify_mbincompiler,
@@ -268,6 +270,7 @@ def _game_evidence(game_root: Path) -> dict:
         "host_health": health,
         "performance_evidence_valid": health["healthy"],
         "toolchain_target": target_identity(game_root),
+        "mbincompiler_target": mbincompiler_target_identity(game_root),
     }
 
 
@@ -386,7 +389,7 @@ def main(argv: list[str] | None = None) -> None:
             if args.criteria is not None:
                 args.criteria = require_scratch_input(args.criteria)
             game_root = resolve_game_root(args.game_root)
-            assert_supported_build(game_root)
+            assert_search_probes_supported_build(game_root)
             directory = search_control.settings_directory(game_root, args.settings_dir)
             endpoint, state = search_control.status(directory)
             run = create_run("search", _jsonable(vars(args)))
@@ -427,6 +430,7 @@ def main(argv: list[str] | None = None) -> None:
                 "host": host_capabilities(),
                 "host_health": health,
                 "toolchain_target": target_identity(game_root),
+                "mbincompiler_target": mbincompiler_target_identity(game_root),
             }
             problems: list[dict] = []
             if not health["healthy"]:
@@ -451,9 +455,22 @@ def main(argv: list[str] | None = None) -> None:
             if not checks["toolchain_target"]["matches"]:
                 problems.append(
                     {
-                        "component": "toolchain-target",
+                        "component": "game-target",
+                        "code": "unexpected_game_build",
+                        "message": (
+                            "Installed Steam build differs from the pinned current-game target"
+                        ),
+                    }
+                )
+            if not checks["mbincompiler_target"]["matches"]:
+                problems.append(
+                    {
+                        "component": "mbincompiler-target",
                         "code": "unsupported_game_build",
-                        "message": "Installed Steam build is outside the pinned toolchain target",
+                        "message": (
+                            "Installed Steam build is not validated for the pinned "
+                            "MBINCompiler release"
+                        ),
                     }
                 )
             for name, function in (
@@ -600,7 +617,7 @@ def main(argv: list[str] | None = None) -> None:
             game_data = None
             if args.paths:
                 game_root = resolve_game_root(args.game_root)
-                assert_supported_build(game_root)
+                assert_mbincompiler_supported_build(game_root)
                 catalog, _ = _inventory_context(game_root, run.path)
                 extracted = extract_assets(args.paths, catalog, run.path / "extracted")
                 sources = [(item["logical_path"], Path(item["path"])) for item in extracted]
@@ -628,7 +645,7 @@ def main(argv: list[str] | None = None) -> None:
             )
         elif args.command == "analyze-mod":
             game_root = resolve_game_root(args.game_root)
-            assert_supported_build(game_root)
+            assert_mbincompiler_supported_build(game_root)
             analysis = _analyze_with_current(args.mod_root, game_root, run.path)
             report = run.path / "mod-analysis/report.json"
             write_analysis_report(analysis, report)
@@ -639,7 +656,7 @@ def main(argv: list[str] | None = None) -> None:
             _finish(run, "analyze-mod", data["static_outcome"], data, json_mode=json_mode)
         elif args.command == "conflicts":
             game_root = resolve_game_root(args.game_root)
-            assert_supported_build(game_root)
+            assert_mbincompiler_supported_build(game_root)
             catalog, members = _inventory_context(game_root, run.path)
             all_targets: set[str] = set()
             for root in args.mod_root:
@@ -797,7 +814,7 @@ def main(argv: list[str] | None = None) -> None:
             _finish(run, "exe-functions", "succeeded", data, json_mode=json_mode)
         elif args.command == "verify-assets":
             game_root = resolve_game_root(args.game_root)
-            assert_supported_build(game_root)
+            assert_mbincompiler_supported_build(game_root)
             deployment = args.mod_root.resolve()
             patches = sorted(
                 path for path in deployment.rglob("*") if path.suffix.upper() in {".EXML", ".MXML"}
