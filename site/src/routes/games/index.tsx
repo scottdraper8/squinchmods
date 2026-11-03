@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SiteShell } from "#/components/layout/SiteShell";
+import { games } from "#/content/catalog";
+import { publicGameHref } from "#/lib/paths";
 
 export const Route = createFileRoute("/games/")({
   component: GamesIndexPage,
@@ -8,12 +9,14 @@ export const Route = createFileRoute("/games/")({
 
 function GamesIndexPage() {
   return (
-    <SiteShell>
-      <section className="page-intro">
-        <p className="eyebrow">GAME LIBRARY</p>
-        <h1>Games</h1>
-        <p>Explore mods and projects by game.</p>
-      </section>
-    </SiteShell>
+    <main>
+      <ul>
+        {Object.values(games).map((game) => (
+          <li key={game.slug}>
+            <a href={publicGameHref(game.hostname, game.slug)}>{game.name}</a>
+          </li>
+        ))}
+      </ul>
+    </main>
   );
 }

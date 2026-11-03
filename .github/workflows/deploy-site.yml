@@ -20,6 +20,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
       - name: Check out repository without submodules
         uses: actions/checkout@v6
         with:
@@ -28,7 +33,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 12.6.0
+          version: 12.11.2
           run_install: false
 
       - name: Set up Node.js

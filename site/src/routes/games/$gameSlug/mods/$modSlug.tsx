@@ -1,9 +1,12 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
-import { SiteShell } from "#/components/layout/SiteShell";
 import { findGame, findMod } from "#/content/catalog";
 import { redstoneBackport } from "#/content/games/minecraft/mods/redstone-backport/mod";
-import { RedstoneBackportOverview } from "#/content/games/minecraft/mods/redstone-backport/Overview";
+import { RedstoneBackportPage } from "#/content/games/minecraft/mods/redstone-backport/Page";
+import { generousGiver } from "#/content/games/no-mans-sky/mods/generous-giver/mod";
+import { GenerousGiverPage } from "#/content/games/no-mans-sky/mods/generous-giver/Page";
+import { searchProbes } from "#/content/games/no-mans-sky/mods/search-probes/mod";
+import { SearchProbesPage } from "#/content/games/no-mans-sky/mods/search-probes/Page";
 
 export const Route = createFileRoute("/games/$gameSlug/mods/$modSlug")({
   component: ModWikiPage,
@@ -14,20 +17,21 @@ function ModWikiPage() {
   const game = findGame(gameSlug);
   const mod = game ? findMod(game, modSlug) : undefined;
 
-  if (!game || !mod || mod.slug !== redstoneBackport.slug) {
+  if (!game || !mod) {
     throw notFound();
   }
 
-  return (
-    <SiteShell>
-      <article className="wiki-page">
-        <header className="page-intro">
-          <p className="eyebrow">{game.name} / MOD WIKI</p>
-          <h1>{mod.name}</h1>
-          <p>{mod.description}</p>
-        </header>
-        <RedstoneBackportOverview />
-      </article>
-    </SiteShell>
-  );
+  if (mod.slug === redstoneBackport.slug) {
+    return <RedstoneBackportPage />;
+  }
+
+  if (mod.slug === searchProbes.slug) {
+    return <SearchProbesPage />;
+  }
+
+  if (mod.slug === generousGiver.slug) {
+    return <GenerousGiverPage />;
+  }
+
+  throw notFound();
 }
