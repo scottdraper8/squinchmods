@@ -13,8 +13,10 @@ workstation has since updated to public Forsaken 7.13, Steam build `26385139`, r
 2, 2026.[^18] The 7.01 settings, deployment, archive, and asset observations below are historical
 evidence, not a full 7.13 schema or mod-compatibility validation. The investigation configuration
 now records 7.13 as the current game target separately from compiler support: the latest
-MBINCompiler release is v7.10.0-pre1 for NMS 7.10/build `26271400`, so compiler-backed checks remain
-fail-closed on the installed build while archive inventory and extraction are usable.[^2]
+MBINCompiler release is v7.10.0-pre1 for NMS 7.10/build `26271400`. That compiler now has a local
+7.13/build `26385139` allowlist entry after semantic round trips passed for the three vanilla table
+objects patched by Generous Giver; this is targeted validation, not coverage of the full 7.13 asset
+set.[^2]
 
 The supplied `NMS Modding 6.04.pdf` is about a year old, but “6.04” is not the game version it
 documents. Its first page identifies document revision 1.4.2 dated September 7, 2025, and the Nexus

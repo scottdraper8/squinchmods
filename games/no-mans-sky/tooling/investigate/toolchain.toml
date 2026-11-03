@@ -19,7 +19,9 @@ sha256 = "a752007bbf225419dada9eb1f5cb325d5d6f3549a49ca28927c693e590974268"
 dotnet_major = 8
 supported_nms_version = "7.10 (Forsaken)"
 supported_branch = "public"
-supported_steam_build_ids = ["26271400"]
+# Build 26385139 is locally allowlisted after semantic round trips of the
+# current game copies of COSTTABLE, REWARDTABLE, and GCALIENPUZZLETABLE.
+supported_steam_build_ids = ["26271400", "26385139"]
 container_image = "mcr.microsoft.com/dotnet/runtime@sha256:9cfa8aaf5c98a4cedffec74d450dd2d4510ba72ee9e663efe2658500b0321524"
 
 [search_probes]
