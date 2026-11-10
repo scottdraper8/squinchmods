@@ -78,6 +78,16 @@ tooling/squinch nms-investigate extract \
   --path UI/COMPONENTS/PAGESELECTBAR.MBIN
 ```
 
+Extract and decompile the full input corpus for the maintained Asset Wiki:
+
+```bash
+tooling/squinch --tranche <id> nms-investigate asset-wiki-source --json
+```
+
+This selects the five item/technology tables, all installed English localisation banks, the icon
+catalog, and every additional DDS referenced by those tables. It records exact archive provenance
+without attempting the unsupported current-build MBIN recompilation path.
+
 Prove the current compiler can preserve an MBIN semantically:
 
 ```bash

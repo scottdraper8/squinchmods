@@ -1,25 +1,37 @@
-# No Man's Sky reference-site tooling
+# No Man's Sky Asset Wiki ETL
 
-`generate_glossary.py` builds the static item and technology data used by
-`games/no-mans-sky/reference/site/glossary.html`.
+The maintained Asset Wiki lives at `https://no-mans-sky.squinchmods.com/asset-wiki/`. Its compact
+JSON-LD datasets live under `site/src/data/no-mans-sky/asset-wiki/`, and its generated WebP previews
+live under `games/no-mans-sky/reference/asset-wiki/assets/` for the site build to copy. There is no
+second reference-site frontend.
 
-The input directory must contain current MBINCompiler MXML exports for these installed-game tables:
+The source corpus contains these installed-game tables plus every installed English localisation
+bank:
 
 - `NMS_REALITY_GCPRODUCTTABLE.MBIN`
 - `NMS_REALITY_GCSUBSTANCETABLE.MBIN`
 - `NMS_REALITY_GCTECHNOLOGYTABLE.MBIN`
 - `NMS_REALITY_GCPROCEDURALTECHNOLOGYTABLE.MBIN`
 - `PROCEDURALPRODUCTTABLE.MBIN`
-- every installed English localisation bank
 
-Generate the browser-ready data after extracting and decompiling those files into task scratch:
+Create a task tranche and extract the current source corpus. Extraction performs read-only MBIN
+decompilation, so it remains available when the installed build is newer than the compiler's
+recompilation allowlist:
 
 ```bash
-python games/no-mans-sky/tooling/reference/generate_glossary.py \
-  --decompiled-root <path-to-current-mxml-exports>
+tooling/squinch tranche create <id>
+tooling/squinch --tranche <id> nms-investigate asset-wiki-source --json
 ```
 
-The generator writes `glossary-data.js` into the reference site. It resolves English display text,
-retains internal IDs and source keys, and links entries to any matching WebP previews already in the
-site asset tree. Re-extract from the installed game and regenerate when the supported game build is
-bumped.
+The run manifest retains the tables, localisation banks, full icon catalog, every additional DDS
+referenced by the tables, hashes, and archive provenance. Use it to refresh the WebP previews and
+both JSON-LD datasets in one operation:
+
+```bash
+python games/no-mans-sky/tooling/reference/refresh_asset_wiki.py \
+  --source-manifest <asset-wiki-source-manifest.json>
+```
+
+Pass `--reuse-previews` only when validating unchanged source DDS files. The JSON-LD remains
+server-side Worker data: the browser queries bounded result batches and never loads a complete
+catalog during normal use.

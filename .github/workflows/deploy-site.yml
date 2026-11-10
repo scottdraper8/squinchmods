@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "site/**"
+      - "games/no-mans-sky/reference/asset-wiki/**"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 

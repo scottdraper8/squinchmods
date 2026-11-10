@@ -1,0 +1,29 @@
+{
+  "datasets": {
+    "icons": 8056,
+    "items": 2996
+  },
+  "game_version": "7.14 (Forsaken)",
+  "glossary": {
+    "count": 2996,
+    "counts": {
+      "Procedural item": 28,
+      "Product": 2207,
+      "Resource": 114,
+      "Technology": 393,
+      "Upgrade module": 254
+    },
+    "localisationFiles": 9,
+    "sourceTables": [
+      "proceduralproducttable.MXML",
+      "nms_reality_gcproceduraltechnologytable.MXML",
+      "nms_reality_gcproducttable.MXML",
+      "nms_reality_gcsubstancetable.MXML",
+      "nms_reality_gctechnologytable.MXML"
+    ],
+    "unresolvedNames": 0,
+    "withIconPreview": 2735
+  },
+  "schema_version": 1,
+  "steam_build": "26540391"
+}

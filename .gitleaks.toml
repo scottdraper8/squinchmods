@@ -4,6 +4,5 @@ useDefault = true
 [[allowlists]]
 description = "Generated No Man's Sky reference catalogs contain game localization keys"
 paths = [
-  '''^games/no-mans-sky/reference/site/glossary-data\.js$''',
-  '''^games/no-mans-sky/reference/site/icons-data\.js$''',
+  '''^site/src/data/no-mans-sky/asset-wiki/[^/]+\.jsonld$''',
 ]

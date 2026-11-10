@@ -24,17 +24,29 @@ def test_archive_inventory_extract_and_missing_negative_control(
 args=sys.argv[1:]
 if '-L' in args:
     pak=next(value for value in args if value.endswith('.pak'))
-    pathlib.Path('filenames.json').write_text(json.dumps({pak:['UI/TEST.MBIN']}))
+    pathlib.Path('filenames.json').write_text(json.dumps({pak:['UI/TEST.MBIN','UI/SECOND.MBIN']}))
 elif '-U' in args:
     output=pathlib.Path(args[args.index('-O')+1]); output.joinpath('ui').mkdir(parents=True)
     output.joinpath('ui/test.mbin').write_bytes(b'MBIN')
+    output.joinpath('ui/second.mbin').write_bytes(b'MBIN2')
 """,
         encoding="utf-8",
     )
     monkeypatch.setattr(hgpak, "hgpak_command", lambda: ["python", str(helper)])
+    hashes: list[Path] = []
+    real_sha256 = hgpak.sha256_file
+    monkeypatch.setattr(
+        hgpak,
+        "sha256_file",
+        lambda path: hashes.append(path) or real_sha256(path),
+    )
     catalog = hgpak.inventory(game, tmp_path / "inventory")
-    records = hgpak.extract(["UI/TEST.MBIN"], catalog, tmp_path / "output")
-    assert records[0]["logical_path"] == "ui/test.mbin"
+    records = hgpak.extract(["UI/TEST.MBIN", "UI/SECOND.MBIN"], catalog, tmp_path / "output")
+    assert {record["logical_path"] for record in records} == {
+        "ui/test.mbin",
+        "ui/second.mbin",
+    }
+    assert hashes.count(archive) == 1
     with pytest.raises(InvestigationError, match="not in the current game"):
         hgpak.locate(["UI/MISSING.MBIN"], catalog)
     with pytest.raises(InvestigationError, match="multiple game archives"):

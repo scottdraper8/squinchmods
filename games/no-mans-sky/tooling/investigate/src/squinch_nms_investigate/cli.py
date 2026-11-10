@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from .asset_validation import verify_asset_compile
+from .asset_wiki import extract_sources as extract_asset_wiki_sources
 from .errors import InvestigationError
 from .executable import inspect_strings
 from .game import game_identity, host_capabilities, host_health
@@ -93,6 +94,12 @@ def parser() -> argparse.ArgumentParser:
 
     inv = sub.add_parser("inventory", help="Retain a current HGPAK archive inventory")
     _common(inv, game=True)
+
+    asset_wiki = sub.add_parser(
+        "asset-wiki-source",
+        help="Extract and decompile the current Asset Wiki source corpus",
+    )
+    _common(asset_wiki, game=True)
 
     extract = sub.add_parser("extract", help="Extract exact logical paths with archive provenance")
     _common(extract, game=True)
@@ -597,6 +604,16 @@ def main(argv: list[str] | None = None) -> None:
                 "unique_member_count": len(members),
             }
             _finish(run, "inventory", "succeeded", data, json_mode=json_mode)
+        elif args.command == "asset-wiki-source":
+            game_root = resolve_game_root(args.game_root)
+            catalog, members = _inventory_context(game_root, run.path)
+            game = _game_evidence(game_root)
+            data = extract_asset_wiki_sources(
+                catalog, members, run.path / "asset-wiki-source", game=game
+            )
+            data["game"] = game
+            data["toolchain"] = _toolchain_evidence(mbin=True)
+            _finish(run, "asset-wiki-source", "succeeded", data, json_mode=json_mode)
         elif args.command == "extract":
             game_root = resolve_game_root(args.game_root)
             catalog, _ = _inventory_context(game_root, run.path)

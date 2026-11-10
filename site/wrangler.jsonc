@@ -3,6 +3,13 @@
   "name": "squinchmods",
   "main": "./worker.ts",
   "compatibility_date": "2026-09-27",
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.jsonld"],
+      "fallthrough": true,
+    },
+  ],
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",

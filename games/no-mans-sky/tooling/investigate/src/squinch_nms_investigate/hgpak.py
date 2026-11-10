@@ -108,6 +108,7 @@ def extract(requested: list[str], catalog: dict[str, list[str]], destination: Pa
             f"HGPAKtool extraction failed: {(result.stderr or result.stdout).strip()}",
         )
     records: list[dict] = []
+    archive_hashes: dict[str, str] = {}
     for logical, archive in sorted(locations.items()):
         path = destination.joinpath(*logical.split("/"))
         if not path.is_file() or path.is_symlink():
@@ -115,6 +116,8 @@ def extract(requested: list[str], catalog: dict[str, list[str]], destination: Pa
                 "asset_extraction_incomplete", f"HGPAKtool did not produce {logical}"
             )
         archive_path = Path(archive)
+        if archive not in archive_hashes:
+            archive_hashes[archive] = sha256_file(archive_path)
         records.append(
             {
                 "logical_path": logical,
@@ -122,7 +125,7 @@ def extract(requested: list[str], catalog: dict[str, list[str]], destination: Pa
                 "bytes": path.stat().st_size,
                 "sha256": sha256_file(path),
                 "archive": str(archive_path),
-                "archive_sha256": sha256_file(archive_path),
+                "archive_sha256": archive_hashes[archive],
             }
         )
     manifest_path = destination.parent / f"{destination.name}-manifest.json"

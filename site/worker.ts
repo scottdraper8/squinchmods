@@ -1,3 +1,4 @@
+import { searchAssetWiki } from "./src/asset-wiki/search";
 import { findGameByHostname, findMod } from "./src/content/catalog";
 import type { GameWithMods } from "./src/content/types";
 
@@ -42,6 +43,13 @@ export default {
     const requestUrl = new URL(request.url);
     const hostname = requestUrl.hostname;
 
+    if (
+      requestUrl.pathname === "/api/asset-wiki/search" ||
+      requestUrl.pathname === "/api/asset-wiki/search/"
+    ) {
+      return searchAssetWiki(request);
+    }
+
     if (hostname === "squinchmods.com" || hostname.endsWith(".workers.dev")) {
       return env.ASSETS.fetch(request);
     }
@@ -51,7 +59,12 @@ export default {
       return notFound();
     }
 
-    if (requestUrl.pathname !== "/" && !requestUrl.pathname.endsWith("/")) {
+    const publicSegments = requestUrl.pathname.split("/").filter(Boolean);
+    if (
+      requestUrl.pathname !== "/" &&
+      !requestUrl.pathname.endsWith("/") &&
+      publicSegments.length === 1
+    ) {
       requestUrl.pathname += "/";
       return Response.redirect(requestUrl, 308);
     }

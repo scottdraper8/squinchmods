@@ -16,8 +16,8 @@ Thumbs.db
 /.squinch/scratch/
 games/minecraft/reference/
 games/no-mans-sky/reference/*
-!games/no-mans-sky/reference/site/
-!games/no-mans-sky/reference/site/**
+!games/no-mans-sky/reference/asset-wiki/
+!games/no-mans-sky/reference/asset-wiki/**
 /games/no-mans-sky/local/
 
 # Agent-generated scratch

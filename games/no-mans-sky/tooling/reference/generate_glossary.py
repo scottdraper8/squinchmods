@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the local item and technology glossary from decompiled NMS tables."""
+"""Extract Asset Wiki item and technology records from decompiled NMS tables."""
 
 from __future__ import annotations
 
@@ -114,13 +114,13 @@ def load_localisation(root: Path) -> tuple[dict[str, str], int]:
     return strings, files
 
 
-def icon_fields(node: ET.Element, site_root: Path) -> tuple[str, str]:
+def icon_fields(node: ET.Element, asset_root: Path) -> tuple[str, str]:
     icon_node = child(node, "Icon")
     icon = value(icon_node, "Filename") if icon_node is not None else ""
     if not icon:
         return "", ""
     preview = "assets/" + re.sub(r"\.dds$", ".webp", icon.casefold())
-    return icon, preview if (site_root / preview).is_file() else ""
+    return icon, preview if (asset_root / preview).is_file() else ""
 
 
 def localized(strings: dict[str, str], key: str, fallback: str = "") -> str:
@@ -131,7 +131,7 @@ def common_record(
     node: ET.Element,
     *,
     strings: dict[str, str],
-    site_root: Path,
+    asset_root: Path,
     kind: str,
     category: str,
     rarity: str,
@@ -142,7 +142,7 @@ def common_record(
     name_key = value(node, "Name")
     subtitle_key = value(node, "Subtitle")
     description_key = value(node, "Description")
-    icon, preview = icon_fields(node, site_root)
+    icon, preview = icon_fields(node, asset_root)
     name = localized(strings, name_key, fallback_name or item_id)
     subtitle = localized(strings, subtitle_key, "") if subtitle_key else ""
     description = localized(strings, description_key, "") if description_key else ""
@@ -166,7 +166,7 @@ def common_record(
 
 
 def fixed_records(
-    path: Path, strings: dict[str, str], site_root: Path, family: str
+    path: Path, strings: dict[str, str], asset_root: Path, family: str
 ) -> list[dict]:
     document = ET.parse(path).getroot()
     table = child(document, "Table")
@@ -232,7 +232,7 @@ def fixed_records(
         record = common_record(
             node,
             strings=strings,
-            site_root=site_root,
+            asset_root=asset_root,
             kind=kind,
             category=category,
             rarity=rarity,
@@ -253,7 +253,7 @@ def fixed_records(
 
 
 def procedural_product_records(
-    path: Path, strings: dict[str, str], site_root: Path
+    path: Path, strings: dict[str, str], asset_root: Path
 ) -> list[dict]:
     document = ET.parse(path).getroot()
     table = child(document, "Table")
@@ -270,7 +270,7 @@ def procedural_product_records(
         record = common_record(
             product,
             strings=strings,
-            site_root=site_root,
+            asset_root=asset_root,
             kind="Procedural item",
             category=label,
             rarity=nested_value(product, "Rarity"),
@@ -292,25 +292,15 @@ def procedural_product_records(
     return records
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--decompiled-root", type=Path, required=True)
-    parser.add_argument(
-        "--site-root",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "reference" / "site",
-    )
-    args = parser.parse_args()
-    source_root = args.decompiled_root.resolve()
-    site_root = args.site_root.resolve()
+def generate(source_root: Path, asset_root: Path) -> tuple[dict, list[dict]]:
     tables = find_tables(source_root)
     strings, localisation_files = load_localisation(source_root)
 
     records: list[dict] = []
     for family in ("products", "substances", "technologies", "procedural_technologies"):
-        records.extend(fixed_records(tables[family], strings, site_root, family))
+        records.extend(fixed_records(tables[family], strings, asset_root, family))
     records.extend(
-        procedural_product_records(tables["procedural_products"], strings, site_root)
+        procedural_product_records(tables["procedural_products"], strings, asset_root)
     )
     records.sort(key=lambda item: (item["name"].casefold(), item["kind"], item["id"]))
 
@@ -326,14 +316,25 @@ def main() -> None:
         "withIconPreview": sum(bool(record["preview"]) for record in records),
         "sourceTables": [tables[key].name for key in sorted(tables)],
     }
-    payload = (
-        "window.NMS_GLOSSARY_META="
-        + json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
-        + ";window.NMS_GLOSSARY_DATA="
-        + json.dumps(records, ensure_ascii=False, separators=(",", ":"))
-        + ";\n"
+    return meta, records
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--decompiled-root", type=Path, required=True)
+    parser.add_argument(
+        "--asset-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "reference" / "asset-wiki",
     )
-    (site_root / "glossary-data.js").write_text(payload, encoding="utf-8")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    meta, records = generate(args.decompiled_root.resolve(), args.asset_root.resolve())
+    if args.output:
+        args.output.resolve().write_text(
+            json.dumps({"meta": meta, "records": records}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps(meta, indent=2))
 
 
