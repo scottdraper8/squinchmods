@@ -78,7 +78,16 @@ def main():
     parser.add_argument(
         "--no-watch", action="store_true", help="open once without automatic reload"
     )
+    parser.add_argument(
+        "--fixtures",
+        type=int,
+        default=0,
+        metavar="COUNT",
+        help="populate the preview with COUNT representative results",
+    )
     args = parser.parse_args()
+    if args.fixtures < 0:
+        parser.error("--fixtures must be non-negative")
     cargo = os.environ.get("CARGO") or shutil.which("cargo")
     if not cargo:
         candidate = Path.home() / ".cargo" / "bin" / "cargo"
@@ -128,9 +137,10 @@ def main():
             candidate = scratch / f"preview-{version}{binary.suffix}"
             shutil.copy2(binary, candidate)
             print("Opening Search Probes UI preview.", flush=True)
-            return subprocess.Popen(
-                [str(candidate), "--reload-marker", str(marker)], cwd=ROOT
-            )
+            preview = [str(candidate), "--reload-marker", str(marker)]
+            if args.fixtures:
+                preview.extend(["--fixtures", str(args.fixtures)])
+            return subprocess.Popen(preview, cwd=ROOT)
 
         print(
             "UI preview: source edits reload after a successful build. Close the window to stop.",
