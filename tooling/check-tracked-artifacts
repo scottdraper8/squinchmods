@@ -4,6 +4,9 @@ set -euo pipefail
 bad=()
 while IFS= read -r path; do
     case "/$path/" in
+        */games/no-mans-sky/reference/site/*)
+            continue
+            ;;
         */.gradle/* | */build/* | */run/* | */.squinch/scratch/* | \
             */games/minecraft/reference/* | */games/no-mans-sky/reference/*)
             bad+=("$path")

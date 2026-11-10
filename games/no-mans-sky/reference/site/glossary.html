@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Items &amp; technology · No Man's Sky reference</title>
+  <link rel="stylesheet" href="site.css">
+  <link rel="stylesheet" href="catalog.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">No Man's Sky reference</a>
+    <nav aria-label="Reference pages"><a href="index.html">Overview</a><a href="glossary.html" aria-current="page">Items &amp; technology</a><a href="icons.html">Icon gallery</a><a href="colour-filters.html">World colour filters</a></nav>
+  </header>
+  <main>
+    <p class="eyebrow">7.14 (Forsaken) · Steam build 26540391</p>
+    <h1>Items &amp; technology</h1>
+    <p class="lede">Search the installed game's complete English catalog of inventory products, resources, fixed technologies, procedural upgrade modules and procedural-item archetypes. Player-facing text is paired with internal IDs and source metadata for save editing and mod work.</p>
+    <div class="facts" aria-label="Glossary coverage">
+      <span class="fact"><strong>2,996</strong> total entries</span>
+      <span class="fact"><strong>2,207</strong> products</span>
+      <span class="fact"><strong>114</strong> resources</span>
+      <span class="fact"><strong>647</strong> technologies &amp; upgrades</span>
+      <span class="fact"><strong>28</strong> procedural archetypes</span>
+    </div>
+    <section class="toolbar glossary-toolbar" aria-label="Glossary filters">
+      <label class="search">Search names, descriptions or IDs<input id="search" type="search" autocomplete="off" placeholder="e.g. radiant shard, CASING, hyperdrive"></label>
+      <label>Entry type<select id="kind"><option value="">All entry types</option></select></label>
+      <label>Category<select id="category"><option value="">All categories</option></select></label>
+      <label>Rarity / quality<select id="rarity"><option value="">All rarities</option></select></label>
+      <label>Sort<select id="sort"><option value="name">Name A–Z</option><option value="id">Internal ID</option><option value="kind">Entry type</option><option value="category">Category</option></select></label>
+    </section>
+    <div class="gallery-status"><span id="status" role="status" aria-live="polite"></span></div>
+    <section id="glossary" class="glossary-results" aria-label="Glossary results"></section>
+    <div class="infinite-footer"><button id="load-more" type="button">Load more entries</button><span id="scroll-sentinel" class="scroll-sentinel" aria-hidden="true"></span></div>
+    <p class="note">Procedural-item entries describe generator archetypes rather than every possible generated name or value. “Stack multiplier” is the table value used by the game, not a universal slot limit; actual capacity also depends on inventory and difficulty settings.</p>
+    <noscript><p class="empty">This local catalog needs JavaScript enabled for search and filtering.</p></noscript>
+  </main>
+  <footer>Local reference generated from the installed game. No Man's Sky and its assets belong to Hello Games.</footer>
+  <script src="glossary-data.js"></script><script src="glossary.js"></script>
+</body>
+</html>

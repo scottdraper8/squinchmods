@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "site": "squinchmods-no-mans-sky-reference",
+  "generated_on": "2026-11-10",
+  "game": {
+    "version": "7.14 (Forsaken)",
+    "steam_build": "26540391"
+  },
+  "icons": {
+    "count": 8056,
+    "icons_directory_count": 7966,
+    "icon_named_ui_count": 90,
+    "source_archives": [
+      "NMSARC.TexUI.pak"
+    ],
+    "scope": [
+      "DDS paths containing an icon or icons directory component",
+      "DDS paths below textures/ui containing icon elsewhere in the path"
+    ]
+  },
+  "glossary": {
+    "count": 2996,
+    "localized_name_count": 2996,
+    "icon_preview_count": 2735,
+    "counts": {
+      "products": 2207,
+      "resources": 114,
+      "technologies": 393,
+      "upgrade_modules": 254,
+      "procedural_item_archetypes": 28
+    },
+    "source_tables": [
+      "NMS_REALITY_GCPRODUCTTABLE.MBIN",
+      "NMS_REALITY_GCSUBSTANCETABLE.MBIN",
+      "NMS_REALITY_GCTECHNOLOGYTABLE.MBIN",
+      "NMS_REALITY_GCPROCEDURALTECHNOLOGYTABLE.MBIN",
+      "PROCEDURALPRODUCTTABLE.MBIN"
+    ],
+    "localisation_banks": 9
+  },
+  "colour_filters": {
+    "count": 41,
+    "native_values": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      27,
+      42,
+      43,
+      44,
+      45,
+      51,
+      57,
+      58,
+      60,
+      61,
+      63,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82
+    ],
+    "mode": "isolated SDR LUT trilinear samples"
+  }
+}

@@ -77,6 +77,7 @@ repos:
     rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce  # frozen: v8.30.0
     hooks:
     -   id: gitleaks
+        args: ['--config=.gitleaks.toml']
 
 # Shell scripts under games/minecraft/tooling/ (includes extensionless
 # scripts like build-mod and mc-source, not just *.sh)
