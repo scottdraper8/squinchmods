@@ -1,0 +1,27 @@
+[project]
+name = "squinch-nms-save"
+version = "0.1.0"
+description = "Transaction-safe raw No Man's Sky Steam/GOG save editing"
+requires-python = ">=3.11"
+dependencies = ["jsonschema>=4.23", "lz4==4.4.5"]
+
+[dependency-groups]
+dev = ["pytest>=9", "ruff==0.16.9"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/squinch_nms_save"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

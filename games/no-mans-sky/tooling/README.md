@@ -48,6 +48,23 @@ The helper is fixed to the currently proven 3840x2160 menu layout and fails clos
 profile or window geometry does not match its contract. See the
 [client helper README](client/README.md).
 
+## Save editor
+
+[`save/`](save/) provides semantic cross-save inventory, persistent local entity libraries,
+selective synchronization and merge/clone composition, revision-aware slot comparison, reviewed
+projection, galaxy-save settlement/base finalization, selective inventory/standing cleanup, targeted
+discovery-history pruning, raw inspection, JSON Pointer queries, structural search/diff, and
+transactional JSON Patch editing for Steam/Proton save formats up to NMS 7.14:
+
+```bash
+tooling/squinch tranche create example-save-edit
+tooling/squinch --tranche example-save-edit nms-save --help
+```
+
+Edits are first written as a complete save/metadata pair in the selected tranche. Applying a stage
+requires an explicit flag, a stopped game, unchanged source hashes, a verified backup, and a final
+hash check. See the [save-tool README](save/README.md) for the workflow and format boundary.
+
 ## Search Probes runtime
 
 The [Search Probes Rust workspace](../mods/search-probes/README.md) owns the runtime, native
