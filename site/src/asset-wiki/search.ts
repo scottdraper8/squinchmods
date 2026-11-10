@@ -1,7 +1,8 @@
+import colourFiltersText from "#/data/no-mans-sky/asset-wiki/colour-filters.jsonld";
 import iconsText from "#/data/no-mans-sky/asset-wiki/icons.jsonld";
 import itemsText from "#/data/no-mans-sky/asset-wiki/items.jsonld";
 
-type DatasetName = "icons" | "items";
+type DatasetName = "colour-filters" | "icons" | "items";
 
 interface JsonLdDataset {
   gameVersion: string;
@@ -16,11 +17,13 @@ interface IndexedRecord {
 }
 
 const datasets: Record<DatasetName, JsonLdDataset> = {
+  "colour-filters": JSON.parse(colourFiltersText) as JsonLdDataset,
   icons: JSON.parse(iconsText) as JsonLdDataset,
   items: JSON.parse(itemsText) as JsonLdDataset,
 };
 
 const searchableFields: Record<DatasetName, string[]> = {
+  "colour-filters": ["name", "description", "sdr", "hdr", "native_value"],
   icons: ["name", "path", "category", "scope"],
   items: ["id", "name", "kind", "category", "rarity", "subtitle", "description", "tags"],
 };
@@ -39,12 +42,13 @@ const indexes = Object.fromEntries(
 ) as Record<DatasetName, IndexedRecord[]>;
 
 const filterFields: Record<DatasetName, string[]> = {
+  "colour-filters": [],
   icons: ["category", "scope"],
   items: ["kind", "category", "rarity"],
 };
 
 function isDatasetName(value: string | null): value is DatasetName {
-  return value === "icons" || value === "items";
+  return value === "colour-filters" || value === "icons" || value === "items";
 }
 
 function facetValues(dataset: DatasetName): Record<string, string[]> {
@@ -59,6 +63,7 @@ function facetValues(dataset: DatasetName): Record<string, string[]> {
 }
 
 const facets: Record<DatasetName, Record<string, string[]>> = {
+  "colour-filters": facetValues("colour-filters"),
   icons: facetValues("icons"),
   items: facetValues("items"),
 };
@@ -81,7 +86,7 @@ export function searchAssetWiki(request: Request): Response {
   const url = new URL(request.url);
   const dataset = url.searchParams.get("dataset");
   if (!isDatasetName(dataset)) {
-    return json({ error: "dataset must be items or icons." }, 400);
+    return json({ error: "dataset must be items, icons, or colour-filters." }, 400);
   }
 
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);

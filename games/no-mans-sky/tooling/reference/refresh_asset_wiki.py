@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from build_asset_wiki import build as build_json_ld
+from generate_colour_filters import generate as generate_colour_filters
 from generate_glossary import generate as generate_glossary
 
 
@@ -105,6 +106,7 @@ def refresh(
     glossary_meta, glossary = generate_glossary(
         Path(source["decompiled_root"]), asset_store
     )
+    colour_filter_meta, colour_filters = generate_colour_filters(source_manifest)
 
     manifest_path = asset_store / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -132,8 +134,11 @@ def refresh(
             "localisation_banks": glossary_meta["localisationFiles"],
         }
     )
+    manifest["colour_filters"] = colour_filter_meta
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    result = build_json_ld(site_data, manifest, glossary_meta, glossary, icons)
+    result = build_json_ld(
+        site_data, manifest, glossary_meta, glossary, icons, colour_filters
+    )
     return {
         **result,
         "converted_preview_count": len(icon_sources),

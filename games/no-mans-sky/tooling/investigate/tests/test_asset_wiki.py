@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from squinch_nms_investigate.asset_wiki import (
+    SCREEN_FILTER_PATH,
     TABLE_PATHS,
     is_catalog_icon,
     referenced_dds_paths,
@@ -14,13 +15,14 @@ from squinch_nms_investigate.errors import InvestigationError
 def test_selects_tables_and_all_english_localisation_banks() -> None:
     members = {
         *TABLE_PATHS,
+        SCREEN_FILTER_PATH,
         "language/nms_loc1_english.mbin",
         "language/nms_update8_english.mbin",
         "language/nms_loc1_french.mbin",
     }
     selected = select_mbin_sources(members)
-    assert selected[:5] == list(TABLE_PATHS)
-    assert selected[5:] == [
+    assert selected[:6] == [*TABLE_PATHS, SCREEN_FILTER_PATH]
+    assert selected[6:] == [
         "language/nms_loc1_english.mbin",
         "language/nms_update8_english.mbin",
     ]
@@ -30,6 +32,13 @@ def test_missing_table_fails_closed() -> None:
     with pytest.raises(InvestigationError) as error:
         select_mbin_sources({"language/nms_loc1_english.mbin"})
     assert error.value.code == "asset_wiki_sources_missing"
+
+
+def test_missing_screen_filter_table_fails_closed() -> None:
+    with pytest.raises(InvestigationError) as error:
+        select_mbin_sources({*TABLE_PATHS, "language/nms_loc1_english.mbin"})
+    assert error.value.code == "asset_wiki_sources_missing"
+    assert error.value.details["paths"] == [SCREEN_FILTER_PATH]
 
 
 def test_icon_scope_and_table_references(tmp_path: Path) -> None:

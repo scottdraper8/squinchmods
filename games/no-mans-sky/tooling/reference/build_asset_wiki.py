@@ -41,6 +41,7 @@ def build(
     glossary_meta: dict,
     glossary: list[dict],
     icons: list[dict],
+    colour_filters: list[dict],
 ) -> dict:
     version = manifest["game"]["version"]
     build_id = manifest["game"]["steam_build"]
@@ -63,6 +64,15 @@ def build(
         icon["preview"] = public_preview(record["preview"])
         icon_records.append(icon)
 
+    colour_filter_records = []
+    for record in colour_filters:
+        colour_filter = dict(record)
+        colour_filter["@id"] = (
+            f"{GAME_NAMESPACE}world-colour-filter/{record['native_value']}"
+        )
+        colour_filter["@type"] = "WorldColourFilter"
+        colour_filter_records.append(colour_filter)
+
     output.mkdir(parents=True, exist_ok=True)
     outputs = {
         "items": dataset(
@@ -74,6 +84,13 @@ def build(
         ),
         "icons": dataset(
             "icons", "No Man's Sky icon assets", version, build_id, icon_records
+        ),
+        "colour-filters": dataset(
+            "colour-filters",
+            "No Man's Sky world colour filters",
+            version,
+            build_id,
+            colour_filter_records,
         ),
     }
     for name, value in outputs.items():
