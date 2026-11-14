@@ -1,0 +1,32 @@
+@use "sass:map";
+@use "contract";
+@use "palettes";
+@use "validation";
+
+@mixin properties($name, $palette) {
+  $palette: validation.validate($name, $palette);
+  $scheme: light;
+
+  @if map.get($palette, dark) {
+    $scheme: dark;
+  }
+
+  color-scheme: $scheme;
+
+  @each $role in contract.$roles {
+    --squinch-color-#{$role}: #{map.get($palette, $role)};
+  }
+}
+
+@mixin theme($name) {
+  @include properties($name, palettes.get($name));
+}
+
+@mixin selectors {
+  @each $name, $palette in palettes.$themes {
+    .theme--#{$name},
+    [data-theme="#{$name}"] {
+      @include properties($name, $palette);
+    }
+  }
+}

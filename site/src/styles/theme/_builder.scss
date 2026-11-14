@@ -1,0 +1,52 @@
+@use "color";
+
+@function editor-theme(
+  $dark,
+  $background,
+  $surface,
+  $selection,
+  $text,
+  $muted,
+  $primary,
+  $link,
+  $error,
+  $success,
+  $warning
+) {
+  $surface: color.resolve-alpha($surface, $background);
+  $selection: color.resolve-alpha($selection, $background);
+  $surface-container: color.mix-rgb($background, $surface, 0.72);
+  $on-surface: color.ensure-contrast($text, ($background, $surface), 4.5);
+  $on-surface-variant: color.ensure-contrast($muted, ($background, $surface), 4.5);
+  $on-primary-container: color.ensure-contrast($on-surface, ($selection), 4.5);
+  $error-container: color.mix-rgb($background, $error, 0.12);
+  $success-container: color.mix-rgb($background, $success, 0.12);
+  $warning-container: color.mix-rgb($background, $warning, 0.12);
+  $error: color.ensure-contrast($error, ($background, $error-container), 4.5);
+  $success: color.ensure-contrast($success, ($success-container), 4.5);
+  $warning: color.ensure-contrast($warning, ($warning-container), 4.5);
+
+  @return (
+    dark: $dark,
+    background: $background,
+    surface: $surface,
+    surface-container: $surface-container,
+    surface-container-high: $selection,
+    on-surface: $on-surface,
+    on-surface-variant: $on-surface-variant,
+    primary: $primary,
+    primary-container: $selection,
+    on-primary-container: $on-primary-container,
+    selection: $selection,
+    on-selection: $on-primary-container,
+    link: color.ensure-contrast($link, ($background), 4.5),
+    outline: color.ensure-contrast($muted, ($background), 3),
+    error: $error,
+    success: $success,
+    success-container: $success-container,
+    success-outline: $success,
+    warning: $warning,
+    warning-container: $warning-container,
+    warning-outline: $warning
+  );
+}

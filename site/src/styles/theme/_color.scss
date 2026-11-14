@@ -1,0 +1,99 @@
+@use "sass:color";
+@use "sass:list";
+@use "sass:math";
+
+@function mix-rgb($from, $to, $amount) {
+  @if $amount < 0 or $amount > 1 {
+    @error "RGB mix amount must be between 0 and 1.";
+  }
+
+  $red: math.round(
+    color.channel($from, "red", $space: rgb) +
+      (color.channel($to, "red", $space: rgb) - color.channel($from, "red", $space: rgb)) * $amount
+  );
+  $green: math.round(
+    color.channel($from, "green", $space: rgb) +
+      (color.channel($to, "green", $space: rgb) - color.channel($from, "green", $space: rgb)) *
+      $amount
+  );
+  $blue: math.round(
+    color.channel($from, "blue", $space: rgb) +
+      (color.channel($to, "blue", $space: rgb) - color.channel($from, "blue", $space: rgb)) *
+      $amount
+  );
+
+  @return rgb($red, $green, $blue);
+}
+
+@function resolve-alpha($value, $background) {
+  $alpha: color.alpha($value);
+
+  @if $alpha == 1 {
+    @return $value;
+  }
+
+  @return mix-rgb($background, color.change($value, $alpha: 1), $alpha);
+}
+
+@function linear-channel($channel) {
+  $value: math.div($channel, 255);
+
+  @if $value <= 0.04045 {
+    @return math.div($value, 12.92);
+  }
+
+  @return math.pow(math.div($value + 0.055, 1.055), 2.4);
+}
+
+@function luminance($value) {
+  @return 0.2126 * linear-channel(color.channel($value, "red", $space: rgb)) + 0.7152 *
+    linear-channel(color.channel($value, "green", $space: rgb)) + 0.0722 *
+    linear-channel(color.channel($value, "blue", $space: rgb));
+}
+
+@function contrast($first, $second) {
+  $first-luminance: luminance($first);
+  $second-luminance: luminance($second);
+  $light: math.max($first-luminance, $second-luminance);
+  $dark: math.min($first-luminance, $second-luminance);
+
+  @return math.div($light + 0.05, $dark + 0.05);
+}
+
+@function minimum-contrast($foreground, $backgrounds) {
+  $minimum: null;
+
+  @each $background in $backgrounds {
+    $ratio: contrast($foreground, $background);
+
+    @if $minimum == null or $ratio < $minimum {
+      $minimum: $ratio;
+    }
+  }
+
+  @return $minimum;
+}
+
+@function ensure-contrast($value, $backgrounds, $target) {
+  @if minimum-contrast($value, $backgrounds) >= $target {
+    @return $value;
+  }
+
+  $black-contrast: minimum-contrast(#000, $backgrounds);
+  $white-contrast: minimum-contrast(#fff, $backgrounds);
+  $endpoint: #000;
+
+  @if $white-contrast >= $black-contrast {
+    $endpoint: #fff;
+  }
+
+  @for $step from 1 through 100 {
+    $candidate: mix-rgb($value, $endpoint, math.div($step, 100));
+
+    @if minimum-contrast($candidate, $backgrounds) >= $target {
+      @return $candidate;
+    }
+  }
+
+  @return $endpoint;
+}

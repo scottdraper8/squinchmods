@@ -1,0 +1,41 @@
+@use "sass:map";
+@use "color";
+@use "contract";
+
+@function validate($name, $palette) {
+  $palette: contract.validate($name, $palette);
+  $text-target: 4.5;
+
+  @if $name == "high-contrast-dark" or $name == "high-contrast-light" {
+    $text-target: 7;
+  }
+
+  $text-pairs: (
+    (on-surface, background),
+    (on-surface, surface),
+    (on-surface-variant, background),
+    (on-primary-container, primary-container),
+    (on-primary-container, background),
+    (on-selection, selection),
+    (link, background),
+    (error, background),
+    (success, success-container),
+    (warning, warning-container)
+  );
+
+  @each $foreground, $background in $text-pairs {
+    $ratio: color.contrast(map.get($palette, $foreground), map.get($palette, $background));
+
+    @if $ratio < $text-target {
+      @error "Theme #{$name} fails #{$text-target}:1 text contrast: #{$foreground} on #{$background} is #{$ratio}.";
+    }
+  }
+
+  $outline-ratio: color.contrast(map.get($palette, outline), map.get($palette, background));
+
+  @if $outline-ratio < 3 {
+    @error "Theme #{$name} fails outline contrast: #{$outline-ratio}.";
+  }
+
+  @return $palette;
+}

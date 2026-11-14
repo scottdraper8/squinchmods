@@ -1,1 +1,4 @@
-// Intentionally empty: keep the SCSS pipeline connected while this PoC uses browser defaults.
+@use "theme";
+
+// Theme selectors are available to the application, but no theme is selected yet.
+@include theme.selectors;

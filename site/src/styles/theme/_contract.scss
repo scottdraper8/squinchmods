@@ -1,0 +1,62 @@
+@use "sass:list";
+@use "sass:map";
+@use "sass:meta";
+
+$roles: (
+  background,
+  surface,
+  surface-container,
+  surface-container-high,
+  on-surface,
+  on-surface-variant,
+  primary,
+  primary-container,
+  on-primary-container,
+  selection,
+  on-selection,
+  link,
+  outline,
+  error,
+  success,
+  success-container,
+  success-outline,
+  warning,
+  warning-container,
+  warning-outline
+);
+
+@function validate($name, $palette) {
+  @if meta.type-of($palette) != "map" {
+    @error "Theme #{$name} must be a map.";
+  }
+
+  @if not map.has-key($palette, dark) or meta.type-of(map.get($palette, dark)) != "bool" {
+    @error "Theme #{$name} must declare a boolean dark value.";
+  }
+
+  @each $role in $roles {
+    @if not map.has-key($palette, $role) {
+      @error "Theme #{$name} is missing #{$role}.";
+    }
+
+    @if meta.type-of(map.get($palette, $role)) != "color" {
+      @error "Theme #{$name} role #{$role} must be a color.";
+    }
+  }
+
+  @each $key, $value in $palette {
+    @if $key != dark and not list.index($roles, $key) {
+      @error "Theme #{$name} has unknown role #{$key}.";
+    }
+  }
+
+  @return $palette;
+}
+
+@function role($name) {
+  @if not list.index($roles, $name) {
+    @error "Unknown theme role #{$name}.";
+  }
+
+  @return var(--squinch-color-#{$name});
+}
