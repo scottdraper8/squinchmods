@@ -66,6 +66,8 @@ not investigation recipes.
 The No Man's Sky reference entry point is `.agent-docs/games/no-mans-sky/README.md`; its executable
 tools live under `games/no-mans-sky/tooling/` and are available through `tooling/squinch`.
 
+Cross-repository tooling placement follows [the tooling ownership boundary](tooling-ownership.md).
+
 Create task scratch with `tooling/squinch tranche create <id>`, locate it with
 `tooling/squinch tranche path <id>`, and remove it with the tranche-scoped clean command when the
 feature or fix is complete. Do not store raw run evidence or investigation recipes in

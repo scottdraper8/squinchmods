@@ -70,7 +70,7 @@ def parser() -> argparse.ArgumentParser:
         "search", help="Control the installed Search Probes backend without UI input"
     )
     _common(search, game=True)
-    search.add_argument("action", choices=("status", "start", "cancel", "continue", "configure"))
+    search.add_argument("action", choices=("status", "start", "cancel", "configure"))
     search.add_argument("--settings-dir", type=Path)
     search_input = search.add_mutually_exclusive_group()
     search_input.add_argument(
@@ -79,12 +79,18 @@ def parser() -> argparse.ArgumentParser:
     search_input.add_argument("--criteria", type=Path, help="Criteria JSON in the selected tranche")
     search.add_argument("--systems", type=int)
     search.add_argument("--results", type=int)
-    search.add_argument("--restart", action="store_true")
-    search.add_argument("--use-cache", action="store_true")
     search.add_argument(
         "--no-wait", action="store_true", help="Return after enqueue acknowledgement"
     )
     search.add_argument("--timeout", type=float, default=120)
+
+    current_world = sub.add_parser(
+        "current-world",
+        help="Report captured classifications for the current NMS system and planet",
+    )
+    _common(current_world, game=True)
+    current_world.add_argument("--settings-dir", type=Path)
+    current_world.add_argument("--timeout", type=float, default=120)
 
     toolchain = sub.add_parser(
         "toolchain", help="Inspect or acquire the pinned investigation toolchain"
@@ -414,7 +420,7 @@ def main(argv: list[str] | None = None) -> None:
             data["performance_evidence_valid"] = health["healthy"]
             failed = data["phase"] == "failed"
             unresolved = (data["state"].get("progress") or {}).get("unresolved_arena_planets", 0)
-            search_result = args.action in {"start", "continue"} and data["phase"] != "queued"
+            search_result = args.action == "start" and data["phase"] != "queued"
             outcome = (
                 "failed"
                 if failed
@@ -423,6 +429,30 @@ def main(argv: list[str] | None = None) -> None:
                 else "succeeded"
             )
             _finish(run, "search", outcome, data, json_mode=json_mode)
+            return
+
+        if args.command == "current-world":
+            from . import current_world, search_control
+
+            game_root = resolve_game_root(args.game_root)
+            assert_search_probes_supported_build(game_root)
+            directory = search_control.settings_directory(game_root, args.settings_dir)
+            run = create_run("current-world", _jsonable(vars(args)))
+            endpoint, state, world = current_world.inspect(directory, timeout=args.timeout)
+            run.write("runtime-state.json", state)
+            run.write("current-world.json", world)
+            _finish(
+                run,
+                "current-world",
+                "succeeded",
+                {
+                    "endpoint": endpoint,
+                    "availability": state.get("availability"),
+                    "generation": state.get("generation"),
+                    "world": world,
+                },
+                json_mode=json_mode,
+            )
             return
 
         if args.command == "doctor":
