@@ -16,6 +16,7 @@ import { Route as GamesGameSlugRouteRouteImport } from './routes/games/$gameSlug
 import { Route as GamesGameSlugIndexRouteImport } from './routes/games/$gameSlug/index'
 import { Route as GamesGameSlugModsRouteRouteImport } from './routes/games/$gameSlug/mods/route'
 import { Route as GamesGameSlugModsModSlugRouteImport } from './routes/games/$gameSlug/mods/$modSlug'
+import { Route as GamesGameSlugModsModSlugSectionRouteImport } from './routes/games/$gameSlug/mods/$modSlug_.$section'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -53,6 +54,12 @@ const GamesGameSlugModsModSlugRoute =
     path: '/$modSlug',
     getParentRoute: () => GamesGameSlugModsRouteRoute,
   } as any)
+const GamesGameSlugModsModSlugSectionRoute =
+  GamesGameSlugModsModSlugSectionRouteImport.update({
+    id: '/$modSlug_/$section',
+    path: '/$modSlug/$section',
+    getParentRoute: () => GamesGameSlugModsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/games/$gameSlug/mods': typeof GamesGameSlugModsRouteRouteWithChildren
   '/games/$gameSlug/': typeof GamesGameSlugIndexRoute
   '/games/$gameSlug/mods/$modSlug': typeof GamesGameSlugModsModSlugRoute
+  '/games/$gameSlug/mods/$modSlug/$section': typeof GamesGameSlugModsModSlugSectionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -69,6 +77,7 @@ export interface FileRoutesByTo {
   '/games/$gameSlug/mods': typeof GamesGameSlugModsRouteRouteWithChildren
   '/games/$gameSlug': typeof GamesGameSlugIndexRoute
   '/games/$gameSlug/mods/$modSlug': typeof GamesGameSlugModsModSlugRoute
+  '/games/$gameSlug/mods/$modSlug/$section': typeof GamesGameSlugModsModSlugSectionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -79,6 +88,7 @@ export interface FileRoutesById {
   '/games/$gameSlug/mods': typeof GamesGameSlugModsRouteRouteWithChildren
   '/games/$gameSlug/': typeof GamesGameSlugIndexRoute
   '/games/$gameSlug/mods/$modSlug': typeof GamesGameSlugModsModSlugRoute
+  '/games/$gameSlug/mods/$modSlug_/$section': typeof GamesGameSlugModsModSlugSectionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -90,6 +100,7 @@ export interface FileRouteTypes {
     | '/games/$gameSlug/mods'
     | '/games/$gameSlug/'
     | '/games/$gameSlug/mods/$modSlug'
+    | '/games/$gameSlug/mods/$modSlug/$section'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/games/$gameSlug/mods'
     | '/games/$gameSlug'
     | '/games/$gameSlug/mods/$modSlug'
+    | '/games/$gameSlug/mods/$modSlug/$section'
   id:
     | '__root__'
     | '/'
@@ -106,6 +118,7 @@ export interface FileRouteTypes {
     | '/games/$gameSlug/mods'
     | '/games/$gameSlug/'
     | '/games/$gameSlug/mods/$modSlug'
+    | '/games/$gameSlug/mods/$modSlug_/$section'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -164,16 +177,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GamesGameSlugModsModSlugRouteImport
       parentRoute: typeof GamesGameSlugModsRouteRoute
     }
+    '/games/$gameSlug/mods/$modSlug_/$section': {
+      id: '/games/$gameSlug/mods/$modSlug_/$section'
+      path: '/$modSlug/$section'
+      fullPath: '/games/$gameSlug/mods/$modSlug/$section'
+      preLoaderRoute: typeof GamesGameSlugModsModSlugSectionRouteImport
+      parentRoute: typeof GamesGameSlugModsRouteRoute
+    }
   }
 }
 
 interface GamesGameSlugModsRouteRouteChildren {
   GamesGameSlugModsModSlugRoute: typeof GamesGameSlugModsModSlugRoute
+  GamesGameSlugModsModSlugSectionRoute: typeof GamesGameSlugModsModSlugSectionRoute
 }
 
 const GamesGameSlugModsRouteRouteChildren: GamesGameSlugModsRouteRouteChildren =
   {
     GamesGameSlugModsModSlugRoute: GamesGameSlugModsModSlugRoute,
+    GamesGameSlugModsModSlugSectionRoute: GamesGameSlugModsModSlugSectionRoute,
   }
 
 const GamesGameSlugModsRouteRouteWithChildren =

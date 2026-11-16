@@ -21,3 +21,7 @@ export function publicGameHref(hostname: string, gameSlug: string): string {
 export function publicModHref(gameSlug: string, modSlug: string): string {
   return shouldUseInternalLinks() ? internalModPath(gameSlug, modSlug) : "/" + modSlug + "/";
 }
+
+export function publicModPageHref(gameSlug: string, modSlug: string, page: string): string {
+  return publicModHref(gameSlug, modSlug) + page + "/";
+}

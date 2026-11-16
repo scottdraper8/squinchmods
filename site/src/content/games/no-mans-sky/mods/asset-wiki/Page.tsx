@@ -1,8 +1,94 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-type DatasetName = "colour-filters" | "icons" | "items";
+import manifestText from "#/data/no-mans-sky/asset-wiki/manifest.jsonld?raw";
+import { publicModHref, publicModPageHref } from "#/lib/paths";
+
+import { noMansSky } from "../../game";
+import { assetWiki } from "./mod";
+
+export type DatasetName = "colour-filters" | "icons" | "items";
 type AssetRecord = Record<string, unknown>;
 type Rgb = [number, number, number];
+
+interface AssetWikiManifest {
+  game_version: string;
+  steam_build: string;
+  datasets: Record<DatasetName, number>;
+}
+
+const manifest = JSON.parse(manifestText) as AssetWikiManifest;
+
+const catalogPages: Array<{
+  dataset: DatasetName;
+  name: string;
+  description: string;
+}> = [
+  {
+    dataset: "items",
+    name: "Items and technology",
+    description: "Localized products, resources, technologies, and procedural upgrades.",
+  },
+  {
+    dataset: "icons",
+    name: "Icon gallery",
+    description: "Every installed game texture classified as an icon, with searchable paths.",
+  },
+  {
+    dataset: "colour-filters",
+    name: "World colour filters",
+    description: "Current game LUT metadata, comparison swatches, and grey ramps.",
+  },
+];
+
+function catalogName(dataset: DatasetName): string {
+  return catalogPages.find((page) => page.dataset === dataset)?.name ?? dataset;
+}
+
+function AssetWikiNavigation({ current }: { current?: DatasetName }) {
+  return (
+    <nav aria-label="Asset Wiki sections">
+      <a href={publicModHref(noMansSky.slug, assetWiki.slug)}>Asset Wiki</a>
+      {catalogPages.map((page) => (
+        <span key={page.dataset}>
+          {" · "}
+          {page.dataset === current ? (
+            <strong aria-current="page">{page.name}</strong>
+          ) : (
+            <a href={publicModPageHref(noMansSky.slug, assetWiki.slug, page.dataset)}>
+              {page.name}
+            </a>
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+export function AssetWikiIndexPage() {
+  return (
+    <main>
+      <h1>Asset Wiki</h1>
+      <p>
+        A persistent reference extracted from No Man&apos;s Sky {manifest.game_version}; Steam build{" "}
+        {manifest.steam_build}.
+      </p>
+      <AssetWikiNavigation />
+      <ul>
+        {catalogPages.map((page) => (
+          <li key={page.dataset}>
+            <h2>
+              <a href={publicModPageHref(noMansSky.slug, assetWiki.slug, page.dataset)}>
+                {page.name}
+              </a>
+            </h2>
+            <p>{page.description}</p>
+            <p>{manifest.datasets[page.dataset].toLocaleString()} records.</p>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
 
 interface SearchResult {
   dataset: DatasetName;
@@ -260,8 +346,7 @@ function AssetResult({ dataset, record }: { dataset: DatasetName; record: AssetR
   );
 }
 
-export function AssetWikiPage() {
-  const [dataset, setDataset] = useState<DatasetName>("items");
+export function AssetWikiPage({ dataset }: { dataset: DatasetName }) {
   const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -271,7 +356,9 @@ export function AssetWikiPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [version, setVersion] = useState("");
+  const [version, setVersion] = useState(
+    `${manifest.game_version}; Steam build ${manifest.steam_build}`,
+  );
   const requestGeneration = useRef(0);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -330,34 +417,12 @@ export function AssetWikiPage() {
     setQuery(draftQuery.trim());
   }
 
-  function changeDataset(value: DatasetName) {
-    setDataset(value);
-    setDraftQuery("");
-    setQuery("");
-    setFilters({});
-  }
-
   return (
     <main>
-      <h1>Asset Wiki</h1>
-      <p>
-        Items, technology, world colour filters, and icon assets extracted from No Man&apos;s Sky{" "}
-        {version || "7.14"}.
-      </p>
+      <h1>{catalogName(dataset)}</h1>
+      <p>Extracted from No Man&apos;s Sky {version}.</p>
+      <AssetWikiNavigation current={dataset} />
       <form onSubmit={submit}>
-        <p>
-          <label>
-            Catalog{" "}
-            <select
-              value={dataset}
-              onChange={(event) => changeDataset(event.target.value as DatasetName)}
-            >
-              <option value="items">Items and technology</option>
-              <option value="colour-filters">World colour filters</option>
-              <option value="icons">Icons</option>
-            </select>
-          </label>
-        </p>
         {dataset !== "colour-filters" ? (
           <p>
             <label>

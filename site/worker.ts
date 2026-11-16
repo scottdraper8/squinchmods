@@ -60,11 +60,10 @@ export default {
     }
 
     const publicSegments = requestUrl.pathname.split("/").filter(Boolean);
-    if (
-      requestUrl.pathname !== "/" &&
-      !requestUrl.pathname.endsWith("/") &&
-      publicSegments.length === 1
-    ) {
+    const publicMod = publicSegments[0] ? findMod(game, publicSegments[0]) : undefined;
+    const nestedPage = publicSegments.slice(1).join("/");
+    const isPagePath = publicSegments.length === 1 || publicMod?.pages?.includes(nestedPage);
+    if (requestUrl.pathname !== "/" && !requestUrl.pathname.endsWith("/") && isPagePath) {
       requestUrl.pathname += "/";
       return Response.redirect(requestUrl, 308);
     }

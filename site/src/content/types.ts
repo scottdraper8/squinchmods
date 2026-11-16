@@ -7,6 +7,7 @@ export interface GameMetadata {
 export interface ModMetadata {
   readonly slug: string;
   readonly name: string;
+  readonly pages?: readonly string[];
 }
 
 export type GameWithMods = GameMetadata & {

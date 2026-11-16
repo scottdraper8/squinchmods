@@ -4,7 +4,7 @@ import { findGame, findMod } from "#/content/catalog";
 import { redstoneBackport } from "#/content/games/minecraft/mods/redstone-backport/mod";
 import { RedstoneBackportPage } from "#/content/games/minecraft/mods/redstone-backport/Page";
 import { assetWiki } from "#/content/games/no-mans-sky/mods/asset-wiki/mod";
-import { AssetWikiPage } from "#/content/games/no-mans-sky/mods/asset-wiki/Page";
+import { AssetWikiIndexPage } from "#/content/games/no-mans-sky/mods/asset-wiki/Page";
 import { generousGiver } from "#/content/games/no-mans-sky/mods/generous-giver/mod";
 import { GenerousGiverPage } from "#/content/games/no-mans-sky/mods/generous-giver/Page";
 import { searchProbes } from "#/content/games/no-mans-sky/mods/search-probes/mod";
@@ -28,7 +28,7 @@ function ModWikiPage() {
   }
 
   if (mod.slug === assetWiki.slug) {
-    return <AssetWikiPage />;
+    return <AssetWikiIndexPage />;
   }
 
   if (mod.slug === searchProbes.slug) {

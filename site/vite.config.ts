@@ -8,10 +8,16 @@ const prerenderPages = Object.values(games).flatMap((game) => [
     path: "/games/" + game.slug + "/",
     prerender: { enabled: true },
   },
-  ...Object.values(game.mods).map((mod) => ({
-    path: "/games/" + game.slug + "/mods/" + mod.slug + "/",
-    prerender: { enabled: true },
-  })),
+  ...Object.values(game.mods).flatMap((mod) => [
+    {
+      path: "/games/" + game.slug + "/mods/" + mod.slug + "/",
+      prerender: { enabled: true },
+    },
+    ...(mod.pages ?? []).map((page: string) => ({
+      path: "/games/" + game.slug + "/mods/" + mod.slug + "/" + page + "/",
+      prerender: { enabled: true },
+    })),
+  ]),
 ]);
 
 const config = defineConfig({

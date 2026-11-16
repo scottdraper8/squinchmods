@@ -7,14 +7,18 @@ content as a finished design direction.
 
 ## Public routes
 
-| Host                          | Path                  | Page                      |
-| ----------------------------- | --------------------- | ------------------------- |
-| `squinchmods.com`             | `/`                   | List of games             |
-| `minecraft.squinchmods.com`   | `/`                   | List of Minecraft mods    |
-| `minecraft.squinchmods.com`   | `/redstone-backport/` | Redstone Backport page    |
-| `no-mans-sky.squinchmods.com` | `/`                   | List of No Man's Sky mods |
-| `no-mans-sky.squinchmods.com` | `/generous-giver/`    | Generous Giver page       |
-| `no-mans-sky.squinchmods.com` | `/search-probes/`     | Empty Search Probes page  |
+| Host                          | Path                          | Page                      |
+| ----------------------------- | ----------------------------- | ------------------------- |
+| `squinchmods.com`             | `/`                           | List of games             |
+| `minecraft.squinchmods.com`   | `/`                           | List of Minecraft mods    |
+| `minecraft.squinchmods.com`   | `/redstone-backport/`         | Redstone Backport page    |
+| `no-mans-sky.squinchmods.com` | `/`                           | List of No Man's Sky mods |
+| `no-mans-sky.squinchmods.com` | `/asset-wiki/`                | Asset Wiki landing page   |
+| `no-mans-sky.squinchmods.com` | `/asset-wiki/items/`          | Items and technology      |
+| `no-mans-sky.squinchmods.com` | `/asset-wiki/icons/`          | Game icon gallery         |
+| `no-mans-sky.squinchmods.com` | `/asset-wiki/colour-filters/` | World colour filters      |
+| `no-mans-sky.squinchmods.com` | `/generous-giver/`            | Generous Giver page       |
+| `no-mans-sky.squinchmods.com` | `/search-probes/`             | Search Probes page        |
 
 The Worker maps these public host and path pairs to internal prerendered routes. For example,
 `minecraft.squinchmods.com/redstone-backport/` maps to `/games/minecraft/mods/redstone-backport/`.
