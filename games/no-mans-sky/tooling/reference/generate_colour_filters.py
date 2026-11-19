@@ -7,50 +7,6 @@ import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-WORLD_FILTER_VALUES = (
-    0,
-    2,
-    4,
-    6,
-    8,
-    9,
-    10,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    27,
-    42,
-    43,
-    44,
-    45,
-    51,
-    57,
-    58,
-    60,
-    61,
-    63,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-)
-
 DESCRIPTIONS = {
     0: "Default grading",
     12: "Selective grey with red/orange accents",
@@ -86,7 +42,43 @@ def value(node: ET.Element, name: str) -> str:
     return result.attrib.get("value", "") if result is not None else ""
 
 
-def filter_metadata(path: Path) -> list[dict]:
+def positive_world_filter_values(
+    screen_filter_document: Path, biome_documents: list[Path]
+) -> list[int]:
+    screen_filters = ET.parse(screen_filter_document).getroot()
+    filters = child(screen_filters, "Filters")
+    if filters is None:
+        raise ValueError(
+            f"screen-filter table has no Filters: {screen_filter_document}"
+        )
+    native_values = {
+        entry.attrib.get("name", ""): index for index, entry in enumerate(filters)
+    }
+    selected: set[str] = set()
+    for path in biome_documents:
+        document = ET.parse(path).getroot()
+        if document.attrib.get("template") != "cGcBiomeData":
+            raise ValueError(f"not a cGcBiomeData: {path}")
+        options = child(document, "FilterOptions")
+        if options is None:
+            continue
+        for option in options:
+            weight = float(value(option, "Weight") or 0)
+            filter_node = child(option, "Filter")
+            name = value(filter_node, "ScreenFilter") if filter_node is not None else ""
+            if weight > 0 and name:
+                selected.add(name)
+    missing = sorted(selected - set(native_values))
+    if missing:
+        raise ValueError(
+            "biomes reference unknown screen filters: " + ", ".join(missing)
+        )
+    if not selected:
+        raise ValueError("positive-weight biomes contain no world colour filters")
+    return sorted(native_values[name] for name in selected)
+
+
+def filter_metadata(path: Path, native_values: list[int]) -> list[dict]:
     document = ET.parse(path).getroot()
     if document.attrib.get("template") != "cGcScreenFilterTable":
         raise ValueError(f"not a cGcScreenFilterTable: {path}")
@@ -94,13 +86,13 @@ def filter_metadata(path: Path) -> list[dict]:
     if filters is None:
         raise ValueError(f"screen-filter table has no Filters: {path}")
     entries = list(filters)
-    if max(WORLD_FILTER_VALUES) >= len(entries):
+    if max(native_values) >= len(entries):
         raise ValueError(
             "screen-filter table is shorter than the supported world-filter set"
         )
 
     records = []
-    for native_value in WORLD_FILTER_VALUES:
+    for native_value in native_values:
         entry = entries[native_value]
         sdr = value(entry, "FilenameSdr").replace("\\", "/").casefold()
         hdr = value(entry, "FilenameHdr").replace("\\", "/").casefold()
@@ -171,7 +163,12 @@ class SdrLut:
 
 def generate(source_manifest: Path) -> tuple[dict, list[dict]]:
     source = json.loads(source_manifest.read_text(encoding="utf-8"))
-    metadata = filter_metadata(Path(source["screen_filter_document"]))
+    screen_filter_document = Path(source["screen_filter_document"])
+    native_values = positive_world_filter_values(
+        screen_filter_document,
+        [Path(path) for path in source["biome_documents"]],
+    )
+    metadata = filter_metadata(screen_filter_document, native_values)
     lut_sources = {
         record["logical_path"].casefold(): Path(record["path"])
         for record in source["colour_filter_lut_sources"]

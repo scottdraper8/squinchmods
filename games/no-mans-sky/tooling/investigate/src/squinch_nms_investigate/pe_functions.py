@@ -91,9 +91,7 @@ class _Image:
         """Decode each unwind-bounded text fragment from its own instruction boundary."""
 
         text_start = self.image_base + int(self.text.VirtualAddress)
-        text_stop = text_start + min(
-            int(self.text.Misc_VirtualSize), int(self.text.SizeOfRawData)
-        )
+        text_stop = text_start + min(int(self.text.Misc_VirtualSize), int(self.text.SizeOfRawData))
         for start, stop in self.function_ranges:
             if start < text_start or stop > text_stop:
                 continue
@@ -335,9 +333,7 @@ def inspect_functions(
     if len(set(addresses)) != len(addresses):
         raise InvestigationError("duplicate_address", "Function addresses must be unique")
     if len(set(memory_displacements)) != len(memory_displacements):
-        raise InvestigationError(
-            "duplicate_displacement", "Memory displacements must be unique"
-        )
+        raise InvestigationError("duplicate_displacement", "Memory displacements must be unique")
     if len(set(reference_addresses)) != len(reference_addresses):
         raise InvestigationError(
             "duplicate_reference_address", "Reference addresses must be unique"
@@ -351,14 +347,10 @@ def inspect_functions(
         else {}
     )
     address_references = (
-        image.preferred_address_references(set(reference_addresses))
-        if reference_addresses
-        else {}
+        image.preferred_address_references(set(reference_addresses)) if reference_addresses else {}
     )
     if include_callers:
-        targets = {
-            fragment["start"] for record in functions for fragment in record["fragments"]
-        }
+        targets = {fragment["start"] for record in functions for fragment in record["fragments"]}
         callers = image.direct_callers(targets)
         for record in functions:
             record["direct_callers"] = [
@@ -377,8 +369,7 @@ def inspect_functions(
             for displacement in memory_displacements
         },
         "preferred_address_references": {
-            f"0x{address:X}": address_references[address]
-            for address in reference_addresses
+            f"0x{address:X}": address_references[address] for address in reference_addresses
         },
         "vtable": (
             _vtable_record(image, vtable_address, vtable_count)

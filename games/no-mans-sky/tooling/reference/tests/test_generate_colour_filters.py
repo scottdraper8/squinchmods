@@ -38,11 +38,29 @@ def test_reads_supported_world_filter_metadata(tmp_path: Path) -> None:
     path = tmp_path / "screenfilters.MXML"
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
-    records = MODULE.filter_metadata(path)
-    assert len(records) == 41
-    assert [record["native_value"] for record in records] == list(
-        MODULE.WORLD_FILTER_VALUES
+    biome = tmp_path / "biome.MXML"
+    biome.write_text(
+        '<Data template="cGcBiomeData"><Property name="FilterOptions">'
+        '<Property name="FilterOptions" value="GcScreenFilterOption">'
+        '<Property name="Filter" value="GcScreenFilters">'
+        '<Property name="ScreenFilter" value="Filter0" /></Property>'
+        '<Property name="Weight" value="1.000000" /></Property>'
+        '<Property name="FilterOptions" value="GcScreenFilterOption">'
+        '<Property name="Filter" value="GcScreenFilters">'
+        '<Property name="ScreenFilter" value="Filter15" /></Property>'
+        '<Property name="Weight" value="0.010000" /></Property>'
+        '<Property name="FilterOptions" value="GcScreenFilterOption">'
+        '<Property name="Filter" value="GcScreenFilters">'
+        '<Property name="ScreenFilter" value="Filter16" /></Property>'
+        '<Property name="Weight" value="0.000000" /></Property>'
+        "</Property></Data>",
+        encoding="utf-8",
     )
+
+    native_values = MODULE.positive_world_filter_values(path, [biome])
+    records = MODULE.filter_metadata(path, native_values)
+    assert native_values == [0, 15]
+    assert [record["native_value"] for record in records] == [0, 15]
     weird4 = next(record for record in records if record["native_value"] == 15)
     assert weird4["name"] == "Filter15"
     assert weird4["fade_distance"] == 100

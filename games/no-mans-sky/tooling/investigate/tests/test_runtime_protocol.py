@@ -20,18 +20,6 @@ def publish(directory: Path, endpoint: dict) -> None:
     os.utime(directory / "current.json", (now, now))
 
 
-def test_legacy_endpoint_supports_only_search_control(tmp_path: Path) -> None:
-    directory = tmp_path / "runtime"
-    publish(directory, {"schema": 1, "instance": "1234abcd-" + "a" * 32})
-
-    endpoint, _ = runtime_protocol.status(directory, required_capability="search.control/v1")
-
-    assert endpoint["schema"] == 1
-    with pytest.raises(InvestigationError) as caught:
-        runtime_protocol.status(directory, required_capability="nms.current-world/v1")
-    assert caught.value.code == "runtime_capability_unavailable"
-
-
 def test_versioned_endpoint_advertises_explicit_capabilities(tmp_path: Path) -> None:
     directory = tmp_path / "runtime"
     publish(

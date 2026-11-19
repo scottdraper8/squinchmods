@@ -395,7 +395,7 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "exe-patterns":
             args.catalog = require_scratch_input(args.catalog)
         if args.command == "search":
-            from . import search_control
+            from . import runtime_protocol, search_control
 
             if args.settings is not None:
                 args.settings = require_scratch_input(args.settings)
@@ -404,7 +404,9 @@ def main(argv: list[str] | None = None) -> None:
             game_root = resolve_game_root(args.game_root)
             assert_search_probes_supported_build(game_root)
             directory = search_control.settings_directory(game_root, args.settings_dir)
-            endpoint, state = search_control.status(directory)
+            endpoint, state = runtime_protocol.status(
+                directory, required_capability="search.control/v1"
+            )
             run = create_run("search", _jsonable(vars(args)))
             run.write("initial-state.json", state)
             if args.action == "status":
@@ -412,7 +414,7 @@ def main(argv: list[str] | None = None) -> None:
             else:
                 action = search_control.action_from_options(args, state)
                 run.write("action.json", action)
-                data = search_control.command(
+                data = runtime_protocol.command(
                     directory, action, wait=not args.no_wait, timeout=args.timeout
                 )
             health = host_health()
