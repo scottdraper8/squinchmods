@@ -88,7 +88,7 @@ def _git_repo_with_empty_commit(path: Path) -> str:
     }
     subprocess.run(["git", "init"], cwd=path, capture_output=True, check=True, env=env)
     subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "init"],
+        ["git", "commit", "--allow-empty", "-m", f"init {path.name}"],
         cwd=path,
         capture_output=True,
         check=True,
@@ -131,6 +131,20 @@ class TestGitHeadSha:
 
     def test_non_git_directory_returns_none(self, tmp_path: Path):
         assert _git_head_sha(tmp_path) is None
+
+    def test_ignores_hook_repository_environment(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        hook_repo = tmp_path / "hook-repo"
+        target_repo = tmp_path / "target-repo"
+        hook_sha = _git_repo_with_empty_commit(hook_repo)
+        target_sha = _git_repo_with_empty_commit(target_repo)
+        monkeypatch.setenv("GIT_DIR", str(hook_repo / ".git"))
+        monkeypatch.setenv("GIT_WORK_TREE", str(hook_repo))
+
+        assert hook_sha != target_sha
+        assert _git_head_sha(target_repo) == target_sha
+        assert _git_head_sha(tmp_path / "not-a-repository") is None
 
     def test_subprocess_exception_returns_none(self, tmp_path: Path, monkeypatch):
         from squinch_qa import manifest as manifest_mod

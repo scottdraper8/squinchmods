@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -12,10 +13,14 @@ from squinch_qa.models import ExecutionPlan, PlannedJob
 
 def _git_head_sha(path: Path) -> str | None:
     """Return HEAD SHA for the git repo containing path; None on any failure."""
+    environment = {
+        name: value for name, value in os.environ.items() if not name.startswith("GIT_")
+    }
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=path,
+            env=environment,
             capture_output=True,
             text=True,
             timeout=10,
