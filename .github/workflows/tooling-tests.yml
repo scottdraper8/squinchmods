@@ -1,0 +1,68 @@
+name: Tooling tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/tooling-tests.yml"
+      - "games/minecraft/tooling/**"
+      - "games/no-mans-sky/tooling/**"
+  pull_request:
+    paths:
+      - ".github/workflows/tooling-tests.yml"
+      - "games/minecraft/tooling/**"
+      - "games/no-mans-sky/tooling/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tooling-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Minecraft investigate
+            project: games/minecraft/tooling/investigate
+          - name: Minecraft QA
+            project: games/minecraft/tooling/qa
+          - name: Minecraft third-party
+            project: games/minecraft/tooling/third-party
+          - name: No Man's Sky investigate
+            project: games/no-mans-sky/tooling/investigate
+          - name: No Man's Sky save
+            project: games/no-mans-sky/tooling/save
+          - name: No Man's Sky third-party
+            project: games/no-mans-sky/tooling/third-party
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.13.9"
+          enable-cache: true
+          cache-dependency-glob: ${{ matrix.project }}/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Run tests
+        run: >-
+          uv run --project "${{ matrix.project }}" --python 3.13 --locked
+          --all-extras --all-groups pytest "${{ matrix.project }}/tests"

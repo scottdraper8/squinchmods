@@ -1,6 +1,11 @@
 name: Deploy site
 
 on:
+  pull_request:
+    paths:
+      - "site/**"
+      - "games/no-mans-sky/reference/asset-wiki/**"
+      - ".github/workflows/deploy-site.yml"
   push:
     branches:
       - main
@@ -27,18 +32,18 @@ jobs:
           egress-policy: audit
 
       - name: Check out repository without submodules
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: false
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12.11.2
           run_install: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: site/.node-version
           cache: pnpm
@@ -51,7 +56,8 @@ jobs:
           pnpm run build
 
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v4
+        if: github.event_name != 'pull_request'
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

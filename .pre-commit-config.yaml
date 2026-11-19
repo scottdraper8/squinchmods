@@ -68,6 +68,11 @@ repos:
     -   id: gitleaks
         args: ['--config=.gitleaks.toml']
 
+-   repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
+    hooks:
+    -   id: actionlint
+
 # Shell scripts under games/minecraft/tooling/ (includes extensionless
 # scripts like build-mod and mc-source, not just *.sh)
 -   repo: https://github.com/shellcheck-py/shellcheck-py
@@ -91,16 +96,6 @@ repos:
         args: ['--fix']
     -   id: ruff-format
         types_or: [python, pyi]
-
--   repo: local
-    hooks:
-    -   id: squinch-qa-pytest
-        name: squinch-qa pytest
-        entry: uv run --project games/minecraft/tooling/qa --extra dev pytest games/minecraft/tooling/qa/tests
-        language: system
-        pass_filenames: false
-        stages: [pre-push]
-        files: ^games/minecraft/tooling/qa/
 
 # Centralized Minecraft check config schema validation.
 -   repo: https://github.com/python-jsonschema/check-jsonschema
