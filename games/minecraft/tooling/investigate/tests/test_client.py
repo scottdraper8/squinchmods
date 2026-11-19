@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate import cli, client, owned_operation, server
 from squinch_minecraft_investigate.errors import InvestigationError
 
@@ -37,20 +36,23 @@ def test_client_argument_maps_reject_unsafe_or_duplicate_environment_names() -> 
 def test_client_runtime_files_are_confined_to_config(tmp_path: Path) -> None:
     source = tmp_path / "runtime.toml"
     source.write_text("version = 3\n")
-    assert cli._client_runtime_files([
-        f"{source}=config/runtime.toml"
-    ]) == ((source.resolve(), "config/runtime.toml"),)
+    assert cli._client_runtime_files([f"{source}=config/runtime.toml"]) == (
+        (source.resolve(), "config/runtime.toml"),
+    )
     with pytest.raises(InvestigationError, match="SOURCE=config/TARGET"):
         cli._client_runtime_files([f"{source}=../runtime.toml"])
     with pytest.raises(InvestigationError, match="must be unique"):
-        cli._client_runtime_files([
-            f"{source}=config/runtime.toml",
-            f"{source}=config/runtime.toml",
-        ])
+        cli._client_runtime_files(
+            [
+                f"{source}=config/runtime.toml",
+                f"{source}=config/runtime.toml",
+            ]
+        )
 
 
 def test_owned_client_state_accepts_derived_headless_display_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -95,7 +97,8 @@ def test_owned_client_state_accepts_derived_headless_display_path(
 
 
 def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project = tmp_path / "project"
     (project / "fabric").mkdir(parents=True)
@@ -119,7 +122,9 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     def launch(**kwargs):
         assert kwargs["environment"]["ALSOFT_DRIVERS"] == "null"
         assert kwargs["environment"]["SQUINCH_INVESTIGATE_RUN_ID"] == "test-run"
-        staged = state_root / "runs" / "test-run" / "client-run" / "config" / "runtime.toml"
+        staged = (
+            state_root / "runs" / "test-run" / "client-run" / "config" / "runtime.toml"
+        )
         assert staged.read_text() == runtime_config.read_text()
         for variable, value in kwargs["environment"].items():
             if variable == "SQUINCH_RESULT":
@@ -136,7 +141,9 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     monkeypatch.setattr(client, "RUNS_ROOT", state_root / "runs")
     monkeypatch.setattr(client, "new_run_id", lambda: "test-run")
     monkeypatch.setattr(client, "active_path", lambda _project, _loader: active)
-    monkeypatch.setattr(client, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        client, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     monkeypatch.setattr(client, "git_status", lambda _project: "unchanged")
     monkeypatch.setattr(
         client,
@@ -146,7 +153,9 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     monkeypatch.setattr(owned_operation, "proc_identity", lambda _pid: _identity(39))
     monkeypatch.setattr(owned_operation, "launch_service", launch)
     monkeypatch.setattr(owned_operation, "live_owned_processes", lambda _state: [])
-    monkeypatch.setattr(owned_operation, "wait_owned_exit", lambda _state, _timeout: True)
+    monkeypatch.setattr(
+        owned_operation, "wait_owned_exit", lambda _state, _timeout: True
+    )
     monkeypatch.setattr(
         owned_operation, "terminate_owned_service", lambda _state, _timeout, label: []
     )
@@ -154,19 +163,22 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
     monkeypatch.setattr(
         client,
         "probe_overlay_command",
-        lambda *_args, **_kwargs: (["--overlay"], {
-            "runtime_artifacts": [],
-            "overlay": "/overlay",
-            "runtime": "/runtime",
-            "manifest": "/manifest",
-            "manifest_sha256": "0" * 64,
-            "packs": [],
-            "mixins": [],
-            "compile_artifacts": [],
-            "runtime_output": str(state_root / "mods"),
-            "client_run_dir": str(state_root / "client-run"),
-            "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
-        }),
+        lambda *_args, **_kwargs: (
+            ["--overlay"],
+            {
+                "runtime_artifacts": [],
+                "overlay": "/overlay",
+                "runtime": "/runtime",
+                "manifest": "/manifest",
+                "manifest_sha256": "0" * 64,
+                "packs": [],
+                "mixins": [],
+                "compile_artifacts": [],
+                "runtime_output": str(state_root / "mods"),
+                "client_run_dir": str(state_root / "client-run"),
+                "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
+            },
+        ),
     )
 
     result = client.run_client(
@@ -195,7 +207,8 @@ def test_client_lifecycle_uses_isolated_run_and_cleans_owned_display(
 
 
 def test_production_client_selects_owned_fabric_task(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project = tmp_path / "project"
     (project / "fabric").mkdir(parents=True)
@@ -225,7 +238,9 @@ def test_production_client_selects_owned_fabric_task(
     monkeypatch.setattr(client, "RUNS_ROOT", state_root / "runs")
     monkeypatch.setattr(client, "new_run_id", lambda: "test-run")
     monkeypatch.setattr(client, "active_path", lambda _project, _loader: active)
-    monkeypatch.setattr(client, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        client, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     monkeypatch.setattr(client, "git_status", lambda _project: "unchanged")
     monkeypatch.setattr(
         client,
@@ -237,19 +252,22 @@ def test_production_client_selects_owned_fabric_task(
     monkeypatch.setattr(
         client,
         "probe_overlay_command",
-        lambda *_args, **_kwargs: (["--overlay"], {
-            "runtime_artifacts": [],
-            "overlay": "/overlay",
-            "runtime": "/runtime",
-            "manifest": "/manifest",
-            "manifest_sha256": "0" * 64,
-            "packs": [],
-            "mixins": [],
-            "compile_artifacts": [],
-            "runtime_output": str(state_root / "mods"),
-            "client_run_dir": str(state_root / "client-run"),
-            "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
-        }),
+        lambda *_args, **_kwargs: (
+            ["--overlay"],
+            {
+                "runtime_artifacts": [],
+                "overlay": "/overlay",
+                "runtime": "/runtime",
+                "manifest": "/manifest",
+                "manifest_sha256": "0" * 64,
+                "packs": [],
+                "mixins": [],
+                "compile_artifacts": [],
+                "runtime_output": str(state_root / "mods"),
+                "client_run_dir": str(state_root / "client-run"),
+                "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
+            },
+        ),
     )
 
     result = client.run_client(
@@ -274,7 +292,8 @@ def test_production_client_selects_owned_fabric_task(
 
 
 def test_production_client_selects_owned_neoforge_bootstrap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project = tmp_path / "project"
     (project / "neoforge").mkdir(parents=True)
@@ -307,7 +326,9 @@ def test_production_client_selects_owned_neoforge_bootstrap(
     monkeypatch.setattr(client, "RUNS_ROOT", state_root / "runs")
     monkeypatch.setattr(client, "new_run_id", lambda: "test-run")
     monkeypatch.setattr(client, "active_path", lambda _project, _loader: active)
-    monkeypatch.setattr(client, "lock_path", lambda _project, _loader: state_root / "lock")
+    monkeypatch.setattr(
+        client, "lock_path", lambda _project, _loader: state_root / "lock"
+    )
     monkeypatch.setattr(client, "git_status", lambda _project: "unchanged")
     monkeypatch.setattr(
         client,
@@ -325,19 +346,22 @@ def test_production_client_selects_owned_neoforge_bootstrap(
     monkeypatch.setattr(
         client,
         "probe_overlay_command",
-        lambda *_args, **_kwargs: (["--overlay"], {
-            "runtime_artifacts": [],
-            "overlay": "/overlay",
-            "runtime": "/runtime",
-            "manifest": "/manifest",
-            "manifest_sha256": "0" * 64,
-            "packs": [],
-            "mixins": [],
-            "compile_artifacts": [],
-            "runtime_output": str(state_root / "mods"),
-            "client_run_dir": str(state_root / "client-run"),
-            "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
-        }),
+        lambda *_args, **_kwargs: (
+            ["--overlay"],
+            {
+                "runtime_artifacts": [],
+                "overlay": "/overlay",
+                "runtime": "/runtime",
+                "manifest": "/manifest",
+                "manifest_sha256": "0" * 64,
+                "packs": [],
+                "mixins": [],
+                "compile_artifacts": [],
+                "runtime_output": str(state_root / "mods"),
+                "client_run_dir": str(state_root / "client-run"),
+                "sentinel": "SQUINCH_DEVELOPMENT_PROBE",
+            },
+        ),
     )
 
     result = client.run_client(
@@ -410,10 +434,12 @@ def test_client_detects_failed_result_before_wrapper_exit(tmp_path: Path) -> Non
     result = tmp_path / "result.json"
     result.write_text(json.dumps({"status": "fail", "message": "controlled"}))
 
-    failure = client._detect_terminal_failure({
-        "run_dir": str(tmp_path),
-        "result_files": {"SQUINCH_RESULT": str(result)},
-    })
+    failure = client._detect_terminal_failure(
+        {
+            "run_dir": str(tmp_path),
+            "result_files": {"SQUINCH_RESULT": str(result)},
+        }
+    )
 
     assert isinstance(failure, InvestigationError)
     assert failure.code == "client_result_failed"
@@ -423,11 +449,13 @@ def test_client_detects_application_exit_without_result(tmp_path: Path) -> None:
     exit_path = tmp_path / "application-exit.json"
     exit_path.write_text(json.dumps({"status": "exited", "exit_code": 1}))
 
-    failure = client._detect_terminal_failure({
-        "run_dir": str(tmp_path),
-        "result_files": {"SQUINCH_RESULT": str(tmp_path / "result.json")},
-        "application_exit": str(exit_path),
-    })
+    failure = client._detect_terminal_failure(
+        {
+            "run_dir": str(tmp_path),
+            "result_files": {"SQUINCH_RESULT": str(tmp_path / "result.json")},
+            "application_exit": str(exit_path),
+        }
+    )
 
     assert isinstance(failure, InvestigationError)
     assert failure.code == "client_application_exited"
@@ -439,31 +467,41 @@ def test_client_inspects_remapped_runtime_artifact_evidence(tmp_path: Path) -> N
     evidence = tmp_path / "runtime-artifacts.json"
     source.write_bytes(b"source")
     runtime.write_bytes(b"runtime")
-    evidence.write_text(json.dumps([{
-        "source_path": str(source),
-        "runtime_path": str(runtime),
-    }]))
+    evidence.write_text(
+        json.dumps(
+            [
+                {
+                    "source_path": str(source),
+                    "runtime_path": str(runtime),
+                }
+            ]
+        )
+    )
     state = {
         "run_dir": str(tmp_path),
         "probe_overlay": {
             "runtime_evidence": str(evidence),
-            "runtime_artifacts": [{
-                "id": "example",
-                "path": str(source),
-                "filename": "source.jar",
-                "sha256": client._hash(source),
-            }],
+            "runtime_artifacts": [
+                {
+                    "id": "example",
+                    "path": str(source),
+                    "filename": "source.jar",
+                    "sha256": client._hash(source),
+                }
+            ],
         },
     }
 
-    assert client._inspect_runtime_mods(state) == [{
-        "id": "example",
-        "source_path": str(source),
-        "source_sha256": client._hash(source),
-        "runtime_path": str(runtime),
-        "runtime_sha256": client._hash(runtime),
-        "size": 7,
-    }]
+    assert client._inspect_runtime_mods(state) == [
+        {
+            "id": "example",
+            "source_path": str(source),
+            "source_sha256": client._hash(source),
+            "runtime_path": str(runtime),
+            "runtime_sha256": client._hash(runtime),
+            "size": 7,
+        }
+    ]
 
 
 def test_client_rejects_invalid_runtime_artifact_evidence(tmp_path: Path) -> None:

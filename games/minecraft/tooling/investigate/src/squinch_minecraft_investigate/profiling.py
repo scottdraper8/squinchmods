@@ -73,7 +73,11 @@ def _minecraft_jvm(state: dict, command: Path) -> int:
         raise InvestigationError(
             "jfr_jvm_ambiguous",
             f"expected one owned Minecraft JVM, found {len(candidates)}",
-            details={"candidates": [{"pid": pid, "command_line": line} for pid, line in candidates]},
+            details={
+                "candidates": [
+                    {"pid": pid, "command_line": line} for pid, line in candidates
+                ]
+            },
         )
     return candidates[0][0]
 
@@ -85,7 +89,9 @@ def start_jfr(state: dict, step_id: str, java_home: str | None) -> JfrRecording:
     profile_dir.mkdir(exist_ok=True)
     path = profile_dir / f"{safe_id}.jfr"
     if path.exists() or path.is_symlink():
-        raise InvestigationError("jfr_artifact_exists", f"JFR artifact already exists: {path}")
+        raise InvestigationError(
+            "jfr_artifact_exists", f"JFR artifact already exists: {path}"
+        )
     command = _jcmd(java_home)
     pid = _minecraft_jvm(state, command)
     output = _run_jcmd(
@@ -121,7 +127,9 @@ def stop_jfr(recording: JfrRecording, java_home: str | None) -> dict:
         )
     size = recording.path.stat().st_size
     if size <= 0:
-        raise InvestigationError("jfr_artifact_empty", f"JFR artifact is empty: {recording.path}")
+        raise InvestigationError(
+            "jfr_artifact_empty", f"JFR artifact is empty: {recording.path}"
+        )
     return {
         "name": recording.name,
         "pid": recording.pid,

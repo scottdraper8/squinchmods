@@ -13,7 +13,9 @@ import zipfile
 from pathlib import Path
 
 
-def _rules_allow(rules: list[dict] | None, features: dict[str, bool] | None = None) -> bool:
+def _rules_allow(
+    rules: list[dict] | None, features: dict[str, bool] | None = None
+) -> bool:
     if not rules:
         return True
     allowed = False
@@ -31,7 +33,10 @@ def _rules_allow(rules: list[dict] | None, features: dict[str, bool] | None = No
         version = os_rule.get("version")
         if version is not None and re.search(version, platform.release()) is None:
             continue
-        if any(features.get(name, False) != value for name, value in rule.get("features", {}).items()):
+        if any(
+            features.get(name, False) != value
+            for name, value in rule.get("features", {}).items()
+        ):
             continue
         allowed = rule.get("action") == "allow"
     return allowed
@@ -50,11 +55,16 @@ def _verified_download(root: Path, download: dict) -> Path:
     if not path.exists():
         url = download.get("url")
         if not url:
-            raise RuntimeError(f"installed NeoForge library is missing and has no URL: {path}")
+            raise RuntimeError(
+                f"installed NeoForge library is missing and has no URL: {path}"
+            )
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(path.name + ".squinch-part")
         try:
-            with urllib.request.urlopen(url, timeout=60) as source, temporary.open("wb") as target:
+            with (
+                urllib.request.urlopen(url, timeout=60) as source,
+                temporary.open("wb") as target,
+            ):
                 while chunk := source.read(1024 * 1024):
                     target.write(chunk)
             os.replace(temporary, path)
@@ -87,20 +97,29 @@ def _expand_arguments(values: list, variables: dict[str, str]) -> list[str]:
     return result
 
 
-def _extract_natives(archives: list[tuple[Path, tuple[str, ...]]], target: Path) -> None:
+def _extract_natives(
+    archives: list[tuple[Path, tuple[str, ...]]], target: Path
+) -> None:
     target.mkdir(parents=True, exist_ok=True)
     root = target.resolve()
     for archive, excludes in archives:
         with zipfile.ZipFile(archive) as source:
             for member in source.infolist():
                 name = member.filename
-                if member.is_dir() or any(name.startswith(prefix) for prefix in excludes):
+                if member.is_dir() or any(
+                    name.startswith(prefix) for prefix in excludes
+                ):
                     continue
                 output = (root / name).resolve()
                 if not output.is_relative_to(root):
-                    raise RuntimeError(f"native archive path escapes destination: {name}")
+                    raise RuntimeError(
+                        f"native archive path escapes destination: {name}"
+                    )
                 output.parent.mkdir(parents=True, exist_ok=True)
-                with source.open(member) as input_file, output.open("wb") as output_file:
+                with (
+                    source.open(member) as input_file,
+                    output.open("wb") as output_file,
+                ):
                     output_file.write(input_file.read())
 
 
@@ -111,7 +130,9 @@ def build_launch_command(
     version: str,
     java: Path,
 ) -> list[str]:
-    child_path = client_home / "versions" / f"neoforge-{version}" / f"neoforge-{version}.json"
+    child_path = (
+        client_home / "versions" / f"neoforge-{version}" / f"neoforge-{version}.json"
+    )
     child = json.loads(child_path.read_text(encoding="utf-8"))
     parent_id = child["inheritsFrom"]
     parent_path = client_home / "versions" / parent_id / f"{parent_id}.json"
@@ -133,11 +154,15 @@ def build_launch_command(
             native_key = native_key.replace("${arch}", "64")
             classifier = downloads.get("classifiers", {}).get(native_key)
             if classifier is None:
-                raise RuntimeError(f"native classifier {native_key!r} is missing for {library['name']}")
-            natives.append((
-                _verified_download(client_home, classifier),
-                tuple(library.get("extract", {}).get("exclude", [])),
-            ))
+                raise RuntimeError(
+                    f"native classifier {native_key!r} is missing for {library['name']}"
+                )
+            natives.append(
+                (
+                    _verified_download(client_home, classifier),
+                    tuple(library.get("extract", {}).get("exclude", [])),
+                )
+            )
     client_jar = client_home / "versions" / parent_id / f"{parent_id}.jar"
     client_download = parent.get("downloads", {}).get("client", {})
     if not client_jar.is_file() or client_jar.is_symlink():
@@ -205,8 +230,11 @@ def main(argv: list[str] | None = None) -> int:
     if completed.returncode != 0:
         return completed.returncode
     command = build_launch_command(
-        args.client_home.resolve(), args.run_dir.resolve(), args.assets_dir.resolve(),
-        args.version, args.java.resolve(),
+        args.client_home.resolve(),
+        args.run_dir.resolve(),
+        args.assets_dir.resolve(),
+        args.version,
+        args.java.resolve(),
     )
     os.chdir(args.run_dir)
     os.execvpe(command[0], command, os.environ)

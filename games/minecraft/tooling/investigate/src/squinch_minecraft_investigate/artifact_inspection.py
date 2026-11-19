@@ -10,9 +10,7 @@ _ENTRY_MARKERS = (
     ("development-probe-sentinel", "META-INF/squinch-development-probe"),
     ("probe-mixin-config", "squinch-investigate.mixins.json"),
 )
-_ENTRY_PREFIXES = (
-    ("probe-class", "org/squinchmods/investigate/"),
-)
+_ENTRY_PREFIXES = (("probe-class", "org/squinchmods/investigate/"),)
 _CONTENT_MARKERS = (
     ("development-probe-sentinel", b"SQUINCH_DEVELOPMENT_PROBE"),
     ("probe-mixin-reference", b"squinch-investigate.mixins.json"),

@@ -50,7 +50,9 @@ def _cache_home(environment: dict[str, str]) -> Path:
     if configured:
         return Path(configured).expanduser().resolve()
     xdg = environment.get("XDG_CACHE_HOME")
-    return (Path(xdg) / "squinchmods" if xdg else Path.home() / ".cache" / "squinchmods").resolve()
+    return (
+        Path(xdg) / "squinchmods" if xdg else Path.home() / ".cache" / "squinchmods"
+    ).resolve()
 
 
 def _inspect_results(state: dict) -> list[dict]:
@@ -59,13 +61,15 @@ def _inspect_results(state: dict) -> list[dict]:
         path = Path(path_value)
         if not path.is_file() or path.is_symlink():
             raise InvestigationError(
-                "client_result_missing", f"client result was not written: {variable}={path}"
+                "client_result_missing",
+                f"client result was not written: {variable}={path}",
             )
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise InvestigationError(
-                "client_result_invalid", f"client result is invalid: {variable}={path}: {exc}"
+                "client_result_invalid",
+                f"client result is invalid: {variable}={path}: {exc}",
             ) from exc
         if not isinstance(payload, dict) or payload.get("status") != "pass":
             raise InvestigationError(
@@ -73,12 +77,14 @@ def _inspect_results(state: dict) -> list[dict]:
                 f"client result {variable} reported {payload.get('status') if isinstance(payload, dict) else 'non-object'}",
                 details={"variable": variable, "path": str(path), "result": payload},
             )
-        results.append({
-            "environment": variable,
-            "path": str(path),
-            "sha256": _hash(path),
-            "result": payload,
-        })
+        results.append(
+            {
+                "environment": variable,
+                "path": str(path),
+                "sha256": _hash(path),
+                "result": payload,
+            }
+        )
     return results
 
 
@@ -113,20 +119,26 @@ def _inspect_runtime_mods(state: dict) -> list[dict]:
     values = []
     for artifact in expected:
         record = remapped.get(artifact["path"])
-        path = Path(record["runtime_path"]) if record is not None else mods_dir / artifact["filename"]
+        path = (
+            Path(record["runtime_path"])
+            if record is not None
+            else mods_dir / artifact["filename"]
+        )
         if not path.is_file() or path.is_symlink():
             raise InvestigationError(
                 "client_runtime_artifact_missing",
                 f"client did not stage runtime artifact {artifact['id']}: {path}",
             )
-        values.append({
-            "id": artifact["id"],
-            "source_path": artifact["path"],
-            "source_sha256": artifact["sha256"],
-            "runtime_path": str(path),
-            "runtime_sha256": _hash(path),
-            "size": path.stat().st_size,
-        })
+        values.append(
+            {
+                "id": artifact["id"],
+                "source_path": artifact["path"],
+                "source_sha256": artifact["sha256"],
+                "runtime_path": str(path),
+                "runtime_sha256": _hash(path),
+                "size": path.stat().st_size,
+            }
+        )
     return values
 
 
@@ -150,14 +162,19 @@ def _remove_display_runtime(state: dict) -> list[str]:
 def _display_runtime_root(environment: dict[str, str]) -> Path:
     configured = environment.get("XDG_RUNTIME_DIR")
     if not configured:
-        raise InvestigationError("display_runtime_invalid", "XDG_RUNTIME_DIR is not configured")
+        raise InvestigationError(
+            "display_runtime_invalid", "XDG_RUNTIME_DIR is not configured"
+        )
     root = Path(configured)
     if not root.is_absolute() or root.is_symlink() or not root.is_dir():
         raise InvestigationError(
-            "display_runtime_invalid", f"XDG_RUNTIME_DIR is not a regular absolute directory: {root}"
+            "display_runtime_invalid",
+            f"XDG_RUNTIME_DIR is not a regular absolute directory: {root}",
         )
     if root.stat().st_uid != os.getuid():
-        raise InvestigationError("display_runtime_invalid", f"XDG_RUNTIME_DIR is not user-owned: {root}")
+        raise InvestigationError(
+            "display_runtime_invalid", f"XDG_RUNTIME_DIR is not user-owned: {root}"
+        )
     return root
 
 
@@ -165,7 +182,9 @@ def _detect_terminal_failure(state: dict) -> BaseException | None:
     crash_root = Path(state["run_dir"]) / "crash-reports"
     if crash_root.is_dir() and not crash_root.is_symlink():
         reports = sorted(
-            path for path in crash_root.glob("*.txt") if path.is_file() and not path.is_symlink()
+            path
+            for path in crash_root.glob("*.txt")
+            if path.is_file() and not path.is_symlink()
         )
         if reports:
             return InvestigationError(
@@ -181,10 +200,15 @@ def _detect_terminal_failure(state: dict) -> BaseException | None:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             return InvestigationError(
-                "client_result_invalid", f"client result is invalid: {variable}={path}: {exc}"
+                "client_result_invalid",
+                f"client result is invalid: {variable}={path}: {exc}",
             )
-        if path.is_symlink() or not path.is_file() or not isinstance(payload, dict) \
-                or payload.get("status") != "pass":
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or not isinstance(payload, dict)
+            or payload.get("status") != "pass"
+        ):
             return InvestigationError(
                 "client_result_failed",
                 f"client result {variable} reported "
@@ -201,7 +225,8 @@ def _detect_terminal_failure(state: dict) -> BaseException | None:
         payload = json.loads(exit_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return InvestigationError(
-            "client_application_exit_invalid", f"client exit sentinel is invalid: {exit_path}: {exc}"
+            "client_application_exit_invalid",
+            f"client exit sentinel is invalid: {exit_path}: {exc}",
         )
     if (
         exit_path.is_symlink()
@@ -211,7 +236,8 @@ def _detect_terminal_failure(state: dict) -> BaseException | None:
         or not isinstance(payload.get("exit_code"), int)
     ):
         return InvestigationError(
-            "client_application_exit_invalid", f"client exit sentinel is invalid: {exit_path}"
+            "client_application_exit_invalid",
+            f"client exit sentinel is invalid: {exit_path}",
         )
     return InvestigationError(
         "client_application_exited",
@@ -235,21 +261,32 @@ def run_client(
     timeout: float,
 ) -> dict:
     if loader not in {"fabric", "neoforge"}:
-        raise InvestigationError("client_unsupported", "client supports Fabric and NeoForge")
+        raise InvestigationError(
+            "client_unsupported", "client supports Fabric and NeoForge"
+        )
     if cpu_list is not None:
         if re.fullmatch(r"\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*", cpu_list) is None:
-            raise InvestigationError("client_invalid", "client CPU list has invalid syntax")
+            raise InvestigationError(
+                "client_invalid", "client CPU list has invalid syntax"
+            )
         available = os.cpu_count() or 1
         for item in cpu_list.split(","):
             bounds = [int(value) for value in item.split("-")]
-            if bounds[0] >= available or (len(bounds) == 2 and bounds[0] > bounds[1]) \
-                    or bounds[-1] >= available:
-                raise InvestigationError("client_invalid", "client CPU list is outside the host CPU set")
+            if (
+                bounds[0] >= available
+                or (len(bounds) == 2 and bounds[0] > bounds[1])
+                or bounds[-1] >= available
+            ):
+                raise InvestigationError(
+                    "client_invalid", "client CPU list is outside the host CPU set"
+                )
     validate_loader(project, loader)
     if timeout <= 0:
         raise InvestigationError("client_invalid", "client timeout must be positive")
     if not result_files:
-        raise InvestigationError("client_invalid", "client requires at least one result environment")
+        raise InvestigationError(
+            "client_invalid", "client requires at least one result environment"
+        )
     active = active_path(project, loader)
     blocked = uninterruptible_owned_processes(active.parent)
     if blocked:
@@ -275,31 +312,45 @@ def run_client(
         target = (run_dir / target_value).resolve()
         if not source.is_file() or source.is_symlink():
             raise InvestigationError(
-                "runtime_file_not_found", f"runtime file is not a regular file: {source}"
+                "runtime_file_not_found",
+                f"runtime file is not a regular file: {source}",
             )
         if not target.is_relative_to(config_root) or target == config_root:
             raise InvestigationError(
-                "unsafe_runtime_file", f"runtime file target escapes config directory: {target_value}"
+                "unsafe_runtime_file",
+                f"runtime file target escapes config directory: {target_value}",
             )
         if target in targets:
-            raise InvestigationError("duplicate_runtime_file", "runtime file targets must be unique")
+            raise InvestigationError(
+                "duplicate_runtime_file", "runtime file targets must be unique"
+            )
         targets.add(target)
-        resolved_runtime_files.append({
-            "source": str(source),
-            "target": str(target),
-            "sha256": _hash(source),
-        })
+        resolved_runtime_files.append(
+            {
+                "source": str(source),
+                "target": str(target),
+                "sha256": _hash(source),
+            }
+        )
     resolved_results = {
         variable: str(results_dir / filename)
         for variable, filename in result_files.items()
     }
     environment = sourced_environment()
     cache_home = _cache_home(environment)
-    neoforge_version = _gradle_property(project, "neoforge_version") \
-            if production and loader == "neoforge" else None
-    neoforge_client_home = cache_home / "neoforge-client" / neoforge_version \
-            if neoforge_version is not None else None
-    launcher_profile_template = Path(__file__).resolve().parents[2] / "assets" / "empty-launcher-profiles.json"
+    neoforge_version = (
+        _gradle_property(project, "neoforge_version")
+        if production and loader == "neoforge"
+        else None
+    )
+    neoforge_client_home = (
+        cache_home / "neoforge-client" / neoforge_version
+        if neoforge_version is not None
+        else None
+    )
+    launcher_profile_template = (
+        Path(__file__).resolve().parents[2] / "assets" / "empty-launcher-profiles.json"
+    )
     overlay_arguments, overlay = probe_overlay_command(
         loader,
         probe_packs,
@@ -311,50 +362,80 @@ def run_client(
         project=project,
         production=production,
         neoforge_client_home=neoforge_client_home,
-        launcher_profile_template=launcher_profile_template if neoforge_client_home else None,
+        launcher_profile_template=launcher_profile_template
+        if neoforge_client_home
+        else None,
     )
     display_root = _display_runtime_root(environment)
     display_runtime = display_root / f"squinch-{run_id[-10:]}"
     display_name = f"squinch-{run_id[-10:]}"
-    environment.update({
-        "ALSOFT_DRIVERS": "null",
-        "WLR_BACKENDS": "headless",
-        "WLR_HEADLESS_OUTPUTS": "1",
-        "WLR_LIBINPUT_NO_DEVICES": "1",
-        "WLR_RENDERER": "pixman",
-        "XDG_RUNTIME_DIR": str(display_runtime),
-        "WAYLAND_DISPLAY": display_name,
-        **probe_environment,
-        **resolved_results,
-        "SQUINCH_INVESTIGATE_RUN_ID": run_id,
-    })
+    environment.update(
+        {
+            "ALSOFT_DRIVERS": "null",
+            "WLR_BACKENDS": "headless",
+            "WLR_HEADLESS_OUTPUTS": "1",
+            "WLR_LIBINPUT_NO_DEVICES": "1",
+            "WLR_RENDERER": "pixman",
+            "XDG_RUNTIME_DIR": str(display_runtime),
+            "WAYLAND_DISPLAY": display_name,
+            **probe_environment,
+            **resolved_results,
+            "SQUINCH_INVESTIGATE_RUN_ID": run_id,
+        }
+    )
     launch_task = "squinchProdClient" if production else "runClient"
     gradle_command = [
-        "bash", "./gradlew", f":{loader}:{launch_task}",
-        "--console=plain", "--no-daemon", *overlay_arguments,
+        "bash",
+        "./gradlew",
+        f":{loader}:{launch_task}",
+        "--console=plain",
+        "--no-daemon",
+        *overlay_arguments,
     ]
     if production and loader == "neoforge":
         java_home = environment.get("JAVA_HOME")
         if not java_home:
-            raise InvestigationError("client_invalid", "JAVA_HOME is required for NeoForge production client")
-        assets_dir = Path(environment.get("GRADLE_USER_HOME", str(Path.home() / ".gradle"))) \
-                / "caches" / "fabric-loom" / "assets"
-        application_command = [sys.executable, "-m",
+            raise InvestigationError(
+                "client_invalid", "JAVA_HOME is required for NeoForge production client"
+            )
+        assets_dir = (
+            Path(environment.get("GRADLE_USER_HOME", str(Path.home() / ".gradle")))
+            / "caches"
+            / "fabric-loom"
+            / "assets"
+        )
+        application_command = [
+            sys.executable,
+            "-m",
             "squinch_minecraft_investigate.neoforge_client",
-            "--project", str(project),
-            "--client-home", str(neoforge_client_home),
-            "--assets-dir", str(assets_dir),
-            "--run-dir", str(run_dir),
-            "--version", neoforge_version,
-            "--java", str(Path(java_home) / "bin" / "java"),
-            "--", *gradle_command,
+            "--project",
+            str(project),
+            "--client-home",
+            str(neoforge_client_home),
+            "--assets-dir",
+            str(assets_dir),
+            "--run-dir",
+            str(run_dir),
+            "--version",
+            neoforge_version,
+            "--java",
+            str(Path(java_home) / "bin" / "java"),
+            "--",
+            *gradle_command,
         ]
     else:
         application_command = gradle_command
     command = ([] if cpu_list is None else ["taskset", "-c", cpu_list]) + [
-        "cage", "-d", "--", sys.executable, "-m",
+        "cage",
+        "-d",
+        "--",
+        sys.executable,
+        "-m",
         "squinch_minecraft_investigate.application_exit",
-        "--output", str(application_exit), "--", *application_command,
+        "--output",
+        str(application_exit),
+        "--",
+        *application_command,
     ]
 
     def prepare() -> None:
@@ -384,7 +465,9 @@ def run_client(
             record["final_sha256"] = _hash(target)
         tracked_after = git_status(project)
         state["probe_overlay"]["tracked_status_after_build"] = tracked_after
-        state["probe_overlay"]["tracked_source_unchanged"] = tracked_before == tracked_after
+        state["probe_overlay"]["tracked_source_unchanged"] = (
+            tracked_before == tracked_after
+        )
         if tracked_before != tracked_after:
             raise InvestigationError(
                 "probe_overlay_modified_worktree",

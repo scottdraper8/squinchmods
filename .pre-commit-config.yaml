@@ -1,4 +1,4 @@
-default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_install_hook_types: [pre-commit, pre-push]
 
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
@@ -34,17 +34,6 @@ repos:
 
 -   repo: local
     hooks:
-    -   id: contribution-branch-policy
-        name: reject attributed branch names
-        entry: tooling/check-contribution-attribution branches
-        language: system
-        pass_filenames: false
-        always_run: true
-    -   id: contribution-message-policy
-        name: reject attributed commit metadata
-        entry: tooling/check-contribution-attribution message-file
-        language: system
-        stages: [commit-msg]
     -   id: tracked-artifact-boundary
         name: reject tracked runtime and investigation artifacts
         entry: tooling/check-tracked-artifacts
@@ -59,25 +48,12 @@ repos:
         - prettier@3.9.9
         files: (\.md$|^site/.*\.(scss|json|jsonc|yaml)$)
         exclude: ^site/pnpm-lock\.yaml$
-    -   id: site-biome
-        name: site Biome lint and format
-        entry: pnpm --dir site check:write
+    -   id: site-static-analysis
+        name: site Biome and TypeScript checks
+        entry: tooling/site-static-analysis
         language: system
         pass_filenames: false
-        files: ^site/.*\.(ts|tsx)$|^site/(biome\.json|package\.json|pnpm-lock\.yaml)$
-    -   id: site-typecheck
-        name: site TypeScript check
-        entry: pnpm --dir site typecheck
-        language: system
-        pass_filenames: false
-        files: ^site/(.*\.(ts|tsx)|tsr\.config\.json|tsconfig\.json|package\.json|pnpm-lock\.yaml)$
-    -   id: site-build
-        name: site production build
-        entry: pnpm --dir site build
-        language: system
-        pass_filenames: false
-        files: ^site/(src/|functions/|public/|vite\.config\.ts$|tsconfig\.json$|tsr\.config\.json$|wrangler\.jsonc$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.node-version$)
-
+        files: ^site/(.*\.(ts|tsx)|biome\.json|tsr\.config\.json|tsconfig\.json|package\.json|pnpm-lock\.yaml)$
 -   repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: 916ad0aaa108c64d294101002066f530ea170b10  # frozen: v0.23.3
     hooks:

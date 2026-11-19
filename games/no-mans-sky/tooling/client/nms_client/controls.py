@@ -236,7 +236,9 @@ def capture(window: str, path: Path) -> None:
             raise LaunchError("NMS lost focus while capturing the screenshot")
     else:
         require_command("import")
-        subprocess.run(["import", "-window", window, str(path)], check=True, timeout=20.0)
+        subprocess.run(
+            ["import", "-window", window, str(path)], check=True, timeout=20.0
+        )
     event("screenshot", path=str(path))
 
 
@@ -285,7 +287,11 @@ def interactive(controller: UInput, window: str) -> None:
             continue
         duration = min(max(duration, 0.05), 5.0)
         if len(fields) > 2 and command not in axes:
-            event("interactive_error", command=line.strip(), error="magnitude is only valid for axes")
+            event(
+                "interactive_error",
+                command=line.strip(),
+                error="magnitude is only valid for axes",
+            )
             continue
         if command in buttons:
             tap_button(controller, window, buttons[command], duration)
@@ -294,12 +300,20 @@ def interactive(controller: UInput, window: str) -> None:
             try:
                 magnitude = float(fields[2]) if len(fields) > 2 else 1.0
             except ValueError:
-                event("interactive_error", command=line.strip(), error="invalid magnitude")
+                event(
+                    "interactive_error", command=line.strip(), error="invalid magnitude"
+                )
                 continue
             if not math.isfinite(magnitude) or not 0 < magnitude <= 1:
-                event("interactive_error", command=line.strip(), error="magnitude must be between 0 and 1")
+                event(
+                    "interactive_error",
+                    command=line.strip(),
+                    error="magnitude must be between 0 and 1",
+                )
                 continue
-            pulse_axis(controller, window, code, round(axis_value * magnitude), duration)
+            pulse_axis(
+                controller, window, code, round(axis_value * magnitude), duration
+            )
         elif command in KEYBOARD_KEYS:
             keyboard_key(command, window, duration)
         else:

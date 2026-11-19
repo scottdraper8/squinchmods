@@ -3,11 +3,9 @@ from __future__ import annotations
 import shutil
 
 import pytest
-
+from conftest import REAL_REPO_ROOT
 from squinch_qa.config import find_repo_root, load_mod_config, load_parent_config
 from squinch_qa.errors import ConfigError, UnknownMod
-
-from conftest import REAL_REPO_ROOT
 
 
 class TestLoadParentConfig:
@@ -74,7 +72,7 @@ class TestLoadParentConfig:
 
 class TestLoadModConfig:
     def test_happy_path_by_filesystem_name(self, fake_repo):
-        mod, path = load_mod_config(fake_repo, "redstone-backport")
+        mod, _path = load_mod_config(fake_repo, "redstone-backport")
         assert mod.mod_id == "redstone-backport"
         assert mod.display_name == "Redstone Backport"
         assert len(mod.targets) == 2

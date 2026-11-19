@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate.errors import InvestigationError
 from squinch_minecraft_investigate.probe_requests import read_probe_transcript
 

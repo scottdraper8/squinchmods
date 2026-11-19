@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 from datetime import UTC, datetime
@@ -12,10 +11,18 @@ from .errors import AcquisitionError
 
 def _run(command: list[str], cwd: Path | None = None) -> str:
     try:
-        result = subprocess.run(command, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
     except (OSError, subprocess.CalledProcessError) as exc:
         detail = getattr(exc, "stderr", "")
-        raise AcquisitionError(f"command failed: {' '.join(command)}\n{detail}") from exc
+        raise AcquisitionError(
+            f"command failed: {' '.join(command)}\n{detail}"
+        ) from exc
     return result.stdout.strip()
 
 
@@ -30,12 +37,30 @@ def checkout_source(
 ) -> dict[str, object]:
     if destination.exists():
         if not replace:
-            raise AcquisitionError(f"source destination already exists: {destination} (use --replace explicitly)")
-        if destination.is_symlink() or destination.resolve() in {Path("/"), Path.home().resolve()}:
+            raise AcquisitionError(
+                f"source destination already exists: {destination} (use --replace explicitly)"
+            )
+        if destination.is_symlink() or destination.resolve() in {
+            Path("/"),
+            Path.home().resolve(),
+        }:
             raise AcquisitionError(f"refusing unsafe source replacement: {destination}")
         shutil.rmtree(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    _run(["git", "clone", "--depth", "1", "--filter=blob:none", "--no-checkout", "--branch", ref, repository, str(destination)])
+    _run(
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            "--no-checkout",
+            "--branch",
+            ref,
+            repository,
+            str(destination),
+        ]
+    )
     _run(["git", "sparse-checkout", "init", "--cone"], cwd=destination)
     _run(["git", "sparse-checkout", "set", *sparse_paths], cwd=destination)
     _run(["git", "checkout", ref], cwd=destination)

@@ -4,12 +4,13 @@ import json
 from pathlib import Path
 
 import pytest
-
 from squinch_minecraft_investigate.server import _remove_protocol_files
 from squinch_minecraft_investigate.state import atomic_write_json
 
 
-def test_failed_atomic_replace_preserves_previous_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_failed_atomic_replace_preserves_previous_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Catches interrupted writes replacing valid process ownership state with partial data."""
     path = tmp_path / "active.json"
     atomic_write_json(path, {"generation": 1})
@@ -25,7 +26,9 @@ def test_failed_atomic_replace_preserves_previous_state(tmp_path: Path, monkeypa
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_protocol_cleanup_removes_only_identity_validated_run_files(tmp_path: Path) -> None:
+def test_protocol_cleanup_removes_only_identity_validated_run_files(
+    tmp_path: Path,
+) -> None:
     """Catches probe requests being stranded in a target loader's shared run directory."""
     run_dir = tmp_path / "loader-run"
     request = run_dir / ".squinch-investigate" / "requests" / "request.json"

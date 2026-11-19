@@ -32,7 +32,8 @@ def read_probe_transcript(path: Path, request: dict) -> tuple[list[dict], dict]:
         ]
     except (OSError, json.JSONDecodeError) as exc:
         raise InvestigationError(
-            "invalid_probe_transcript", f"cannot read probe JSONL transcript {path}: {exc}"
+            "invalid_probe_transcript",
+            f"cannot read probe JSONL transcript {path}: {exc}",
         ) from exc
     if not records or any(not isinstance(record, dict) for record in records):
         raise InvestigationError(
@@ -57,16 +58,19 @@ def read_probe_transcript(path: Path, request: dict) -> tuple[list[dict], dict]:
     terminal = terminals[0]
     if records[-1] is not terminal:
         raise InvestigationError(
-            "probe_terminal_order", "the terminal record must be the final transcript record"
+            "probe_terminal_order",
+            "the terminal record must be the final transcript record",
         )
     state = terminal.get("state")
     if state not in TERMINAL_STATES:
         raise InvestigationError(
-            "probe_missing_terminal", f"invalid or missing probe terminal state: {state!r}"
+            "probe_missing_terminal",
+            f"invalid or missing probe terminal state: {state!r}",
         )
     if terminal.get("phase") not in PROBE_PHASES:
         raise InvestigationError(
-            "probe_invalid_phase", f"invalid or missing probe phase: {terminal.get('phase')!r}"
+            "probe_invalid_phase",
+            f"invalid or missing probe phase: {terminal.get('phase')!r}",
         )
     completeness = terminal.get("completeness")
     if not isinstance(completeness, dict):
@@ -127,9 +131,13 @@ def submit_probe(
         request_path = protocol_root / "requests" / f"{request_id}.json"
         result_path = protocol_root / "results" / f"{request_id}.jsonl"
         atomic_write_json(request_path, request)
-        artifact_request = Path(state["artifact_dir"]) / f"probe-request-{request_id}.json"
+        artifact_request = (
+            Path(state["artifact_dir"]) / f"probe-request-{request_id}.json"
+        )
         atomic_write_json(artifact_request, request)
-        state.setdefault("protocol_files", []).extend([str(request_path), str(result_path)])
+        state.setdefault("protocol_files", []).extend(
+            [str(request_path), str(result_path)]
+        )
         persist_active(state)
 
     deadline = time.monotonic() + timeout

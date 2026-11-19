@@ -66,11 +66,17 @@ def run(args: argparse.Namespace) -> None:
     if load_save and args.load_latest_save:
         raise LaunchError("choose either --load-latest-save or --load-save")
     if args.load_latest_save:
-        raise LaunchError("Automatic latest-save selection is disabled; use save.hg or save2.hg with a visually verified menu row")
+        raise LaunchError(
+            "Automatic latest-save selection is disabled; use save.hg or save2.hg with a visually verified menu row"
+        )
     if load_save and load_save not in {"save.hg", "save2.hg"}:
-        raise LaunchError("Runtime investigations are restricted to save.hg and save2.hg")
+        raise LaunchError(
+            "Runtime investigations are restricted to save.hg and save2.hg"
+        )
     if load_save:
-        raise LaunchError("Automatic save loading is disabled: inspect the startup screen and select Galaxies 1-50 interactively, then verify the runtime location against save.hg/save2.hg before probes")
+        raise LaunchError(
+            "Automatic save loading is disabled: inspect the startup screen and select Galaxies 1-50 interactively, then verify the runtime location against save.hg/save2.hg before probes"
+        )
     event("preflight", profile=str(profile))
     ensure_uinput_access()
     timings = Timings(
@@ -157,7 +163,9 @@ def parser() -> argparse.ArgumentParser:
         help="Rejected: select save.hg/save2.hg through the visually verified menu",
     )
     value.add_argument(
-        "--save-menu-row", type=int, choices=range(1, 6),
+        "--save-menu-row",
+        type=int,
+        choices=range(1, 6),
         help="Visually verified current menu row for save.hg/save2.hg; file numbers are not menu positions",
     )
     value.add_argument(

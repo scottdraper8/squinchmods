@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-
+from conftest import FIXTURES, REAL_REPO_ROOT
 from squinch_qa.config import load_parent_config
 from squinch_qa.errors import ConfigError, PlanLimitExceeded, UnknownProfile
 from squinch_qa.models import (
@@ -17,8 +17,6 @@ from squinch_qa.models import (
 )
 from squinch_qa.planner import build_plan
 from squinch_qa.resolve import resolve_profile
-
-from conftest import FIXTURES, REAL_REPO_ROOT
 
 
 @pytest.fixture
@@ -55,9 +53,9 @@ def _load_fixture_parent(tmp_path: Path, fixture_name: str) -> ParentConfig:
 
 
 def _empty_mod(**kwargs) -> ModConfig:
-    defaults = dict(
-        mod_id="test-mod",
-        targets=[
+    defaults = {
+        "mod_id": "test-mod",
+        "targets": [
             Target(
                 id="forge-1.20.1",
                 minecraft="1.20.1",
@@ -66,8 +64,8 @@ def _empty_mod(**kwargs) -> ModConfig:
                 java=17,
             )
         ],
-        display_name="Test Mod",
-    )
+        "display_name": "Test Mod",
+    }
     defaults.update(kwargs)
     return ModConfig(**defaults)
 

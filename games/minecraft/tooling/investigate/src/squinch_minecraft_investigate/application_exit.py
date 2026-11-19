@@ -17,11 +17,14 @@ def main() -> int:
     if not command:
         parser.error("a command is required after --")
     exit_code = subprocess.run(command, check=False).returncode
-    atomic_write_json(args.output, {
-        "status": "exited",
-        "exit_code": exit_code,
-        "finished_at": timestamp(),
-    })
+    atomic_write_json(
+        args.output,
+        {
+            "status": "exited",
+            "exit_code": exit_code,
+            "finished_at": timestamp(),
+        },
+    )
     return exit_code
 
 

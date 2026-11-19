@@ -15,10 +15,12 @@ class RemoveAcquiredTests(unittest.TestCase):
         version_dir.mkdir(parents=True)
         (version_dir / "example-mod.jar").write_bytes(b"test")
         (version_dir / "acquisition.json").write_text(
-            json.dumps({
-                "project": {"slug": "example-mod"},
-                "requested": {"minecraft_version": "1.21.1", "loader": "neoforge"},
-            }),
+            json.dumps(
+                {
+                    "project": {"slug": "example-mod"},
+                    "requested": {"minecraft_version": "1.21.1", "loader": "neoforge"},
+                }
+            ),
             encoding="utf-8",
         )
         return version_dir
@@ -27,12 +29,19 @@ class RemoveAcquiredTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "cache"
             version_dir = self._populate(root)
-            source = Path(temporary) / "games/minecraft/reference/sources/1.21.1/mods/example-mod"
+            source = (
+                Path(temporary)
+                / "games/minecraft/reference/sources/1.21.1/mods/example-mod"
+            )
             source.mkdir(parents=True)
             (source / "source-acquisition.json").write_text("{}", encoding="utf-8")
 
             plan = remove_acquired(
-                "example-mod", "1.21.1", "neoforge", version_number="1.0.0", source=source,
+                "example-mod",
+                "1.21.1",
+                "neoforge",
+                version_number="1.0.0",
+                source=source,
                 destination_root=root,
             )
             self.assertFalse(plan["apply"])
@@ -40,8 +49,13 @@ class RemoveAcquiredTests(unittest.TestCase):
             self.assertTrue(source.exists())
 
             result = remove_acquired(
-                "example-mod", "1.21.1", "neoforge", version_number="1.0.0", source=source,
-                destination_root=root, apply=True,
+                "example-mod",
+                "1.21.1",
+                "neoforge",
+                version_number="1.0.0",
+                source=source,
+                destination_root=root,
+                apply=True,
             )
             self.assertEqual(result["cache"]["removed"], [str(version_dir)])
             self.assertFalse(version_dir.exists())
@@ -52,23 +66,36 @@ class RemoveAcquiredTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "cache"
             version_dir = self._populate(root)
-            manifest = json.loads((version_dir / "acquisition.json").read_text(encoding="utf-8"))
+            manifest = json.loads(
+                (version_dir / "acquisition.json").read_text(encoding="utf-8")
+            )
             manifest["project"]["slug"] = "different-mod"
-            (version_dir / "acquisition.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (version_dir / "acquisition.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
 
             with self.assertRaises(AcquisitionError):
                 remove_acquired(
-                    "example-mod", "1.21.1", "neoforge", version_number="1.0.0",
-                    destination_root=root, apply=True,
+                    "example-mod",
+                    "1.21.1",
+                    "neoforge",
+                    version_number="1.0.0",
+                    destination_root=root,
+                    apply=True,
                 )
             self.assertTrue(version_dir.exists())
 
     def test_source_must_be_under_reference_sources(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaises(AcquisitionError):
-                remove_acquired(
-                    "example-mod", "1.21.1", "neoforge", source=Path(temporary) / "elsewhere",
-                )
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            self.assertRaises(AcquisitionError),
+        ):
+            remove_acquired(
+                "example-mod",
+                "1.21.1",
+                "neoforge",
+                source=Path(temporary) / "elsewhere",
+            )
 
 
 if __name__ == "__main__":

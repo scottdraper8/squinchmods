@@ -40,8 +40,10 @@ def render_summary(run_dir: Path) -> str:
 
     lines = [
         f"Run {qa_manifest['run_id']} — {qa_manifest['mod_id']} ({qa_manifest['profile']})",
-        f"Status: {result['status'].upper()} (exit {result['exit_code']})"
-        f"   Duration: {result['duration_s']:.1f}s",
+        (
+            f"Status: {result['status'].upper()} (exit {result['exit_code']})"
+            f"   Duration: {result['duration_s']:.1f}s"
+        ),
         "  ".join(f"{status}: {count}" for status, count in result["counts"].items()),
         "",
     ]

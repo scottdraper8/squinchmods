@@ -8,7 +8,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from squinch_qa.executors.base import FailureDetail, JobResult
 from squinch_qa.manifest import _compute_exit_code, _git_head_sha, emit_all
 from squinch_qa.models import (

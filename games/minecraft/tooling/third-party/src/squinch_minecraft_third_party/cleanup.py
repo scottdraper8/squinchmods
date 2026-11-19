@@ -32,21 +32,35 @@ def _validate_release_dir(
     loader: str,
 ) -> None:
     if version_dir.is_symlink() or not version_dir.is_dir():
-        raise AcquisitionError(f"refusing to remove non-directory or symlink: {version_dir}")
+        raise AcquisitionError(
+            f"refusing to remove non-directory or symlink: {version_dir}"
+        )
     manifest_path = version_dir / "acquisition.json"
     try:
         metadata: Any = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise AcquisitionError(f"cannot validate acquisition manifest: {manifest_path}: {exc}") from exc
+        raise AcquisitionError(
+            f"cannot validate acquisition manifest: {manifest_path}: {exc}"
+        ) from exc
     if not isinstance(metadata, dict):
-        raise AcquisitionError(f"acquisition manifest is not an object: {manifest_path}")
+        raise AcquisitionError(
+            f"acquisition manifest is not an object: {manifest_path}"
+        )
     project_metadata = metadata.get("project")
     requested = metadata.get("requested", {})
     if not isinstance(project_metadata, dict) or not isinstance(requested, dict):
-        raise AcquisitionError(f"acquisition manifest has invalid identity fields: {manifest_path}")
+        raise AcquisitionError(
+            f"acquisition manifest has invalid identity fields: {manifest_path}"
+        )
     recorded_project = project_metadata.get("slug")
-    if recorded_project != project or requested.get("minecraft_version") != minecraft_version or requested.get("loader") != loader:
-        raise AcquisitionError(f"acquisition manifest does not match requested removal: {manifest_path}")
+    if (
+        recorded_project != project
+        or requested.get("minecraft_version") != minecraft_version
+        or requested.get("loader") != loader
+    ):
+        raise AcquisitionError(
+            f"acquisition manifest does not match requested removal: {manifest_path}"
+        )
 
 
 def _source_path(path: Path, project: str) -> Path:
@@ -54,15 +68,20 @@ def _source_path(path: Path, project: str) -> Path:
     resolved = candidate.resolve(strict=False)
     marker = Path("games") / "minecraft" / "reference" / "sources"
     marker_parts = marker.parts
-    if not any(
-        resolved.parts[index : index + len(marker_parts)] == marker_parts
-        for index in range(len(resolved.parts) - len(marker_parts) + 1)
-    ) or len(resolved.parts) < len(marker_parts) + 2:
+    if (
+        not any(
+            resolved.parts[index : index + len(marker_parts)] == marker_parts
+            for index in range(len(resolved.parts) - len(marker_parts) + 1)
+        )
+        or len(resolved.parts) < len(marker_parts) + 2
+    ):
         raise AcquisitionError(
             "source removal is limited to games/minecraft/reference/sources/<version>/<mod>"
         )
     if resolved.name != project:
-        raise AcquisitionError(f"source path does not match project {project!r}: {resolved}")
+        raise AcquisitionError(
+            f"source path does not match project {project!r}: {resolved}"
+        )
     if candidate.is_symlink() or resolved in {Path("/"), Path.home().resolve()}:
         raise AcquisitionError(f"refusing unsafe source removal: {candidate}")
     return resolved
@@ -82,7 +101,9 @@ def remove_acquired(
     project = _single_path_component(project_name, "project")
     minecraft = _single_path_component(minecraft_version, "Minecraft version")
     loader_name = _single_path_component(loader, "loader")
-    version = _single_path_component(version_number, "version") if version_number else None
+    version = (
+        _single_path_component(version_number, "version") if version_number else None
+    )
 
     root = (destination_root or cache_root()).expanduser().resolve(strict=False)
     project_dir = root / minecraft / loader_name / project
@@ -113,11 +134,18 @@ def remove_acquired(
             absent_cache.append(candidate)
 
     source_path = _source_path(source, project) if source else None
-    if source_path and source_path.exists() and (source_path.is_symlink() or not source_path.is_dir()):
+    if (
+        source_path
+        and source_path.exists()
+        and (source_path.is_symlink() or not source_path.is_dir())
+    ):
         raise AcquisitionError(f"refusing unsafe source removal: {source_path}")
     prune_project_dir = project_dir.is_dir() and (
         not any(project_dir.iterdir())
-        or (bool(existing_cache) and all(child in existing_cache for child in project_dir.iterdir()))
+        or (
+            bool(existing_cache)
+            and all(child in existing_cache for child in project_dir.iterdir())
+        )
     )
 
     if apply:
@@ -143,7 +171,9 @@ def remove_acquired(
         },
         "source": {
             "path": str(source_path) if source_path else None,
-            "removed" if apply else "planned": bool(source_path and source_path.exists()),
+            "removed" if apply else "planned": bool(
+                source_path and source_path.exists()
+            ),
             "absent": bool(source_path and not source_path.exists()),
         },
     }

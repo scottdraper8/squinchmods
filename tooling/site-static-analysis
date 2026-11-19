@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Run the site's pinned formatter, linter, and type checker locally."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
+
+
+def main() -> int:
+    package = json.loads((SITE / "package.json").read_text(encoding="utf-8"))
+    manager = package.get("packageManager")
+    if not isinstance(manager, str) or not manager.startswith("pnpm@"):
+        print(
+            "site/package.json must pin packageManager to pnpm@<version>",
+            file=sys.stderr,
+        )
+        return 2
+    npx = shutil.which("npx")
+    if npx is None:
+        print("site checks require Node.js with npx", file=sys.stderr)
+        return 2
+    pnpm = [npx, "--yes", manager, "--dir", str(SITE)]
+    commands = (
+        [*pnpm, "install", "--frozen-lockfile", "--prefer-offline"],
+        [*pnpm, "check:write"],
+        [*pnpm, "typecheck"],
+    )
+    for command in commands:
+        print("+ " + " ".join(command), file=sys.stderr)
+        try:
+            subprocess.run(command, cwd=ROOT, check=True)
+        except (OSError, subprocess.CalledProcessError) as error:
+            print(f"site static analysis failed: {error}", file=sys.stderr)
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -5,14 +5,15 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-
 from squinch_minecraft_investigate import cli, generation
 from squinch_minecraft_investigate.output import _schema, envelope
 
 
 def test_json_contract_rejects_missing_error_field() -> None:
     """Catches a CLI refactor that silently drops a required agent-facing key."""
-    value = envelope("status", "inactive", data={"project": "/tmp/project", "loader": "fabric"})
+    value = envelope(
+        "status", "inactive", data={"project": "/tmp/project", "loader": "fabric"}
+    )
     del value["error"]
 
     with pytest.raises(jsonschema.ValidationError):
@@ -37,7 +38,13 @@ def test_chunk_tiling_has_independent_inclusive_boundaries() -> None:
     ]
 
     large = generation.tile_chunks((0, 0, 32, 17), "chunk")
-    assert [(item["chunk_max_x"] - item["chunk_min_x"] + 1, item["chunk_max_z"] - item["chunk_min_z"] + 1) for item in large] == [
+    assert [
+        (
+            item["chunk_max_x"] - item["chunk_min_x"] + 1,
+            item["chunk_max_z"] - item["chunk_min_z"] + 1,
+        )
+        for item in large
+    ] == [
         (16, 16),
         (16, 2),
         (16, 16),
@@ -49,7 +56,9 @@ def test_chunk_tiling_has_independent_inclusive_boundaries() -> None:
     assert large[-1]["block_max_z"] == 287
 
 
-def test_generate_command_reports_the_real_region_count(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_command_reports_the_real_region_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Catches a stale variable reference in the generate command's success message. The CLI
     crashed with NameError on its first real invocation because the human-readable summary
     referenced a variable name ('regions') that had been renamed to 'results'; this exercises
@@ -65,13 +74,19 @@ def test_generate_command_reports_the_real_region_count(tmp_path: Path, monkeypa
         "log_path": str(tmp_path / "server.log"),
         "lifecycle": "ready",
     }
-    fake_regions = [{"chunk_min_x": 0, "chunk_min_z": 0, "chunk_max_x": 15, "chunk_max_z": 15}]
+    fake_regions = [
+        {"chunk_min_x": 0, "chunk_min_z": 0, "chunk_max_x": 15, "chunk_max_z": 15}
+    ]
 
     monkeypatch.setattr(cli, "load_active", lambda *_args, **_kwargs: fake_state)
     monkeypatch.setattr(cli, "generate_regions", lambda *_args, **_kwargs: fake_regions)
 
     args = argparse.Namespace(
-        project=str(project), loader="fabric", bounds=[0, 0, 15, 15], unit="chunk", timeout=1.0
+        project=str(project),
+        loader="fabric",
+        bounds=[0, 0, 15, 15],
+        unit="chunk",
+        timeout=1.0,
     )
     value, message = cli._generate(args)
 

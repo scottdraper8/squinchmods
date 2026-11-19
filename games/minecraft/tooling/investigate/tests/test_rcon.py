@@ -6,7 +6,6 @@ import threading
 from collections.abc import Callable
 
 import pytest
-
 from squinch_minecraft_investigate.rcon import RconError, execute
 
 
@@ -29,7 +28,9 @@ def _packet(packet_id: int, packet_type: int, payload: str) -> bytes:
     return struct.pack("<i", len(body)) + body
 
 
-def _run_server(handler: Callable[[socket.socket], None]) -> tuple[int, threading.Thread, list[BaseException]]:
+def _run_server(
+    handler: Callable[[socket.socket], None],
+) -> tuple[int, threading.Thread, list[BaseException]]:
     listener = socket.socket()
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(("127.0.0.1", 0))
@@ -80,7 +81,10 @@ def test_rcon_assembles_fragmented_packets_over_a_real_socket() -> None:
     ("malformed", "message"),
     (
         (struct.pack("<i", 9), "invalid RCON packet length"),
-        (struct.pack("<i", 10) + struct.pack("<ii", 1, 2) + b"xx", "invalid RCON packet terminator"),
+        (
+            struct.pack("<i", 10) + struct.pack("<ii", 1, 2) + b"xx",
+            "invalid RCON packet terminator",
+        ),
     ),
 )
 def test_rcon_rejects_malformed_packets_from_a_real_socket(

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from squinch_qa.errors import PlanLimitExceeded, UnknownTarget
 from squinch_qa.models import ModConfig, ResolvedProfile, Target, TestSpec
 from squinch_qa.planner import build_plan, emit_plan_json

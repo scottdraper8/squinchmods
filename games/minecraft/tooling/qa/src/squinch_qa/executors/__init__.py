@@ -24,8 +24,8 @@ def get_executor(test_id: str) -> type[Executor]:
 def _register_defaults() -> None:
     from squinch_qa.executors.build import BuildExecutor
     from squinch_qa.executors.command_script import CommandScriptExecutor
-    from squinch_qa.executors.server_smoke import ServerSmokeExecutor
     from squinch_qa.executors.pregen import PregenExecutor
+    from squinch_qa.executors.server_smoke import ServerSmokeExecutor
 
     register("build", BuildExecutor)
     register("tick-freeze", CommandScriptExecutor)
