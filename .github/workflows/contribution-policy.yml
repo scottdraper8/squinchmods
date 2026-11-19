@@ -1,0 +1,29 @@
+name: Contribution policy
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  attribution-neutral:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Test contribution policy
+        run: python3 -m unittest tooling/tests/test_contribution_attribution.py
+
+      - name: Check contribution metadata
+        run: tooling/check-contribution-attribution github-event "$GITHUB_EVENT_PATH"

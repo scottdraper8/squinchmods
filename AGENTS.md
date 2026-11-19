@@ -15,6 +15,11 @@
 - Preserve unrelated dirty work.
 - On context restoration, inspect current repository state and continue from completed artifacts
   rather than repeating finished work.
+- Keep contribution metadata project-focused and attribution-neutral. Branch names, commit messages
+  and trailers, pull-request titles and descriptions, and equivalent metadata must not name,
+  advertise, credit, or attribute work to a generative assistant or model. Do not add co-author,
+  assisted-by, generated-by, or similar attribution for one. This rule applies to the parent and
+  every maintained submodule.
 
 ## Documentation and evidence
 
