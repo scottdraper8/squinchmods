@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from . import runtime_protocol
@@ -19,13 +20,85 @@ def inspect(directory: Path, *, timeout: float = 120) -> tuple[dict, dict, dict]
     return snapshot(directory, command_id=command_id)
 
 
+def _rgb(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == 3
+        and all(isinstance(channel, int | float) and math.isfinite(channel) for channel in value)
+    )
+
+
+def _appearance(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and _rgb(value.get("source_linear_rgb"))
+        and _rgb(value.get("tone_mapped_srgb"))
+        and set(value) == {"source_linear_rgb", "tone_mapped_srgb"}
+    )
+
+
+def _colour_observations(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    provenances = {
+        "generated_reference_appearance",
+        "grass_material_appearance",
+        "flora_model_appearance",
+    }
+    for field, observation in value.items():
+        if not isinstance(observation, dict):
+            return False
+        labels = observation.get("labels")
+        evaluated = observation.get("evaluated_labels")
+        if (
+            not isinstance(observation.get("classification"), int)
+            or not isinstance(labels, list)
+            or any(not isinstance(label, str) for label in labels)
+            or not isinstance(evaluated, list)
+            or any(not isinstance(label, str) for label in evaluated)
+            or not isinstance(observation.get("complete"), bool)
+            or observation.get("provenance") not in provenances
+        ):
+            return False
+        appearance = observation.get("appearance")
+        if appearance is not None and not _appearance(appearance):
+            return False
+        components = observation.get("components", {})
+        if not isinstance(components, dict) or any(
+            component not in {"sky_colour", "sky_solar_colour", "sky_upper_colour", "sun_colour"}
+            or not isinstance(component_observation, dict)
+            or not isinstance(component_observation.get("classification"), int)
+            or not _appearance(component_observation.get("appearance"))
+            for component, component_observation in components.items()
+        ):
+            return False
+        sky_reference = observation.get("sky_reference")
+        if sky_reference is not None and (
+            field != "sky"
+            or not isinstance(sky_reference, dict)
+            or set(sky_reference) != {"gradient_progress", "gradient_speed"}
+            or not isinstance(sky_reference.get("gradient_progress"), int | float)
+            or not math.isfinite(sky_reference["gradient_progress"])
+            or not 0 <= sky_reference["gradient_progress"] <= 1
+            or not _rgb(sky_reference.get("gradient_speed"))
+            or any(channel < 0 for channel in sky_reference["gradient_speed"])
+        ):
+            return False
+    return True
+
+
 def _facts(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     fields = value.get("fields")
+    colour_observations = value.get("colour_observations", {})
     flags = [value.get("planet_flags"), value.get("system_flags")]
     resources = value.get("resources")
-    if not isinstance(fields, dict) or any(not isinstance(item, dict) for item in flags):
+    if (
+        not isinstance(fields, dict)
+        or not _colour_observations(colour_observations)
+        or any(not isinstance(item, dict) for item in flags)
+    ):
         return False
     if resources is not None and (
         not isinstance(resources, list) or any(not isinstance(item, str) for item in resources)

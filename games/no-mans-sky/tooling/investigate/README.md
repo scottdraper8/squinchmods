@@ -24,24 +24,21 @@ compiler products, hashes, and bounded diffs stay beside them. Local MBIN/XML in
 catalogs, scenario files, and screenshots are task scratch and must come from the selected tranche.
 Mod roots and source checkouts are maintained/shared source and remain outside tranche cleanup.
 
-The committed `toolchain.toml` records the local public game target as Forsaken 7.13, Steam build
-`26385139`. It pins HGPAKtool `1.1.3` (the latest upstream release) and MBINCompiler `v7.10.0-pre1`
-by URL and SHA-256. That MBINCompiler release identifies itself as NMS 7.10 and its upstream source
-update targets Steam build `26271400`. The installed public 7.13/build `26385139` is now locally
-allowlisted after semantic round trips of its `COSTTABLE.MBIN`, `REWARDTABLE.MBIN`, and
-`NMS_DIALOG_GCALIENPUZZLETABLE.MBIN`, the three vanilla objects patched by Generous Giver. This
-checks those data paths, not the full 7.13 MBIN asset set. The separate Search Probes target remains
-public 7.11/build `26295378`.
+The committed `toolchain.toml` records the local public game target as Forsaken 7.14, Steam build
+`26540391`. It pins HGPAKtool `1.1.3` and MBINCompiler `v7.14.0-pre1` by URL and SHA-256. The
+MBINCompiler release identifies itself as NMS 7.14 and its upstream source update targets Steam
+build `26413549`. The installed public build `26540391` is not compiler-allowlisted because a
+current-asset recompilation probe reproducibly crashes MBINCompiler. Search Probes has a separate
+exact executable target at public 7.14/build `26540391`; its version-specific bindings still require
+independent runtime validation.
 
 HGPAKtool and its distributions are hash-locked in `uv.lock`. On this Linux host MBINCompiler runs
 in a network-disabled .NET 8 container when a matching host runtime is absent. Every result records
 the actual backend image ID and repo digest. The container reference itself is digest-pinned, and
 the Windows asset compression mode is always explicit. `doctor` reports the current game target
 separately from the MBINCompiler support target. Compiler-backed checks and Search Probes control
-fail closed when the installed Steam build is not on their respective allowlists. The MBINCompiler
-allowlist's 7.13 entry has the path scope stated above; round-trip each additional MBIN path before
-using it as compatibility evidence. Archive inventory and extraction remain usable for examining a
-newer build.
+fail closed when the installed Steam build is not on their respective allowlists. Archive inventory
+and extraction remain usable for examining a build newer than the pinned compiler supports.
 
 Investigation states mean:
 

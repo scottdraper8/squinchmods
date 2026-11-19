@@ -314,12 +314,9 @@ def analyze_mod(
                             ),
                         }
                     )
-            elif (
-                inspection["version"].get("version")
-                and not _compiler_versions_equal(
-                    inspection["version"]["version"],
-                    toolchain_config()["mbincompiler"]["reported_version"],
-                )
+            elif inspection["version"].get("version") and not _compiler_versions_equal(
+                inspection["version"]["version"],
+                toolchain_config()["mbincompiler"]["reported_version"],
             ):
                 findings.append(
                     {

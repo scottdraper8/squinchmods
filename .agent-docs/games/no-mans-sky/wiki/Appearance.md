@@ -12,10 +12,21 @@ biome weights, including a corrupted-Sentinel override. Rendering blends base, d
 effect LUTs. An assigned filter does not guarantee constant full-strength grading in every view.
 
 SDR LUTs use 16- or 32-cubed BGRA8 textures. HDR LUTs use 33-cubed R10G10B10A2 data with a separate
-log encoding. An SDR estimate is not an HDR simulation.
+log encoding. The SDR post-process shader tone-maps scene-linear colour, applies the sRGB transfer,
+samples all active LUTs with that sRGB coordinate, blends their sRGB results using runtime masks and
+strengths, and converts the result back to linear. An SDR estimate is not an HDR simulation.
 
 Cloud, sky, horizon, fog and water have separate colour anchors. Sunset, lighting, reflection,
 exposure, weather and viewpoint alter rendered appearance. Grass does not establish flora colour.
+The atmosphere shader mixes its anchors using sun-, view- and scattering-dependent terms before the
+post-process stage. Search Probes evaluates daytime sky at the normalized midpoint of the shader's
+upper-to-main gradient, away from the solar and horizon blends, then passes it through the game's
+canonical SDR tone mapping. This stable reference is searchable and comparable between generated
+planets without claiming to reproduce every point or condition in the rendered sky. Fog, horizon,
+night sky, and water use their own generated reference colours through the same tone-map pipeline.
+The world filter remains separately searchable; applying its isolated LUT directly to an atmosphere
+anchor would be incorrect because view-dependent scattering occurs before runtime LUT blending.
+Material-based grass and flora estimates retain their surface-specific grading models.
 
 ## Grass
 

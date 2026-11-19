@@ -8,6 +8,7 @@ from pathlib import Path
 from .errors import InvestigationError
 from .hgpak import extract
 from .mbin import inspect_mbin
+from .paths import safe_logical_path
 
 TABLE_PATHS = (
     "metadata/reality/tables/nms_reality_gcproducttable.mbin",
@@ -17,7 +18,8 @@ TABLE_PATHS = (
     "metadata/reality/tables/proceduralproducttable.mbin",
 )
 SCREEN_FILTER_PATH = "metadata/effects/screenfilters.mbin"
-SOURCE_PATHS = (*TABLE_PATHS, SCREEN_FILTER_PATH)
+BIOME_FILE_LIST_PATH = "metadata/simulation/solarsystem/biomes/biomefilenames.mbin"
+SOURCE_PATHS = (*TABLE_PATHS, SCREEN_FILTER_PATH, BIOME_FILE_LIST_PATH)
 LOCALISATION = re.compile(r"^language/nms_(?:loc|update)\d+_english\.mbin$")
 
 
@@ -61,6 +63,50 @@ def referenced_dds_paths(documents: list[Path]) -> set[str]:
     return paths
 
 
+def positive_biome_sources(document: Path) -> list[str]:
+    root = ET.parse(document).getroot()
+    if root.attrib.get("template") != "cGcBiomeFileList":
+        raise InvestigationError(
+            "asset_wiki_biome_list_invalid",
+            f"Asset Wiki biome list has the wrong template: {document}",
+        )
+    paths: set[str] = set()
+    for option in root.iter("Property"):
+        if option.attrib.get("value") != "GcBiomeFileListOption":
+            continue
+        filename = option.find("./Property[@name='Filename']")
+        weight = option.find("./Property[@name='Weight']")
+        purple_weight = option.find("./Property[@name='PurpleSystemWeight']")
+        if filename is None:
+            continue
+        try:
+            selectable = any(
+                float(node.attrib.get("value", "0")) > 0
+                for node in (weight, purple_weight)
+                if node is not None
+            )
+        except ValueError as exc:
+            raise InvestigationError(
+                "asset_wiki_biome_weight_invalid",
+                f"Asset Wiki biome list has a non-numeric weight: {document}",
+            ) from exc
+        if not selectable:
+            continue
+        path = safe_logical_path(filename.attrib.get("value", ""))
+        if not path.endswith(".mxml"):
+            raise InvestigationError(
+                "asset_wiki_biome_path_invalid",
+                f"Asset Wiki biome reference is not an MXML path: {path}",
+            )
+        paths.add(path.removesuffix(".mxml") + ".mbin")
+    if not paths:
+        raise InvestigationError(
+            "asset_wiki_biomes_missing",
+            "Asset Wiki biome list has no positive-weight biome definitions",
+        )
+    return sorted(paths)
+
+
 def extract_sources(
     catalog: dict[str, list[str]],
     members: set[str],
@@ -85,12 +131,40 @@ def extract_sources(
         documents_by_source[record["logical_path"].casefold()] = Path(inspection["decompiled"])
 
     screen_filter_document = documents_by_source[SCREEN_FILTER_PATH]
+    biome_list_document = documents_by_source[BIOME_FILE_LIST_PATH]
+    biome_paths = positive_biome_sources(biome_list_document)
+    member_by_case = {member.casefold(): member for member in members}
+    missing_biomes = sorted(path for path in biome_paths if path not in member_by_case)
+    if missing_biomes:
+        raise InvestigationError(
+            "asset_wiki_biomes_missing",
+            "Asset Wiki biome list references definitions absent from the installed archives",
+            paths=missing_biomes,
+        )
+    biome_root = destination / "biomes"
+    biome_root.mkdir()
+    biome_records = extract(
+        [member_by_case[path] for path in biome_paths], catalog, biome_root / "mbin"
+    )
+    biome_documents: list[Path] = []
+    for index, record in enumerate(biome_records, start=len(mbin_records)):
+        inspection = inspect_mbin(Path(record["path"]), destination / "decompiled" / f"{index:04d}")
+        inspection["logical_path"] = record["logical_path"]
+        inspections.append(inspection)
+        if not inspection["decompiled"]:
+            raise InvestigationError(
+                "asset_wiki_decompile_failed",
+                f"Could not decompile Asset Wiki biome source: {record['logical_path']}",
+            )
+        biome_documents.append(Path(inspection["decompiled"]))
+
     glossary_documents = [
-        document for source, document in documents_by_source.items() if source != SCREEN_FILTER_PATH
+        document
+        for source, document in documents_by_source.items()
+        if source not in {SCREEN_FILTER_PATH, BIOME_FILE_LIST_PATH}
     ]
     referenced = referenced_dds_paths(glossary_documents)
     colour_filter_luts = referenced_dds_paths([screen_filter_document])
-    member_by_case = {member.casefold(): member for member in members}
     missing_references = sorted(
         path for path in referenced | colour_filter_luts if path not in member_by_case
     )
@@ -112,18 +186,21 @@ def extract_sources(
     )
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "game": game,
         "decompiled_root": str((destination / "decompiled").resolve()),
         "screen_filter_document": str(screen_filter_document.resolve()),
+        "biome_file_list_document": str(biome_list_document.resolve()),
+        "biome_documents": [str(path.resolve()) for path in biome_documents],
         "icon_root": str((destination / "icons").resolve()),
-        "mbin_sources": mbin_records,
+        "mbin_sources": [*mbin_records, *biome_records],
         "decompilations": inspections,
         "icon_sources": icon_records,
         "colour_filter_lut_sources": colour_filter_lut_records,
         "catalog_icon_count": len(catalog_icons),
         "table_icon_count": len(referenced),
         "colour_filter_lut_count": len(colour_filter_luts),
+        "positive_biome_count": len(biome_documents),
     }
     manifest_path = destination / "asset-wiki-source-manifest.json"
     manifest_path.write_text(
@@ -133,7 +210,8 @@ def extract_sources(
         "source_manifest": str(manifest_path),
         "decompiled_root": manifest["decompiled_root"],
         "icon_root": manifest["icon_root"],
-        "mbin_count": len(mbin_records),
+        "mbin_count": len(mbin_records) + len(biome_records),
+        "positive_biome_count": len(biome_documents),
         "catalog_icon_count": len(catalog_icons),
         "table_icon_count": len(referenced),
         "extracted_icon_count": len(icon_records),

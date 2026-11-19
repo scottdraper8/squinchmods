@@ -1943,6 +1943,7 @@ name = "search-probes-ui"
 version = "0.2.0"
 dependencies = [
  "egui",
+ "png",
  "search-probes-model",
 ]
 

@@ -13,7 +13,6 @@ from .errors import InvestigationError
 
 MAX_BYTES = 1_100_000
 INSTANCE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{32}$")
-LEGACY_CAPABILITIES = frozenset({"search.control/v1"})
 ACTION_CAPABILITIES = {
     "start": "search.control/v1",
     "cancel": "search.control/v1",
@@ -40,8 +39,6 @@ def read_json(path: Path) -> dict:
 
 def capabilities(endpoint: dict) -> frozenset[str]:
     schema = endpoint.get("schema")
-    if schema == 1:
-        return LEGACY_CAPABILITIES
     if schema != 2:
         raise InvestigationError(
             "runtime_protocol_incompatible", "Unsupported runtime endpoint schema"

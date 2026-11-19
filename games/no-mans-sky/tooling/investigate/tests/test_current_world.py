@@ -72,6 +72,62 @@ def test_current_world_rejects_uncaptured_system(tmp_path: Path) -> None:
     assert caught.value.details == {"player": 42}
 
 
+def test_current_world_accepts_partial_flora_colour_evidence() -> None:
+    facts = {
+        "fields": {},
+        "colour_observations": {
+            "flora_colour": {
+                "classification": 2**31 | 8,
+                "labels": ["Green"],
+                "evaluated_labels": ["Green"],
+                "complete": False,
+                "provenance": "flora_model_appearance",
+            },
+            "sky": {
+                "classification": 2**31 | 2**2,
+                "labels": ["Yellow"],
+                "evaluated_labels": [
+                    "Red",
+                    "Orange",
+                    "Yellow",
+                    "Green",
+                    "Cyan",
+                    "Blue",
+                    "Purple",
+                    "Magenta",
+                    "Grey",
+                    "Black",
+                    "White",
+                ],
+                "complete": True,
+                "provenance": "generated_reference_appearance",
+                "appearance": {
+                    "source_linear_rgb": [1.0, 0.9, 0.1],
+                    "tone_mapped_srgb": [1.0, 0.95, 0.4],
+                },
+                "components": {
+                    "sky_colour": {
+                        "classification": 2**31 | 2**3,
+                        "appearance": {
+                            "source_linear_rgb": [0.4, 1.0, 0.7],
+                            "tone_mapped_srgb": [0.7, 1.0, 0.9],
+                        },
+                    }
+                },
+                "sky_reference": {
+                    "gradient_progress": 0.5,
+                    "gradient_speed": [1.0, 1.0, 1.0],
+                },
+            },
+        },
+        "planet_flags": {},
+        "system_flags": {},
+        "resources": None,
+    }
+
+    assert current_world._facts(facts)
+
+
 def test_current_world_rejects_stale_location(tmp_path: Path) -> None:
     publish(
         tmp_path / "runtime",
