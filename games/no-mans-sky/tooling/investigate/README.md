@@ -28,17 +28,15 @@ The committed `toolchain.toml` records the local public game target as Forsaken 
 `26540391`. It pins HGPAKtool `1.1.3` and MBINCompiler `v7.14.0-pre1` by URL and SHA-256. The
 MBINCompiler release identifies itself as NMS 7.14 and its upstream source update targets Steam
 build `26413549`. The installed public build `26540391` is not compiler-allowlisted because a
-current-asset recompilation probe reproducibly crashes MBINCompiler. Search Probes has a separate
-exact executable target at public 7.14/build `26540391`; its version-specific bindings still require
-independent runtime validation.
+current-asset recompilation probe reproducibly crashes MBINCompiler.
 
 HGPAKtool and its distributions are hash-locked in `uv.lock`. On this Linux host MBINCompiler runs
 in a network-disabled .NET 8 container when a matching host runtime is absent. Every result records
 the actual backend image ID and repo digest. The container reference itself is digest-pinned, and
 the Windows asset compression mode is always explicit. `doctor` reports the current game target
-separately from the MBINCompiler support target. Compiler-backed checks and Search Probes control
-fail closed when the installed Steam build is not on their respective allowlists. Archive inventory
-and extraction remain usable for examining a build newer than the pinned compiler supports.
+separately from the MBINCompiler support target. Compiler-backed checks fail closed when the
+installed Steam build is not on the compiler allowlist. Archive inventory and extraction remain
+usable for examining a build newer than the pinned compiler supports.
 
 Investigation states mean:
 
@@ -206,12 +204,11 @@ Validate authored loose assets against the pinned MBINCompiler schema:
 
 ```bash
 tooling/squinch nms-investigate verify-assets \
-  --mod-root games/no-mans-sky/mods/search-probes/assets
+  --mod-root /exact/mod/assets
 ```
 
 Each EXML/MXML is compiled and decompiled in a retained run. Every authored leaf must survive the
-roundtrip. Native game behavior and the merged mod export still require independent validation. The
-investigation tools do not import the Search Probes runtime or require NMS.py.
+roundtrip. Native game behavior and the merged mod export still require independent validation.
 
 ## Declarative scenarios
 
@@ -265,14 +262,10 @@ tooling/squinch tranche clean example-fix --apply
 ## Deliberate runtime boundary
 
 The investigation command does not launch Steam/Proton, select a personal save, toggle game-owned
-settings, inject a Windows hook, or pronounce a visual result. Runtime injection is a separately
-bounded product path under [`../runtime/`](../runtime/README.md), with its own executable identity,
-threading, lifecycle, and save-isolation gates. Static staging conclusions remain limited to the
-data path: use a backed-up save, collect `FullLog.txt` and `MODS/EXPORTED`, and retain any required
-human/visual observation beside the run.
-
-Search Probes backend commands:
-[product README](../../mods/search-probes/README.md#search-without-the-ui).
+settings, inject a Windows hook, or pronounce a visual result. Product-specific runtime injection,
+control, and preview tooling belongs to the product that owns that runtime. Static staging
+conclusions remain limited to the data path: use a backed-up save, collect `FullLog.txt` and
+`MODS/EXPORTED`, and retain any required human/visual observation beside the run.
 
 `tooling/squinch --tranche <id> nms-investigate observe-portal --timeout 120` watches a
 player-operated planetary portal on the supported Linux/Proton build. Start it beside an activated

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from squinch_nms_investigate import cli, runs, runtime_protocol, search_control
+from squinch_nms_investigate import cli, runs
 from squinch_nms_investigate.cli import main
 
 
@@ -102,39 +102,3 @@ def test_doctor_reports_host_and_compiler_target_degradation(
             "message": "Installed Steam build is not validated for the pinned MBINCompiler release",
         },
     ]
-
-
-def test_search_status_uses_the_shared_runtime_protocol(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    game = fake_game(tmp_path)
-    directory = tmp_path / "runtime"
-    endpoint = {
-        "schema": 2,
-        "instance": "1234abcd-" + "a" * 32,
-        "protocol": {"id": "search-probes.agent-control", "version": 1},
-        "capabilities": ["search.control/v1"],
-    }
-    state = {"generation": 7, "settings": {}}
-    monkeypatch.setattr(runs, "RUNS_ROOT", tmp_path / "runs")
-    monkeypatch.setattr(cli, "prepare_owned_directory", lambda *_: None)
-    monkeypatch.setattr(cli, "resolve_game_root", lambda _: game)
-    monkeypatch.setattr(cli, "assert_search_probes_supported_build", lambda _: None)
-    monkeypatch.setattr(search_control, "settings_directory", lambda *_: directory)
-    monkeypatch.setattr(runtime_protocol, "status", lambda *_args, **_kwargs: (endpoint, state))
-    monkeypatch.setattr(
-        cli,
-        "host_health",
-        lambda: {
-            "healthy": True,
-            "load_average": ["0.0", "0.0", "0.0"],
-            "uninterruptible_processes": [],
-        },
-    )
-
-    main(["search", "status", "--game-root", str(game), "--json"])
-
-    result = json.loads(capsys.readouterr().out)
-    assert result["state"] == "succeeded"
-    assert result["data"]["endpoint"] == endpoint
-    assert result["data"]["state"] == state
