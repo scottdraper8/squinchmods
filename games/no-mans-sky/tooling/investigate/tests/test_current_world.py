@@ -48,28 +48,37 @@ def test_current_world_returns_matching_live_snapshot(tmp_path: Path) -> None:
             "resources": None,
         },
         "planet": None,
-        "non_grass_surface_models": {
-            "classification": 2**31 | 8,
-            "labels": ["Green"],
-            "complete": True,
-            "models": [
-                {
-                    "model": "MODELS/PLANETS/BIOMES/COMMON/PLANTS/TREE.SCENE.MBIN",
-                    "source_ground_index": 2,
-                    "match_ground_colour": False,
-                    "ground_colour_index": 1,
-                    "swap_primary_for_random": False,
-                    "swap_primary_for_secondary": True,
-                    "classification": 2**31 | 8,
-                    "labels": ["Green"],
-                }
-            ],
+        "planet_observations": {
+            "address": 42,
+            "acquisition": "current_world_generated_query",
+            "surface_models": {
+                "provenance": "generated_surface_object_table",
+                "semantic_level": "generated_recipe",
+                "complete": False,
+                "incomplete_reason": "source selection is incomplete",
+                "records": [
+                    {
+                        "source_table": "METADATA/SIMULATION/SOLARSYSTEM/BIOMES/OBJECTS.MBIN",
+                        "source_index": 0,
+                        "object_array": 16,
+                        "object_index": 2,
+                        "model": "MODELS/PLANETS/BIOMES/COMMON/PLANTS/TREE.SCENE.MBIN",
+                        "source_ground_index": 2,
+                        "match_ground_colour": False,
+                        "ground_colour_index": 1,
+                        "swap_primary_for_random": False,
+                        "swap_primary_for_secondary": True,
+                        "colours": {"known": 2047, "possible": 8, "guaranteed": 8},
+                        "complete": True,
+                    }
+                ],
+            },
         },
         "system_verdict": "match",
         "planet_verdict": None,
         "target_verdict": "match",
         "criteria_evaluations": [],
-        "section_evaluations": [],
+        "section_evaluations": [{"scope": "system", "section": "system", "verdict": "match"}],
     }
     publish(tmp_path / "runtime", player=42, world=world)
 
@@ -77,6 +86,36 @@ def test_current_world_returns_matching_live_snapshot(tmp_path: Path) -> None:
 
     assert state["generation"] == 7
     assert result == world
+
+
+def test_current_world_rejects_removed_section_mode(tmp_path: Path) -> None:
+    world = {
+        "schema": 1,
+        "command_id": 9,
+        "address": 42,
+        "acquisition": "criteria_and_core",
+        "criteria": {},
+        "system": {
+            "fields": {},
+            "planet_flags": {},
+            "system_flags": {},
+            "resources": None,
+        },
+        "planet": None,
+        "system_verdict": "match",
+        "planet_verdict": None,
+        "target_verdict": "match",
+        "criteria_evaluations": [],
+        "section_evaluations": [
+            {"scope": "system", "section": "system", "mode": "all", "verdict": "match"}
+        ],
+    }
+    publish(tmp_path / "runtime", player=42, world=world)
+
+    with pytest.raises(InvestigationError) as caught:
+        current_world.snapshot(tmp_path / "runtime")
+
+    assert caught.value.code == "current_world_incompatible"
 
 
 def test_current_world_rejects_uncaptured_system(tmp_path: Path) -> None:

@@ -56,3 +56,22 @@ def test_unknown_protocol_version_fails_closed(tmp_path: Path) -> None:
         runtime_protocol.status(directory)
 
     assert caught.value.code == "runtime_protocol_incompatible"
+
+
+def test_state_uses_its_larger_bounded_publication_contract(tmp_path: Path) -> None:
+    directory = tmp_path / "runtime"
+    publish(
+        directory,
+        {
+            "schema": 2,
+            "instance": "1234abcd-" + "d" * 32,
+            "protocol": {"id": "search-probes.agent-control", "version": 1},
+            "capabilities": ["search.control/v1"],
+        },
+    )
+    state = {"generation": 1, "history": "x" * 1_200_000}
+    (directory / "current.json").write_text(json.dumps(state), encoding="utf-8")
+
+    _, published = runtime_protocol.status(directory)
+
+    assert published == state
