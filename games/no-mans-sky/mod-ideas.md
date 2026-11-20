@@ -1,5 +1,11 @@
 # No Man's Sky Mod Ideas
 
+## Bulk Gifts
+
+- Give an alien all compatible gifts in your inventory, such as Korvax Casings, in one interaction
+  instead of handing them over one at a time.
+- FOMOD installer to allow for various settings. 5x, 10x, All
+
 ## Better System Scanning
 
 - Auto-scan systems when your freighter enters them, as long as you have the planetary scanner
