@@ -1,8 +1,10 @@
 # Minecraft Investigation Tooling
 
-This package manages local Minecraft server/client sessions and task-local checks for compatible
-Fabric/NeoForge mod worktrees. Core lifecycle, scenario, probe, benchmark, and exact-comparison
-features are project-agnostic. FTF adapters provide preset export and standalone cell scanning.
+This package manages local Minecraft server/client sessions and task-local checks. Development probe
+overlays target compatible Fabric/NeoForge mod worktrees; `packaged-runtime` instead accepts
+externally assembled, exact prebuilt Fabric/Forge/NeoForge/Quilt runtimes without compiling or
+injecting instrumentation. Core lifecycle, scenario, probe, benchmark, and exact-comparison features
+are project-agnostic. FTF adapters provide preset export and standalone cell scanning.
 
 Use the repository dispatcher from any working directory, select an existing task tranche, and
 always name the exact target worktree. Generated runs, Gradle build and project state, worlds,
@@ -19,14 +21,14 @@ tooling/squinch mc-investigate run \
 ```
 
 The public commands are `start`, `stop`, `status`, `doctor`, `command`, `run`, `client`, `scenario`,
-`benchmark`, `generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`, and `preset-export`.
-Add `--json` to any command for the committed `schemas/cli-output-v1.json` envelope. `cell-scan`,
-`preset-export`, and the `ftf_preset` scenario field are FTF adapters; lifecycle workflows otherwise
-target any compatible project. Inputs are supplied for the active task, not from a persistent FTF
-catalog. The states `starting`, `running`, and `stopping` are non-terminal; `ready` means RCON
-authentication succeeded; `succeeded`, `failed`, `inconclusive`, and `error` are terminal outcomes;
-`inactive` means no service is tracked; and `degraded` or `unknown` requires diagnosis rather than
-an assumption of success.
+`packaged-runtime`, `benchmark`, `generate`, `probe`, `compare`, `inspect-artifact`, `cell-scan`,
+and `preset-export`. Add `--json` to any command for the committed `schemas/cli-output-v1.json`
+envelope. `cell-scan`, `preset-export`, and the `ftf_preset` scenario field are FTF adapters;
+lifecycle workflows otherwise target any compatible project. Inputs are supplied for the active
+task, not from a persistent FTF catalog. The states `starting`, `running`, and `stopping` are
+non-terminal; `ready` means RCON authentication succeeded; `succeeded`, `failed`, `inconclusive`,
+and `error` are terminal outcomes; `inactive` means no service is tracked; and `degraded` or
+`unknown` requires diagnosis rather than an assumption of success.
 
 Run a scenario supplied for the current investigation. The target project and optional source
 project use repository-root-relative `games/minecraft/...` paths. Datapacks, presets, runtime-file
@@ -70,6 +72,241 @@ loader and `named` or `loader` mapping when a probe needs an optional mechanism 
 already on the subject project's compile classpath. These compile inputs are never copied to the
 runtime unless they are also listed in `companion_artifacts`. This boundary is intended for
 independent packaged-JAR harnesses, not as a substitute for source-worktree provenance.
+
+## Exact packaged runtimes
+
+```bash
+tooling/squinch --tranche <id> mc-investigate packaged-runtime "$SPEC" --json
+```
+
+`SPEC` is an absolute task-local JSON path, validated against
+[`schemas/packaged-runtime-v1.json`](schemas/packaged-runtime-v1.json). All fields are required;
+unknown fields, duplicate JSON keys, nonfinite numbers, unsafe names, and mismatched hashes fail.
+Its shape is:
+
+```json
+{
+  "schema_version": 1,
+  "project": "/absolute/exact/git/build-root/targets/forge",
+  "source_roots": [
+    "/absolute/exact/git/build-root/common",
+    "/absolute/exact/git/build-root/targets"
+  ],
+  "loader": "forge",
+  "minecraft": "1.16.5",
+  "side": "server",
+  "template": {
+    "path": "/selected/tranche/inputs/prepared-template",
+    "files": {
+      "launch.args": "<sha256>",
+      "libraries/server.jar": "<sha256>",
+      "server.properties": "<sha256>"
+    },
+    "mutable_files": ["server.properties"]
+  },
+  "subject": {
+    "path": "/selected/tranche/inputs/production.jar",
+    "name": "subject.jar",
+    "sha256": "<sha256>"
+  },
+  "companions": [
+    { "path": "/selected/tranche/inputs/tests.jar", "name": "tests.jar", "sha256": "<sha256>" }
+  ],
+  "java": {
+    "path": "/absolute/jdk/bin/java",
+    "sha256": "<sha256>",
+    "version": "<complete combined java -version output, stripped>"
+  },
+  "arguments": ["@launch.args"],
+  "environment": { "SQUINCH_CASE_GROUP": "mechanisms" },
+  "results": [
+    { "environment": "SQUINCH_RESULT", "name": "result.json", "cases": ["mechanism:behavior"] }
+  ],
+  "timeout": 300
+}
+```
+
+The placeholders above must be replaced with exact paths/hashes/identity. `project` is a Git build
+root, not necessarily a modern Gradle multi-loader layout. `source_roots` explicitly enumerates
+nonoverlapping production-source directories in that same Git worktree, including shared source
+outside a nested target. Supply the complete source boundary: the runner does not discover it by
+scanning an unrelated parent repository. The roots must cover the project or its production source
+directories, and cannot contain task state. Legitimate selected-tranche source worktrees and
+ordinary non-submodule projects inside the parent repository are supported; other-tranche projects
+are rejected. The spec, template and artifact inputs must belong to the selected tranche, outside
+declared source roots, nested source worktrees and previous run directories. An ignored selected
+tranche inside the parent Git repository is legitimate scratch, not production source. Paths must be
+canonical and must not traverse symlinks. The manifest enumerates **every** template file, with
+exact SHA-256. Files must be regular, without hard links, symlinks or special files. An absent or
+empty `mods/` is allowed; implicit mods, source build recipes, reserved output/home/tmp directories,
+logs, crash reports and stale named results are not. Subject/companion basenames must be safe and
+unique. The subject is also inspected for known development-probe contamination; explicit separate
+test companions may contain test instrumentation.
+
+A target's maintained test framework owns installers, real loader/version-compatible Java arguments,
+native libraries, assets and all safe resource inputs. Prepare those resources inside the template
+and enumerate their hashes. This generic runner installs nothing, downloads nothing, chooses no
+build-directory JAR, rebuilds nothing, and assumes no GameTest/Loom/modern-loader API. Launch
+references in JVM argv, explicitly referenced argument files and JAR manifest Class-Path must be
+relative and offline: no absolute paths, file/HTTP URLs, Windows paths or external source-worktree
+builds. Standard JVM classpath/module-path/JAR inputs must name packaged template files/directories
+or explicit staged mod JARs (directory wildcards are supported); empty classpath elements are
+rejected. Launch-file operands and argument-file names must be canonical relative paths: spell
+`libraries/main.jar`, not `./libraries/main.jar` or `libraries/./main.jar`. Lexical `.`/`..`
+components are rejected before normalization, so aliases cannot erase an executed-JAR or Java-agent
+role. Literal application arguments and configuration prose are unaffected. Manifest dependencies
+resolve relative to each archive's **runtime** location, across the combined template and staged
+`mods/` namespace, including transitive non-JAR archives and cycles. Internal `./` and `../`
+manifest references are allowed only within that namespace; every actual edge must resolve to an
+exact packaged file or a nonempty packaged directory (with a trailing `/` in manifests).
+Missing/optional edges, escaping references and runtime/output-root references are rejected.
+Manifest entry discovery is case-insensitive at these actual archive boundaries, including reached
+non-JAR archives. Multiple matching entries (even identical names/content) are rejected as
+ambiguous; package exactly one `META-INF/MANIFEST.MF` entry instead. Unreferenced non-JAR data
+archives are not scanned as recipes. Launch directories cannot acquire unmanifested files under a
+successful final integrity check.
+
+Known JVM class/library-path properties, patch-module, bootclasspath and agent paths are also typed
+immutable launch inputs. Forge/NeoForge `-DlegacyClassPath` supports explicit colon-separated
+packaged files/directories, without empty elements or wildcards; `-DlibraryDirectory` supports one
+nonempty packaged directory, not a list or wildcard. This typing does not qualify either loader.
+`-XX:VMOptionsFile` and HotSpot `-XX:Flags` are explicitly **unsupported**: put equivalent JVM
+options directly in `arguments` or a manifested immutable `@argument-file` instead. Legacy JDK8
+`-Djava.ext.dirs` and `-Djava.endorsed.dirs` are also unsupported, as are overrides of the selected
+installation's internal `sun.boot.class.path` and `sun.boot.library.path` properties. Use explicit
+packaged class/library/boot paths instead; the selected Java installation supplies its standard
+platform paths. This is not a claim that those legacy facilities exist on every Java version.
+Explicit HotSpot `-XX:SharedArchiveFile`, `-XX:SharedClassListFile`, `-XX:ExtraSharedClassListFile`
+and `-XX:SharedArchiveConfigFile` selectors are unsupported; retain the selected installation's
+default shared archive and use explicit packaged class paths. This leaves its normal platform CDS
+archive trusted; it does not demand hashing every installed JDK library. Explicit
+`-XX:CompileCommandFile` and `-XX:CompilerDirectivesFile` are also unsupported optional VM
+configuration inputs; supply supported compiler options explicitly in arguments or an immutable
+launcher argfile instead. Alternate-VM selectors `-XXaltjvm` and `-J-XXaltjvm` are unsupported: the
+selected Java installation must supply its VM. Named native agents (`-agentlib` and legacy `-Xrun`)
+are unsupported, including the standard `instrument` aliases that accept another Java-agent JAR; use
+the explicit typed `-javaagent` or packaged `-agentpath` interfaces instead. These boundaries are
+based on the selected HotSpot JDK8/JDK17 startup recipes, not universal Java-vendor support.
+
+An actually invoked `-javaagent` archive with a nonempty main-manifest `Boot-Class-Path` is
+unsupported; remove that attribute and package its dependencies through ordinary `Class-Path` or
+explicit immutable launch paths instead. An actual `-jar` operand with a main-manifest
+`Launcher-Agent-Class` attribute is unsupported (including an empty value); remove the attribute and
+use an explicit packaged `-javaagent` without `Boot-Class-Path` instead. This executable-JAR role is
+collected before archive traversal, like explicit agent roles. Merely reaching an archive through
+Class-Path does not invoke its launcher agent. Ordinary/uninvoked and named-entry agent attributes
+remain data. Ordinary `Class-Path` closure still applies to agent archives. Options of explicit
+native `-agentpath` libraries remain supplied native program data, not recursively parsed JVM
+options; this is not a sandbox for arbitrary library/application behavior.
+
+Argument-file expansion follows the launcher state, including option operands and boundaries inside
+an argument file. After the main class, JAR or module operand, `@missing` and `@data` are literal
+application arguments, not files to open or classify immutable. Referenced launcher argument files
+themselves are immutable. They support space/tab/newline separation, single/double quotes and
+whole-line `#` comments, but not inline `#`, backslash escapes, unterminated or multiline quoted
+arguments, other control characters or nested launcher argument files; `--disable-@files` is
+unsupported. Unsupported optional grammar is rejected rather than interpreted as shell syntax.
+
+Template resources, attribution, ordinary configuration, unrelated `-D` values, application
+arguments after the main class/JAR/module and `SQUINCH_*` control **data** are not launch recipes:
+they may contain URLs, escaped text and ordinary data paths. The runner does not impose a network
+sandbox on supplied Java/mod code or interpret arbitrary controls as classpaths. Parent traversal in
+argv paths and backslash escaping in launch references are unsupported. Source-language Java launch
+recipes and Gradle/Maven recipes are not runtime inputs. The runner supplies owned Java home/tmp
+_data directories_ (`user.home`, `java.io.tmpdir`), not a replacement Java installation; arguments
+cannot override those directories or `user.dir`/`java.home`. Identity probes and managed Java
+launches also receive `-XX:-UsePerfData`: HotSpot's optional Linux performance-data facility uses
+system `/tmp`, independently of `TMPDIR` and `java.io.tmpdir`. The selected JVM must support this
+HotSpot option (qualified controls use Temurin JDK8/JDK17); a failed identity probe reports that
+requirement rather than silently dropping the flag. Attempts to set/re-enable `UsePerfData` in
+actual launcher argv or argument-file context are rejected before run allocation; an explicit
+`-XX:-UsePerfData` is allowed. Option-looking application arguments, property descriptions, and
+configuration/control prose remain literal data. This suppresses that specific optional VM output,
+not arbitrary application/native-code filesystem writes or every JVM vendor's transient state; it
+does not establish historical filesystem containment.
+
+The runner revalidates inputs at both the CLI and implementation boundaries, and again during
+transactional preparation and after execution. It creates `runs/<run-id>/runtime`, copies the
+verified template, and stages **only** the exact requested subject and companions in `mods/`. Staged
+JARs and immutable template files must retain their hashes after execution. The required
+`template.mutable_files` array (empty unless needed) may name only exact manifest files:
+`server.properties`, `options.txt`, `optionsof.txt`, or configuration under `config/` with suffix
+`.json`, `.toml`, `.properties`, `.cfg`, `.conf`, `.txt`, `.yaml` or `.yml`. Archives, libraries,
+argument files and classpath/module-path/JAR launch inputs cannot be mutable, even if disguised as
+configuration. Each mutable copy must remain a regular, nonlinked file; its final SHA-256 is
+recorded in `mutable_files_after` after teardown. Original input templates always retain their exact
+manifest hashes. No directory/wildcard/all-files mutability is supported.
+
+Source snapshots use a consistent Git-root-relative path basis for HEAD, scoped tracked porcelain
+status, and content hashes of **all** regular source files in the declared roots, including already
+dirty, untracked and Git-ignored source. Denied/cache state is excluded before traversal (including
+`.git`, `.gradle`, editor/virtualenv/Python/tool caches, `node_modules`, `dist`, and
+repository-specific denied reference/QA/investigation/site/private state); these cannot themselves
+be declared source roots. Generated class/JAR/log and build/run exclusions for the former parent
+investigation tree remain scoped to that tree. Elsewhere, a directory name or binary suffix does not
+prove that an input is generated: tracked wrapper JARs, maintained `tools/build/` scripts, binary
+fixtures, and unexpected binary output in a declared root are audited. Present build outputs inside
+a declared root are read-only during the operation too; this interface offers no concurrent
+build-output-write exception. Put runtime/test output outside the declared source boundary.
+
+Ordinary allowed source directories named `private`, `tmp` or `reference` are not silently excluded.
+No whole-parent status/untracked discovery, diff drivers or submodule recursion is used. Undeclared
+source and excluded caches are not audited. Supplied runtime/test code must itself respect source
+isolation; this is provenance checking, not an adversarial-code sandbox. All ordinary game-generated
+state belongs in the owned runtime.
+
+The outer finite service retains the project cwd/provenance; `application_exit --cwd` runs the exact
+Java argv in the isolated runtime without a shell. The manifest records the full spec/hash, command,
+environment, Java executable checksum and observed `-version`, template hashes and source snapshots.
+`env -i` discards inherited JVM options, classpaths, launcher/display settings and SQUINCH controls,
+including the user-systemd manager environment. The inner Python helper also receives
+`PYTHONDONTWRITEBYTECODE=1` and a fresh unused runtime-local `PYTHONPYCACHEPREFIX`, preventing reads
+of adjacent existing caches without creating a bytecode cache directory. Spec controls are
+restricted to `SQUINCH_*`; result variables and `SQUINCH_TRANCHE`, `SQUINCH_TRANCHE_WORKSPACE`,
+`SQUINCH_INVESTIGATE_RUN_ID` are reserved. The run ID is supplied automatically. Result variables
+receive absolute owned output paths. A client uses the existing headless cage settings and a private
+directory under the user's XDG runtime root; its live sockets never enter the tranche and its
+directory is removed on teardown. Personal profiles, accounts and persistent display state are not
+used. Server operations cannot own a display.
+
+Every required result must satisfy
+[`schemas/packaged-runtime-result-v1.json`](schemas/packaged-runtime-result-v1.json), for example:
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "<SQUINCH_INVESTIGATE_RUN_ID>",
+  "status": "pass",
+  "subject_sha256": "<exact requested production JAR SHA-256>",
+  "runtime": { "loader": "forge", "minecraft": "1.16.5", "side": "server" },
+  "cases": [{ "id": "mechanism:behavior", "status": "pass", "observations": {} }]
+}
+```
+
+Require exactly the declared unique case IDs, all passing, and exact run/subject/runtime identity.
+Bare `{ "status": "pass" }` is invalid. Results do **not** terminate the application: success also
+requires the actual inner Java application to exit with code zero. An early passing result followed
+by a nonzero exit, missing/malformed/nonpassing result, timeout, fatal/crash diagnostic, changed
+input or staged file, source Git pollution, or incomplete cleanup fails. Final integrity checks run
+after service teardown, including on failed runs and late writes. Rejected assertions, diagnostics
+or integrity checks are **run failures**, not incomplete teardown: when actual
+process/thread/display cleanup is verified, the failed manifest remains but the active marker is
+removed. Only genuine resource cleanup failure retains active recovery state.
+`status --project PATH --loader LOADER` and `doctor --recover --project PATH --loader LOADER` use
+the same unit/process/thread validation and project locks as existing operations, with additional
+run-derived paths and side-specific display confinement. Recovery finalizes a **failed** run; it
+does not repair modified inputs or certify its assertions. Startup rollback also removes private
+display state, and retains a recoverable launching intent if that removal fails. A preexisting
+display path is never removed as rollback.
+
+**Authority limit:** `external-structured-assertions-and-owned-lifecycle` means the runner validates
+external assertions and lifecycle, not their semantic truth. The separately maintained test mod must
+observe the actual loaded subject identity, loader, Minecraft version, side and production behavior.
+A dummy executable, fabricated result, subprocess fixture or real owned-service smoke is only
+lifecycle evidence, never Minecraft qualification or parity evidence. No instrumentation is shipped
+or injected into the production subject by this command.
+
+## Instrumented client investigations
 
 Run world-creation UI probes through the isolated client lifecycle, never a personal launcher
 profile or the project's ordinary run directory. This example uses a probe pack and artifact

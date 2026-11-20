@@ -16,6 +16,18 @@ from squinch_minecraft_investigate.errors import CleanupError, InvestigationErro
 from squinch_minecraft_investigate.processes import port_is_free
 
 
+def test_gradle_project_cache_arguments_do_not_claim_artifact_directory(tmp_path):
+    artifact_dir = tmp_path / "unclaimed-run"
+
+    arguments = server.gradle_project_cache_arguments(artifact_dir)
+
+    assert arguments == [
+        "--project-cache-dir",
+        str(artifact_dir / "gradle-project-cache"),
+    ]
+    assert not artifact_dir.exists()
+
+
 def test_server_port_reservations_exclude_unbound_active_and_pending_ports(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

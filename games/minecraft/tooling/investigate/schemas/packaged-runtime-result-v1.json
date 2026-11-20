@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "External packaged runtime assertions v1 (not semantic verification)",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "run_id", "status", "subject_sha256", "runtime", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"const": "pass"},
+    "subject_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "runtime": {
+      "type": "object", "additionalProperties": false, "required": ["loader", "minecraft", "side"],
+      "properties": {
+        "loader": {"enum": ["fabric", "forge", "neoforge", "quilt"]},
+        "minecraft": {"type": "string", "minLength": 1},
+        "side": {"enum": ["server", "client"]}
+      }
+    },
+    "cases": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "status"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "status": {"const": "pass"},
+          "observations": {"type": "object"}
+        }
+      }
+    }
+  }
+}

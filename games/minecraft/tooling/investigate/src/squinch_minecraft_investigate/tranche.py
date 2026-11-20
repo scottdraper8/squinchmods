@@ -97,6 +97,8 @@ def validate_cli_inputs(args: object) -> None:
         fields = ("datapack", "probe_pack")
     elif command == "client":
         fields = ("probe_pack",)
+    elif command == "packaged-runtime":
+        fields = ("spec_file",)
     elif command == "scenario":
         fields = ("scenario_file",)
     elif command == "benchmark":

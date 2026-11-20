@@ -176,7 +176,6 @@ def sourced_environment() -> dict[str, str]:
 
 def gradle_project_cache_arguments(artifact_dir: Path) -> list[str]:
     path = artifact_dir / "gradle-project-cache"
-    path.mkdir(parents=True, exist_ok=True)
     return ["--project-cache-dir", str(path)]
 
 
@@ -388,7 +387,13 @@ def load_owned_active(project: Path, loader: str) -> dict:
     if state.get("schema_version") != 3:
         raise InvestigationError("invalid_state", "active state schema is not current")
     operation = state.get("operation")
-    if operation not in {"server", "client", "cell-scan", "preset-export"}:
+    if operation not in {
+        "server",
+        "client",
+        "cell-scan",
+        "preset-export",
+        "packaged-runtime",
+    }:
         raise InvestigationError("invalid_state", "active state operation is invalid")
     if Path(state.get("project", "")) != project or state.get("loader") != loader:
         raise InvestigationError(
@@ -402,6 +407,8 @@ def load_owned_active(project: Path, loader: str) -> dict:
         expected_run_dir = expected_artifact / "server-run"
     elif operation == "client":
         expected_run_dir = expected_artifact / "client-run"
+    elif operation == "packaged-runtime":
+        expected_run_dir = expected_artifact / "runtime"
     else:
         expected_run_dir = expected_artifact
     expected_paths = {
@@ -478,6 +485,10 @@ def load_owned_active(project: Path, loader: str) -> dict:
         raise InvestigationError(
             "invalid_state", "active state thread capture diagnostics are invalid"
         )
+    if operation == "packaged-runtime":
+        from .packaged_runtime import validate_active_paths
+
+        validate_active_paths(state)
     if operation == "client":
         display = state.get("display")
         display_root = (
@@ -1775,6 +1786,10 @@ def status(project: Path, loader: str) -> dict | None:
 
 def recover(project: Path, loader: str, timeout: float) -> dict:
     state = load_owned_active(project, loader)
+    if state["operation"] == "packaged-runtime":
+        from .packaged_runtime import recover_packaged_runtime
+
+        return recover_packaged_runtime(project, loader, timeout)
     if state["operation"] == "client":
         from .client import recover_client
 
