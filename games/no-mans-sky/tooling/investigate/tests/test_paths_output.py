@@ -48,11 +48,6 @@ def test_current_game_target_does_not_enable_unvalidated_mbincompiler_build(
             "supported_branch": "public",
             "supported_steam_build_ids": ["26413549"],
         },
-        "search_probes": {
-            "nms_version": "7.14 (Forsaken)",
-            "branch": "public",
-            "steam_build_ids": ["26540391"],
-        },
     }
     monkeypatch.setattr(toolchain, "config", lambda: pins)
 
@@ -60,37 +55,6 @@ def test_current_game_target_does_not_enable_unvalidated_mbincompiler_build(
     assert not toolchain.mbincompiler_target_identity(game)["matches"]
     with pytest.raises(InvestigationError, match="outside the pinned MBINCompiler"):
         assert_mbincompiler_supported_build(game)
-
-
-def test_search_probes_remains_gated_to_its_exact_game_build(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    game = fake_game(tmp_path)
-    manifest = tmp_path / "steamapps/appmanifest_275850.acf"
-    manifest.write_text('"AppState" { "buildid" "26540391" }', encoding="utf-8")
-    pins = {
-        "target": {
-            "nms_version": "7.14 (Forsaken)",
-            "branch": "public",
-            "steam_build_ids": ["26540391"],
-        },
-        "mbincompiler": {
-            "supported_nms_version": "7.14 (Forsaken)",
-            "supported_branch": "public",
-            "supported_steam_build_ids": ["26413549"],
-        },
-        "search_probes": {
-            "nms_version": "7.14 (Forsaken)",
-            "branch": "public",
-            "steam_build_ids": ["26540391"],
-        },
-    }
-    monkeypatch.setattr(toolchain, "config", lambda: pins)
-
-    toolchain.assert_search_probes_supported_build(game)
-    manifest.write_text('"AppState" { "buildid" "26385139" }', encoding="utf-8")
-    with pytest.raises(InvestigationError, match="outside the Search Probes support target"):
-        toolchain.assert_search_probes_supported_build(game)
 
 
 def test_logical_paths_are_normalized_and_traversal_is_rejected() -> None:

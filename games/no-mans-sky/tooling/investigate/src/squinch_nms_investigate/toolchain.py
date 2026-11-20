@@ -27,7 +27,6 @@ def config() -> dict:
     target = value.get("target")
     hgpak = value.get("hgpaktool")
     mbin = value.get("mbincompiler")
-    search_probes = value.get("search_probes")
     if (
         not isinstance(target, dict)
         or not isinstance(target.get("nms_version"), str)
@@ -60,17 +59,6 @@ def config() -> dict:
         )
     ):
         raise InvestigationError("invalid_toolchain_config", "Invalid MBINCompiler pin")
-    if (
-        not isinstance(search_probes, dict)
-        or not isinstance(search_probes.get("nms_version"), str)
-        or search_probes.get("branch") not in {"public", "experimental"}
-        or not isinstance(search_probes.get("steam_build_ids"), list)
-        or not search_probes["steam_build_ids"]
-        or not all(
-            isinstance(item, str) and item.isdigit() for item in search_probes["steam_build_ids"]
-        )
-    ):
-        raise InvestigationError("invalid_toolchain_config", "Invalid Search Probes target pin")
     return value
 
 
@@ -107,33 +95,12 @@ def mbincompiler_target_identity(game_root: Path) -> dict:
     )
 
 
-def search_probes_target_identity(game_root: Path) -> dict:
-    target = config()["search_probes"]
-    return _target_identity(
-        game_root,
-        nms_version=target["nms_version"],
-        branch=target["branch"],
-        build_ids=target["steam_build_ids"],
-    )
-
-
 def assert_mbincompiler_supported_build(game_root: Path) -> dict:
     identity = mbincompiler_target_identity(game_root)
     if not identity["matches"]:
         raise InvestigationError(
             "unsupported_game_build",
             "The installed Steam build is outside the pinned MBINCompiler support target",
-            **identity,
-        )
-    return identity
-
-
-def assert_search_probes_supported_build(game_root: Path) -> dict:
-    identity = search_probes_target_identity(game_root)
-    if not identity["matches"]:
-        raise InvestigationError(
-            "unsupported_search_probes_build",
-            "The installed Steam build is outside the Search Probes support target",
             **identity,
         )
     return identity

@@ -64,13 +64,3 @@ tooling/squinch --tranche example-save-edit nms-save --help
 Edits are first written as a complete save/metadata pair in the selected tranche. Applying a stage
 requires an explicit flag, a stopped game, unchanged source hashes, a verified backup, and a final
 hash check. See the [save-tool README](save/README.md) for the workflow and format boundary.
-
-## Search Probes runtime
-
-The [Search Probes Rust workspace](../mods/search-probes/README.md) owns the runtime, native
-bootstrap, GUI, build and package verification. It ships no Python or NMS.py dependencies. The
-[runtime tooling](runtime/README.md) supplies the preview and Windows build container.
-
-Build and verify the distributable with the workspace's locked Cargo commands. Close NMS before
-installing one consistent package into the direct installation and Amethyst sources. Ordinary Steam
-startup loads the native runtime; F7 toggles the Rust controls.

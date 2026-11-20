@@ -23,8 +23,3 @@ supported_branch = "public"
 # this compiler on build 26540391, so that build remains excluded.
 supported_steam_build_ids = ["26413549"]
 container_image = "mcr.microsoft.com/dotnet/runtime@sha256:9cfa8aaf5c98a4cedffec74d450dd2d4510ba72ee9e663efe2658500b0321524"
-
-[search_probes]
-nms_version = "7.14 (Forsaken)"
-branch = "public"
-steam_build_ids = ["26540391"]
