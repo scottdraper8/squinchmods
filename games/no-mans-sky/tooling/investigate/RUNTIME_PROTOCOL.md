@@ -14,9 +14,9 @@ schema 2:
 The current-world response acquires every field needed by the active criteria plus core visual
 context such as the world colour filter. It includes every acquired native field with its numeric
 value and labels, known flags and resources, the exact criteria and compiled predicates, individual
-predicate verdicts, section verdicts with their `all`/`any` mode, and system, planet, and combined
-target verdicts. Missing facts remain absent or `unknown`; the parent client does not invent a
-classification from screenshots, save data, or stale search results.
+predicate verdicts, conjunctive section verdicts, and system, planet, and combined target verdicts.
+Missing facts remain absent or `unknown`; the parent client does not invent a classification from
+screenshots, save data, or stale search results.
 
 Colour labels are derived classifications, not native NMS colour enums. Each published observation
 identifies whether it came from a generated reference appearance, grass material appearance, or
@@ -30,14 +30,13 @@ exact gradient progress and native gradient-speed vector used by that model. It 
 main, upper, solar, and sun colour components from the same generated record because one reference
 sample does not describe the whole rendered dome. The world colour filter remains a separate native
 criterion: applying its isolated LUT directly to an atmosphere anchor is invalid because the game
-performs view-dependent scattering before runtime LUT blending. Ordinary flora searches may finish
-early once an allowed colour is proven; their fact observation retains the colours actually
-observed, every category already evaluated, and `complete: false`. Explicit current-world inspection
-instead evaluates every generated surface model for the loaded planet. Its
-`non_grass_surface_models` inventory reports each model path and palette context, all classified
-colours, per-model failures, and whether the aggregate inventory is complete. These are generated
-non-grass surface objects, not an assertion that every model is a plant. The inventory is inspection
-output only and is not retained by ordinary searches.
+performs view-dependent scattering before runtime LUT blending. Generated surface recipes do not
+prove that a model is placed on the planet, so ordinary flora searches remain fail-closed when
+colour evidence is unresolved. Explicit current-world inspection publishes
+`planet_observations.surface_models`: source table and object identity, model and palette context,
+possible and guaranteed colour alternatives, per-record failures, and explicit aggregate
+completeness. Coincident colours do not collapse independent records. The inventory is diagnostic
+output only; it does not label records as species or assert that an eligible recipe occurs.
 
 With NMS on a loaded save:
 

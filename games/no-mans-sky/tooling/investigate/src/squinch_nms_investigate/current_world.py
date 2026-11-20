@@ -117,33 +117,62 @@ def _facts(value: object) -> bool:
     )
 
 
-def _non_grass_surface_models(value: object) -> bool:
+def _colour_alternatives(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"known", "possible", "guaranteed"}
+        and all(isinstance(value.get(field), int) and 0 <= value[field] <= 0x7FF for field in value)
+        and value["possible"] & ~value["known"] == 0
+        and value["guaranteed"] & ~value["possible"] == 0
+    )
+
+
+def _planet_observations(value: object, address: int) -> bool:
     if value is None:
         return True
     if (
         not isinstance(value, dict)
-        or set(value) != {"classification", "labels", "complete", "models"}
-        or not isinstance(value.get("classification"), int)
-        or not isinstance(value.get("labels"), list)
-        or any(not isinstance(label, str) for label in value["labels"])
-        or not isinstance(value.get("complete"), bool)
-        or not isinstance(value.get("models"), list)
+        or set(value) != {"address", "acquisition", "surface_models"}
+        or value.get("address") != address
+        or value.get("acquisition") != "current_world_generated_query"
+        or not isinstance(value.get("surface_models"), dict)
+    ):
+        return False
+    models = value["surface_models"]
+    if (
+        set(models) - {"provenance", "semantic_level", "complete", "incomplete_reason", "records"}
+        or {"provenance", "semantic_level", "complete", "records"} - set(models)
+        or models.get("provenance") != "generated_surface_object_table"
+        or models.get("semantic_level") != "generated_recipe"
+        or not isinstance(models.get("complete"), bool)
+        or not isinstance(models.get("records"), list)
+        or ("incomplete_reason" in models and not isinstance(models["incomplete_reason"], str))
     ):
         return False
     fields = {
+        "source_table",
+        "source_index",
+        "object_array",
+        "object_index",
         "model",
         "source_ground_index",
         "match_ground_colour",
         "ground_colour_index",
         "swap_primary_for_random",
         "swap_primary_for_secondary",
-        "labels",
+        "colours",
+        "complete",
     }
-    for model in value["models"]:
+    for model in models["records"]:
         if (
             not isinstance(model, dict)
             or not fields.issubset(model)
-            or set(model) - fields - {"classification", "error"}
+            or set(model) - fields - {"error"}
+            or not isinstance(model.get("source_table"), str)
+            or not all(
+                isinstance(model.get(field), int) and model[field] >= 0
+                for field in ["source_index", "object_array", "object_index"]
+            )
             or not isinstance(model.get("model"), str)
             or not model["model"]
             or not isinstance(model.get("source_ground_index"), int)
@@ -151,12 +180,9 @@ def _non_grass_surface_models(value: object) -> bool:
             or not isinstance(model.get("ground_colour_index"), int)
             or not isinstance(model.get("swap_primary_for_random"), bool)
             or not isinstance(model.get("swap_primary_for_secondary"), bool)
-            or not isinstance(model.get("labels"), list)
-            or any(not isinstance(label, str) for label in model["labels"])
-            or ("classification" in model) == ("error" in model)
-            or ("classification" in model and not isinstance(model["classification"], int))
+            or not _colour_alternatives(model.get("colours"))
+            or not isinstance(model.get("complete"), bool)
             or ("error" in model and not isinstance(model["error"], str))
-            or ("error" in model and model["labels"])
         ):
             return False
     return True
@@ -195,15 +221,31 @@ def snapshot(directory: Path, *, command_id: int | None = None) -> tuple[dict, d
     evaluations = world.get("criteria_evaluations")
     sections = world.get("section_evaluations")
     verdicts = {"match", "no_match", "unknown"}
+    required = {
+        "schema",
+        "command_id",
+        "address",
+        "acquisition",
+        "criteria",
+        "system",
+        "planet",
+        "system_verdict",
+        "planet_verdict",
+        "target_verdict",
+        "criteria_evaluations",
+        "section_evaluations",
+    }
     if (
-        world.get("acquisition") != "criteria_and_core"
+        set(world) - required - {"planet_observations"}
+        or required - set(world)
+        or world.get("acquisition") != "criteria_and_core"
         or not isinstance(world.get("criteria"), dict)
         or world.get("system_verdict") not in verdicts
         or world.get("target_verdict") not in verdicts
         or (world.get("planet_verdict") is not None and world["planet_verdict"] not in verdicts)
         or not _facts(system)
         or (planet is not None and not _facts(planet))
-        or not _non_grass_surface_models(world.get("non_grass_surface_models"))
+        or not _planet_observations(world.get("planet_observations"), player)
         or not isinstance(evaluations, list)
         or not isinstance(sections, list)
         or any(
@@ -216,8 +258,9 @@ def snapshot(directory: Path, *, command_id: int | None = None) -> tuple[dict, d
         )
         or any(
             not isinstance(item, dict)
+            or set(item) != {"scope", "section", "verdict"}
             or item.get("scope") not in {"system", "planet"}
-            or item.get("mode") not in {"all", "any"}
+            or not isinstance(item.get("section"), str)
             or item.get("verdict") not in verdicts
             for item in sections
         )

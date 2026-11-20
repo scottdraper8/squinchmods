@@ -12,6 +12,7 @@ from pathlib import Path
 from .errors import InvestigationError
 
 MAX_BYTES = 1_100_000
+MAX_STATE_BYTES = 8 * 1024 * 1024
 INSTANCE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{32}$")
 ACTION_CAPABILITIES = {
     "start": "search.control/v1",
@@ -21,11 +22,11 @@ ACTION_CAPABILITIES = {
 }
 
 
-def read_json(path: Path) -> dict:
+def read_json(path: Path, *, max_bytes: int = MAX_BYTES) -> dict:
     try:
         with path.open("rb") as stream:
-            raw = stream.read(MAX_BYTES + 1)
-        if len(raw) > MAX_BYTES:
+            raw = stream.read(max_bytes + 1)
+        if len(raw) > max_bytes:
             raise ValueError("file exceeds its byte bound")
         result = json.loads(raw)
         if not isinstance(result, dict):
@@ -63,7 +64,7 @@ def status(directory: Path, *, required_capability: str | None = None) -> tuple[
     endpoint_path = directory / "agent-control.json"
     endpoint = read_json(endpoint_path)
     state_path = directory / "current.json"
-    state = read_json(state_path)
+    state = read_json(state_path, max_bytes=MAX_STATE_BYTES)
     if not INSTANCE.fullmatch(str(endpoint.get("instance", ""))):
         raise InvestigationError(
             "runtime_protocol_incompatible", "Malformed runtime instance identity"
