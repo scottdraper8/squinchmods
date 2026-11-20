@@ -73,11 +73,11 @@ The biome label is favored by high humidity (`0.7` to `1.0`) and cave depth (`0.
 no special temperature, continentalness, erosion, or weirdness target. Because selection is nearest
 neighbor, humidity `0.7` is not an absolute cutoff.
 
-The label itself does not require an existing cave, water, clay, moss, or an azalea tree. Lush
-decoration is a later stage and is biome-filtered. Individual features then search for usable cave
-geometry: air with a solid ceiling or floor, replaceable blocks, and suitable attachment positions.
-The surface azalea is therefore a locator produced by world generation, not a prerequisite checked
-before the lush-caves biome can be selected.
+The label itself does not require an existing cave, water, clay, moss, or a surface tree indicator.
+Lush decoration is a later stage and is biome-filtered. Individual features then search for usable
+cave geometry: air with a solid ceiling or floor, replaceable blocks, and suitable attachment
+positions. The surface indicator is therefore produced by world generation, not checked as a
+prerequisite before the lush-caves biome can be selected.
 
 ### Dripstone caves
 
