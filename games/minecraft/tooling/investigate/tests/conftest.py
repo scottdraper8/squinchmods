@@ -6,10 +6,8 @@ import tempfile
 from pathlib import Path
 
 _TEMPORARY = tempfile.TemporaryDirectory(prefix="squinch-minecraft-investigate-tests-")
-_WORKSPACE = (
-    Path(_TEMPORARY.name) / ".squinch" / "scratch" / "tranches" / "test-tranche"
-)
-_WORKSPACE.mkdir(parents=True)
+_WORKSPACE = Path(_TEMPORARY.name) / "test-tranche"
+_WORKSPACE.mkdir()
 (_WORKSPACE / ".tranche.json").write_text(
     json.dumps(
         {

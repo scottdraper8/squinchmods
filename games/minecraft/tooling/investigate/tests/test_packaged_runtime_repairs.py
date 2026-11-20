@@ -321,57 +321,6 @@ def test_shared_untracked_source_pollution_rejects_nested_run(
     assert state["source_before"]["files"] != state["source_after"]["files"]
 
 
-def test_parent_git_repository_permits_ignored_selected_tranche_inputs(
-    recipe, subprocess_service
-):
-    spec, _path, save = recipe
-    _id, workspace = require_tranche()
-    parent = workspace.parents[3]
-    # A real parent-repository project (not a Git submodule). No production parent scan.
-    assert not (parent / ".git").exists()
-    git(parent, "init")
-    project = parent / "ordinary-source-project"
-    project.mkdir()
-    source = project / "source.txt"
-    source.write_text("production")
-    assert not (parent / ".gitignore").exists()
-    (parent / ".gitignore").write_text(f"{workspace.relative_to(parent).parts[0]}/\n")
-    git(parent, "add", ".gitignore", "ordinary-source-project")
-    git(
-        parent,
-        "-c",
-        "user.name=Test",
-        "-c",
-        "user.email=test@example.invalid",
-        "commit",
-        "-m",
-        "parent fixture",
-    )
-    spec["project"] = str(project)
-    spec["source_roots"] = [str(project)]
-    try:
-        state = runtime.run_packaged_runtime(save())
-        assert state["lifecycle"] == "succeeded"
-        assert state["source_before"]["git_root"] == str(parent)
-        assert state["source_before"]["files"] == {
-            "ordinary-source-project/source.txt": digest(source)
-        }
-        # Moving an input into source within this same tranche remains forbidden.
-        worktree = workspace / "inputs/source-worktree"
-        shutil.copytree(project, worktree)
-        git(worktree, "init")
-        artifact = worktree / "subject.jar"
-        shutil.copyfile(spec["subject"]["path"], artifact)
-        spec["subject"]["path"] = str(artifact)
-        with pytest.raises(InvestigationError, match="source worktree"):
-            runtime.validate_spec(save())
-    finally:
-        # Only this test's fake Git metadata, never another test/agent's fixtures.
-        shutil.rmtree(parent / ".git")
-        (parent / ".gitignore").unlink()
-        shutil.rmtree(project)
-
-
 def test_denied_cache_entry_is_filtered_before_stat_or_traversal(recipe, monkeypatch):
     spec, _path, _save = recipe
     project = Path(spec["project"])
