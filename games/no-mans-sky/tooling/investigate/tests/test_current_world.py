@@ -48,6 +48,23 @@ def test_current_world_returns_matching_live_snapshot(tmp_path: Path) -> None:
             "resources": None,
         },
         "planet": None,
+        "non_grass_surface_models": {
+            "classification": 2**31 | 8,
+            "labels": ["Green"],
+            "complete": True,
+            "models": [
+                {
+                    "model": "MODELS/PLANETS/BIOMES/COMMON/PLANTS/TREE.SCENE.MBIN",
+                    "source_ground_index": 2,
+                    "match_ground_colour": False,
+                    "ground_colour_index": 1,
+                    "swap_primary_for_random": False,
+                    "swap_primary_for_secondary": True,
+                    "classification": 2**31 | 8,
+                    "labels": ["Green"],
+                }
+            ],
+        },
         "system_verdict": "match",
         "planet_verdict": None,
         "target_verdict": "match",

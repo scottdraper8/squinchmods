@@ -30,9 +30,14 @@ exact gradient progress and native gradient-speed vector used by that model. It 
 main, upper, solar, and sun colour components from the same generated record because one reference
 sample does not describe the whole rendered dome. The world colour filter remains a separate native
 criterion: applying its isolated LUT directly to an atmosphere anchor is invalid because the game
-performs view-dependent scattering before runtime LUT blending. Flora may finish early once an
-allowed colour is proven; in that case the response publishes the colours actually observed, every
-colour category already evaluated, and `complete: false` instead of discarding the partial evidence.
+performs view-dependent scattering before runtime LUT blending. Ordinary flora searches may finish
+early once an allowed colour is proven; their fact observation retains the colours actually
+observed, every category already evaluated, and `complete: false`. Explicit current-world inspection
+instead evaluates every generated surface model for the loaded planet. Its
+`non_grass_surface_models` inventory reports each model path and palette context, all classified
+colours, per-model failures, and whether the aggregate inventory is complete. These are generated
+non-grass surface objects, not an assertion that every model is a plant. The inventory is inspection
+output only and is not retained by ordinary searches.
 
 With NMS on a loaded save:
 

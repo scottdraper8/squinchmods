@@ -373,6 +373,54 @@ The command emits guarded per-snapshot patches and a manifest without changing l
 whose selected locations are already in range receives an empty patch. Stage and verify non-empty
 patches, then install them together with `apply-batch`.
 
+### Offline system transport
+
+`transport` prepares one Auto or Manual save for an in-ship arrival in the requested system. Provide
+the galaxy number (1 = Euclid, up to 256) and either 12 hexadecimal portal glyphs or galactic
+coordinates in `XXXX:YYYY:ZZZZ:SSSS` format. Use a known existing system address. A glyph code
+contributes its system coordinates; the staged save uses planet index 0 for a space arrival.
+Portal-side arrival and exact surface positions require a different travel mechanism.
+
+```sh
+tooling/squinch --tranche example-save-edit nms-save transport /path/to/save.hg \
+  --mapping /path/to/mapping.json --galaxy 1 --glyphs 1100FEFFF002
+tooling/squinch --tranche example-save-edit nms-save verify-stage /path/to/returned/stage
+tooling/squinch --tranche example-save-edit nms-save apply /path/to/returned/stage --apply
+```
+
+Use `--coordinates 0801:007D:07FE:0100` for the same example destination. Inspect the returned
+galaxy and decoded destination before applying with NMS closed. Load the selected snapshot. The
+generated patch addresses the active Main or Season context and preserves the other snapshot.
+
+### Inventory editing and technology installation
+
+`inventory-edit-plan` adds, removes, or sets total item quantities, fills every valid general slot
+with a round-robin item set, and installs known technology into open valid technology slots. It
+supports `exosuit`, `freighter`, `current-starship`, `current-multitool`, `starship:N`, and
+`exocraft:N`. `--expected-save-name` guards against targeting a reordered slot. `current-multitool`
+accepts technology installation only.
+
+Item definitions provide the game's internal ID, inventory type, and product/substance table stack
+multiplier. The command derives the actual maximum from each target inventory's existing stack
+limits and its saved `InventoryStackLimits` difficulty. It therefore preserves restricted Survival
+or Permadeath capacities rather than writing Normal-mode maxima. If the target does not contain
+enough stack evidence, it fails closed. Technology installation clones an exact installed template
+already present elsewhere in the same profile and fails when no unambiguous template or open slot
+exists.
+
+```bash
+tooling/squinch --tranche example-save-edit nms-save inventory-edit-plan \
+  --directory /path/to/st_profile --mapping /path/to/mapping-7.14.json \
+  --target-slot 7 --expected-save-name 'Dev Testing' --inventory exosuit \
+  --define-item '^TRA_CURIO1:Product:1' --add-item '^TRA_CURIO1:50' \
+  --output-directory /path/inside/tranche/outputs/inventory-edit
+```
+
+Use `--remove-item ID:QUANTITY` or `--set-item ID:QUANTITY` for total-quantity edits. Repeat
+`--fill-item ID` to replace the entire general inventory with full stacks of defined items. Repeat
+`--install-technology ID` to install exact known technologies. Generated guarded patches remain
+inert until staged and applied.
+
 ## Transactional editing
 
 Author an RFC 6902 patch in the tranche. Use `test` operations to make assumptions explicit before

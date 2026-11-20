@@ -117,6 +117,51 @@ def _facts(value: object) -> bool:
     )
 
 
+def _non_grass_surface_models(value: object) -> bool:
+    if value is None:
+        return True
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"classification", "labels", "complete", "models"}
+        or not isinstance(value.get("classification"), int)
+        or not isinstance(value.get("labels"), list)
+        or any(not isinstance(label, str) for label in value["labels"])
+        or not isinstance(value.get("complete"), bool)
+        or not isinstance(value.get("models"), list)
+    ):
+        return False
+    fields = {
+        "model",
+        "source_ground_index",
+        "match_ground_colour",
+        "ground_colour_index",
+        "swap_primary_for_random",
+        "swap_primary_for_secondary",
+        "labels",
+    }
+    for model in value["models"]:
+        if (
+            not isinstance(model, dict)
+            or not fields.issubset(model)
+            or set(model) - fields - {"classification", "error"}
+            or not isinstance(model.get("model"), str)
+            or not model["model"]
+            or not isinstance(model.get("source_ground_index"), int)
+            or not isinstance(model.get("match_ground_colour"), bool)
+            or not isinstance(model.get("ground_colour_index"), int)
+            or not isinstance(model.get("swap_primary_for_random"), bool)
+            or not isinstance(model.get("swap_primary_for_secondary"), bool)
+            or not isinstance(model.get("labels"), list)
+            or any(not isinstance(label, str) for label in model["labels"])
+            or ("classification" in model) == ("error" in model)
+            or ("classification" in model and not isinstance(model["classification"], int))
+            or ("error" in model and not isinstance(model["error"], str))
+            or ("error" in model and model["labels"])
+        ):
+            return False
+    return True
+
+
 def snapshot(directory: Path, *, command_id: int | None = None) -> tuple[dict, dict, dict]:
     endpoint, state = runtime_protocol.status(directory, required_capability="nms.current-world/v1")
     player = state.get("player")
@@ -158,6 +203,7 @@ def snapshot(directory: Path, *, command_id: int | None = None) -> tuple[dict, d
         or (world.get("planet_verdict") is not None and world["planet_verdict"] not in verdicts)
         or not _facts(system)
         or (planet is not None and not _facts(planet))
+        or not _non_grass_surface_models(world.get("non_grass_surface_models"))
         or not isinstance(evaluations, list)
         or not isinstance(sections, list)
         or any(
