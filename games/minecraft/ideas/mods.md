@@ -8,8 +8,8 @@ A configurable portal-behavior and dimensional-access mod for modpack authors, s
 single-player worlds.
 
 Core idea: define rules for how portals behave instead of being limited to each portal mod's default
-logic. The mod should support in-game configuration through an admin UI, plus file/datapack-based
-configuration for pack distribution.
+logic. The mod should support in-game configuration through a UI available via mod menu etc, plus
+file/datapack-based configuration for pack distribution.
 
 Intended capabilities:
 

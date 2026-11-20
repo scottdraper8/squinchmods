@@ -11,12 +11,15 @@ from .state import atomic_write_json
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--cwd", type=Path, help="Explicit isolated inner application directory"
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error("a command is required after --")
-    exit_code = subprocess.run(command, check=False).returncode
+    exit_code = subprocess.run(command, cwd=args.cwd, check=False).returncode
     atomic_write_json(
         args.output,
         {

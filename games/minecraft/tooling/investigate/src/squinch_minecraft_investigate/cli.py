@@ -15,6 +15,11 @@ from .comparison import run_exact_comparison, structured_diff
 from .errors import InvestigationError
 from .generation import generate_regions
 from .output import emit, envelope, timestamp
+from .packaged_runtime import (
+    resolve_packaged_project,
+    run_packaged_runtime,
+    validate_spec,
+)
 from .paths import (
     LOCKS_ROOT,
     STATE_ROOT,
@@ -176,6 +181,15 @@ def parser() -> argparse.ArgumentParser:
         help="Constrain the complete owned client service to an explicit host CPU set",
     )
     client.add_argument("--timeout", type=float, default=300.0)
+
+    packaged = subparsers.add_parser(
+        "packaged-runtime",
+        help="Run exact prebuilt JARs in a verified prepared runtime",
+    )
+    _common(packaged, project=False)
+    packaged.add_argument(
+        "spec_file", type=Path, help="Task-local strict JSON runtime specification"
+    )
 
     scenario = subparsers.add_parser(
         "scenario", help="Run one versioned TOML investigation scenario"
@@ -346,6 +360,11 @@ def _properties(values: list[str]) -> dict[str, str]:
 
 
 def _resolve(args: argparse.Namespace) -> tuple[Path, str]:
+    if getattr(args, "command", None) in {"status", "doctor"}:
+        # Diagnosis does not require a Gradle wrapper or a modern per-loader layout.
+        # load_owned_active still validates the complete operation/service identity.
+        candidate = Path(args.project).expanduser().resolve()
+        return resolve_packaged_project(candidate), args.loader
     project = resolve_project(args.project)
     validate_loader(project, args.loader)
     return project, args.loader
@@ -385,6 +404,16 @@ def _public_state(state: dict) -> dict:
         )
     else:
         value["run_dir"] = state["run_dir"]
+    if state["operation"] == "packaged-runtime":
+        value.update(
+            {
+                "side": state["side"],
+                "results": state.get("results", []),
+                "authority": state["authority"],
+            }
+        )
+        if state["display"] is not None:
+            value["display"] = state["display"]
     return value
 
 
@@ -1064,6 +1093,25 @@ def _preset_export(args: argparse.Namespace) -> tuple[dict, str]:
     )
 
 
+def _packaged_runtime(args: argparse.Namespace) -> tuple[dict, str]:
+    validate_spec(
+        args.spec_file
+    )  # CLI boundary; implementation revalidates independently.
+    state = run_packaged_runtime(args.spec_file)
+    return (
+        envelope(
+            "packaged-runtime",
+            "succeeded",
+            run_id=state["run_id"],
+            started_at=state["started_at"],
+            finished_at=state["finished_at"],
+            artifact_paths=_artifacts(state),
+            data={**_public_state(state), "java": state["java"]},
+        ),
+        f"packaged runtime {state['run_id']} completed; external assertions and cleanup verified",
+    )
+
+
 HANDLERS = {
     "start": _start,
     "stop": _stop,
@@ -1072,6 +1120,7 @@ HANDLERS = {
     "command": _command,
     "run": _run,
     "client": _client,
+    "packaged-runtime": _packaged_runtime,
     "scenario": _scenario,
     "benchmark": _benchmark,
     "generate": _generate,

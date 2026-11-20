@@ -273,3 +273,10 @@ human/visual observation beside the run.
 
 Search Probes backend commands:
 [product README](../../mods/search-probes/README.md#search-without-the-ui).
+
+`tooling/squinch --tranche <id> nms-investigate observe-portal --timeout 120` watches a
+player-operated planetary portal on the supported Linux/Proton build. Start it beside an activated
+portal. Once the run directory contains `armed.json`, walk through. The result reports whether the
+collision called `cGcPortalComponent::WarpPlayer` and whether that route dispatched
+`cGcSpaceshipWarp::WarpToDistantSystem`. Linux hardware counters close when the command exits.
+Verify the destination planet, portal and ship after loading separately.

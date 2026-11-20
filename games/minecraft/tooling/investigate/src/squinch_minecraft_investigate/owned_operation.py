@@ -233,6 +233,7 @@ def run_finite_service(
     poll_complete: Callable[[dict], bool] | None = None,
     prepare: Callable[[], None] | None = None,
     cleanup: Callable[[dict], list[str]] | None = None,
+    post_teardown_validate: Callable[[dict], None] | None = None,
     state_fields: dict | None = None,
 ) -> tuple[dict, T]:
     if timeout <= 0:
@@ -459,6 +460,15 @@ def run_finite_service(
                 cleanup_failures.extend(cleanup(state))
             except BaseException as exc:  # noqa: BLE001 - cleanup must survive signals
                 cleanup_failures.append(f"{operation} cleanup callback failed: {exc}")
+        # Validation is a run outcome, never evidence of a surviving owned resource.
+        # Run even on rejected samples and retain both failures if the final check fails.
+        if post_teardown_validate is not None:
+            try:
+                post_teardown_validate(state)
+            except BaseException as exc:  # noqa: BLE001 - finish cleanup even on signals
+                state["post_teardown_failure"] = str(exc)
+                if failure is None:
+                    failure = exc
         if failure is None and pending_signals:
             failure = KeyboardInterrupt()
         state["finished_at"] = timestamp()

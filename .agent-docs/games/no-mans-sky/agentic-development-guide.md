@@ -72,3 +72,18 @@ uniquely named child under `GAMEDATA/MODS`; it does not launch, enable, reorder,
 mod. Always inspect `stage-status` before removal. Do not automate Steam/Proton client QA until a
 disposable prefix, non-personal save fixture, deterministic input/oracle, log/export collection, and
 complete process teardown are all proven on the current host.
+
+For Steam/Proton save work through the validated NMS 7.14 ceiling, use
+`tooling/squinch --tranche <id> nms-save`. Inspect and query the obfuscated JSON before authoring an
+RFC 6902 patch. Generate and verify a staged save/metadata pair before applying it. The apply
+command owns only the selected pair, refuses a running game or stale source, and creates a verified
+tranche-local backup before replacement. Use its semantic inventory with an exact 7.14 mapping to
+compare Auto/Manual slots, consolidate owned bases and equipment with provenance, audit identities
+and named galaxy ranges, and create an explicitly reviewed projection plan. Publish reusable entity
+collections with `library-publish`; use `sync-plan` and `merge-plan` for field-group composition,
+and `clone-slot` to create a rekeyed Auto/Manual pair in an empty slot. Use `finalize-layout` to
+emit guarded patches that route owned settlements, number and sort fixed bases by actual galaxy, and
+clear teleport endpoints. Projection, synchronization, merge, and finalization emit inert raw
+patches; the ordinary stage and apply gates still own all writes. Older on-disk revisions retained
+by a current profile are valid inside the documented range, while metadata above the 7.14 ceiling
+fails closed pending a new evidence pass and ceiling bump.

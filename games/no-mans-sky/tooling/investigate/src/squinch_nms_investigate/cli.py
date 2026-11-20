@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from .asset_validation import verify_asset_compile
@@ -91,6 +92,12 @@ def parser() -> argparse.ArgumentParser:
     _common(current_world, game=True)
     current_world.add_argument("--settings-dir", type=Path)
     current_world.add_argument("--timeout", type=float, default=120)
+
+    portal = sub.add_parser(
+        "observe-portal", help="Observe a player-operated planetary portal crossing on Proton"
+    )
+    _common(portal, game=True)
+    portal.add_argument("--timeout", type=float, default=120, help="Seconds to wait for crossing")
 
     toolchain = sub.add_parser(
         "toolchain", help="Inspect or acquire the pinned investigation toolchain"
@@ -431,6 +438,30 @@ def main(argv: list[str] | None = None) -> None:
                 else "succeeded"
             )
             _finish(run, "search", outcome, data, json_mode=json_mode)
+            return
+
+        if args.command == "observe-portal":
+            from .portal import observe
+
+            game_root = resolve_game_root(args.game_root)
+            run = create_run("observe-portal", _jsonable(vars(args)))
+
+            def armed(identity: dict) -> None:
+                run.write("armed.json", identity)
+                print(
+                    "Portal observer armed. Walk through the activated portal.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            data = observe(game_root, args.timeout, armed)
+            _finish(
+                run,
+                args.command,
+                "succeeded" if data["jump_requested"] else "inconclusive",
+                data,
+                json_mode=json_mode,
+            )
             return
 
         if args.command == "current-world":

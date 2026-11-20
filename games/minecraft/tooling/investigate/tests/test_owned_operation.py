@@ -447,3 +447,81 @@ def test_owned_teardown_phases_share_one_monotonic_budget(
     assert waits == [2.0, 0.5]
     assert signals == [2.0, 0.5]
     assert stops == [0.0]
+
+
+def test_post_teardown_validation_runs_after_resource_cleanup(tmp_path, monkeypatch):
+    arguments = _arguments(tmp_path, monkeypatch)
+    calls = []
+
+    def terminate(*_args, **_kwargs):
+        calls.append("service")
+        return []
+
+    def cleanup(_state):
+        calls.append("resources")
+        return []
+
+    def final(state):
+        assert arguments["active_path"].exists()
+        assert state["lifecycle"] == "running"
+        calls.append("validation")
+
+    monkeypatch.setattr(owned_operation, "terminate_owned_service", terminate)
+    state, result = owned_operation.run_finite_service(
+        **arguments,
+        validate=lambda _state: "validated",
+        cleanup=cleanup,
+        post_teardown_validate=final,
+    )
+    assert calls == ["service", "resources", "validation"]
+    assert state["cleanup"]["complete"]
+    assert result == "validated"
+    assert not arguments["active_path"].exists()
+
+
+@pytest.mark.parametrize("initial_failure", [False, True])
+@pytest.mark.parametrize("cleanup_failure", [False, True])
+def test_post_teardown_rejection_is_not_incomplete_cleanup(
+    tmp_path, monkeypatch, initial_failure, cleanup_failure
+):
+    arguments = _arguments(tmp_path, monkeypatch)
+    calls = []
+
+    def validate(_state):
+        if initial_failure:
+            raise InvestigationError("initial_failure", "initial rejection")
+        return "validated"
+
+    def final(_state):
+        calls.append("post-teardown")
+        raise InvestigationError("late_failure", "late rejection")
+
+    with pytest.raises(InvestigationError) as caught:
+        owned_operation.run_finite_service(
+            **arguments,
+            validate=validate,
+            cleanup=lambda _state: ["display remains"] if cleanup_failure else [],
+            post_teardown_validate=final,
+        )
+    assert calls == ["post-teardown"]
+    manifest = json.loads((arguments["artifact_dir"] / "manifest.json").read_text())
+    assert manifest["post_teardown_failure"] == "late rejection"
+    assert manifest["failure"] == (
+        "initial rejection" if initial_failure else "late rejection"
+    )
+    assert arguments["active_path"].exists() == cleanup_failure
+    if cleanup_failure:
+        assert isinstance(caught.value, CleanupError)
+        assert manifest["lifecycle"] == "cleanup_failed"
+        assert manifest["cleanup"] == {
+            "complete": False,
+            "failures": ["display remains"],
+        }
+    else:
+        assert not isinstance(caught.value, CleanupError)
+        assert caught.value.code == (
+            "initial_failure" if initial_failure else "late_failure"
+        )
+        assert caught.value.details["cleanup_complete"]
+        assert manifest["lifecycle"] == "failed"
+        assert manifest["cleanup"] == {"complete": True, "failures": []}

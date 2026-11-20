@@ -118,6 +118,37 @@ while substituting immutable plan inputs.
 Method-body-only patches that expose no complete stable snapshot remain outside the contract. They
 must not be inferred from private fields or recreated by replaying registration events.
 
+Selecting an FTF world preset retains its generator, dimension type and density settings when a
+datapack declares a vanilla noise generator for the same dimension. The declaration contributes its
+public biome-source graph before preview/server ownership is established. Other generator subclasses
+require an explicit composition contract; silently discarding their behavior is not supported.
+Creation-UI reload re-encodes selected inputs without obsolete acquired biome holders, then
+reacquires the new declarations. Normal world persistence retains both selected and acquired inputs.
+
+New FTF preset exports explicitly request `bundled_biome_domains` surface acquisition. The
+contiguous bundled-mod resource suffix beneath the marker contributes complete surface roots. Public
+loader metadata and known-pack identity establish origin, not content-mod names or implementation
+classes. Minecraft's filtered resource stack is authoritative. User/unknown-origin roots are
+replacement barriers; their shadowed payloads are not opened. Old markers without a policy keep
+highest-lower `replace` semantics, and unmarked authored settings remain unchanged. When no lower
+input exists, the marker's explicit vanilla fallback applies. Nested explicit inheritance descends
+the stack acyclically.
+
+Supported finite biome discriminators define domains. Higher-priority roots own overlaps; lower
+roots recover otherwise missing domains. The highest root owns the default domain. Each selected
+domain executes its complete authored root, including guards, order and fallback. Disjoint dispatch
+prevents a null result from falling through into another root. Unknown executable nodes can remain
+inside a proven finite biome guard; required unbounded opaque analysis fails rather than guessing. A
+single root requires no domain analysis. Acquisition traverses known rule-child positions only,
+never opaque condition or rule payloads that happen to resemble FTF markers.
+
+Only surface behavior is imported, not companion density or dimension geometry. Referenced noise and
+biome resources bind to ordinary frozen registry winners, not per-pack private registries. Immutable
+provenance records resource, pack, priority, fingerprint and domain. The typed codec materializes
+the root before publication and rejects actual failed acquisition snapshots when compiling the
+surface facet; unrelated preview facets remain available. No resource manager, pack object or loader
+callback is retained for generation. FTF strata remain a separately authored rule.
+
 ### TerraBlender
 
 TerraBlender supplies public Overworld candidate-domain inputs. Applicability follows its public
@@ -204,10 +235,25 @@ owner chunk; wrapping preserves whole-chunk density instead of piling results on
 missing, conflicting, and unknown identities retain their original behavior. The contract is
 selected by graph semantics, not a mod or namespace.
 
-## Requalification contract
+Modifier-free, direct built-in erosion roots in RAW_GENERATION are lowered to an owner-local
+surface-column schedule. Terrain preparation must finish before neighboring decoration can paint the
+chunk. Materialization retains the original configured root, radius-one biome eligibility,
+feature-sort index and seed, and removes only those roots from late biome feature settings. It does
+not mutate registered biome settings or globally suppress ErodeFeature. Custom subclasses, placement
+modifiers, nested configured graphs and roots explicitly used in later stages retain their authored
+execution. Replacement plans materialize a new schedule before atomic publication.
 
-Release qualification requires evidence for all of the following with current exact-version
-artifacts under catalog policy:
+Underground biome protection covers the entire block footprint of a quart biome cell, including
+vanilla biome smoothing and adjacent exposed faces, rather than relying only on vertical depth at
+one point. The bounded terrain envelope retains the existing vertical safety/transition and
+configured world ceiling. Distant prediction cannot force tile generation. Loaded-terrain and
+unfiltered-prediction cache entries are distinct, owner-local, bounded, and do not retain tile
+leases. The loaded query uses its owned local terrain tile's filter halo; neighboring tile load
+order must not change the envelope or switch it back to unfiltered prediction at a tile boundary.
+
+## CI qualification contract
+
+CI qualification should cover the following behaviors against the supported exact versions:
 
 - deterministic extraction, ordering, owner isolation, reload, cancellation, and narrow failures;
 - preview/server separation and actual Fabric/NeoForge world-creation UI behavior;

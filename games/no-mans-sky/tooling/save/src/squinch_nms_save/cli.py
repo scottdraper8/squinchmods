@@ -13,9 +13,10 @@ from .discovery import create_discovery_redistribution_patches
 from .errors import SaveToolError
 from .finalize import create_finalization_patches
 from .inventory import build_inventory
+from .inventory_edit import create_inventory_edit_patches
 from .jsonops import diff_values, find_matches, resolve, value_type
 from .library import publish_library, publish_systems_library
-from .location import LOCATION_FIELDS, create_location_rehome_patches
+from .location import LOCATION_FIELDS, create_location_rehome_patches, stage_transport
 from .mapping import acquire_mapping, verify_mapping
 from .meta import inspect_meta_file
 from .output import emit, envelope
@@ -248,6 +249,26 @@ def _parser() -> argparse.ArgumentParser:
     cleanup_parser.add_argument("--policy", type=Path)
     cleanup_parser.add_argument("--output-directory", required=True, type=Path)
 
+    inventory_edit_parser = commands.add_parser(
+        "inventory-edit-plan", help="Add/remove/set/fill inventory items or install technology"
+    )
+    inventory_edit_parser.add_argument("--directory", required=True, type=Path)
+    inventory_edit_parser.add_argument("--mapping", required=True, type=Path)
+    inventory_edit_parser.add_argument(
+        "--target-slot", required=True, action="append", type=int, dest="target_slots"
+    )
+    inventory_edit_parser.add_argument("--inventory", required=True)
+    inventory_edit_parser.add_argument(
+        "--define-item", action="append", default=[], help="ID:Product|Substance:STACK_MULTIPLIER"
+    )
+    inventory_edit_parser.add_argument("--add-item", action="append", default=[])
+    inventory_edit_parser.add_argument("--remove-item", action="append", default=[])
+    inventory_edit_parser.add_argument("--set-item", action="append", default=[])
+    inventory_edit_parser.add_argument("--fill-item", action="append", default=[])
+    inventory_edit_parser.add_argument("--install-technology", action="append", default=[])
+    inventory_edit_parser.add_argument("--expected-save-name")
+    inventory_edit_parser.add_argument("--output-directory", required=True, type=Path)
+
     discovery_list_parser = commands.add_parser(
         "discovery-list", help="List stored systems and canonical addresses for targeted edits"
     )
@@ -281,6 +302,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     location_rehome_parser.add_argument("--policy", type=Path)
     location_rehome_parser.add_argument("--output-directory", required=True, type=Path)
+
+    transport = commands.add_parser("transport", help="Stage an in-ship move to a target system")
+    transport.add_argument("save", type=Path, help="Auto or Manual .hg snapshot to transport")
+    transport.add_argument("--mapping", required=True, type=Path)
+    transport.add_argument("--galaxy", required=True, type=int, help="Galaxy number, 1 through 256")
+    destination = transport.add_mutually_exclusive_group(required=True)
+    destination.add_argument("--glyphs", help="12 hex portal glyphs (the system portion is used)")
+    destination.add_argument("--coordinates", help="Galactic coordinates XXXX:YYYY:ZZZZ:SSSS")
 
     clone_parser = commands.add_parser(
         "clone-slot", help="Create a new slot from a template with selected entities cleared"
@@ -619,6 +648,22 @@ def _run(args: argparse.Namespace) -> tuple[str, dict[str, Any], list[str], str 
             policy_path=args.policy,
         )
         return "planned", result, artifacts, Path(result["output_directory"]).name
+    if args.command == "inventory-edit-plan":
+        result, artifacts = create_inventory_edit_patches(
+            args.directory,
+            args.mapping,
+            args.output_directory,
+            target_slots=args.target_slots,
+            inventory_selector=args.inventory,
+            definitions=args.define_item,
+            add_items=args.add_item,
+            remove_items=args.remove_item,
+            set_items=args.set_item,
+            fill_items=args.fill_item,
+            install_technology=args.install_technology,
+            expected_save_name=args.expected_save_name,
+        )
+        return "planned", result, artifacts, Path(result["output_directory"]).name
     if args.command == "discovery-list":
         return "succeeded", list_discovery_systems(args.save, args.mapping), [], None
     if args.command == "discovery-redistribute-plan":
@@ -641,6 +686,15 @@ def _run(args: argparse.Namespace) -> tuple[str, dict[str, Any], list[str], str 
             policy_path=args.policy,
         )
         return "planned", result, artifacts, Path(result["output_directory"]).name
+    if args.command == "transport":
+        result = stage_transport(
+            args.save,
+            args.mapping,
+            args.galaxy,
+            glyphs=args.glyphs,
+            coordinates=args.coordinates,
+        )
+        return "staged", result, [result["stage"]], Path(result["stage"]).name
     if args.command == "clone-slot":
         result = clone_slot(
             args.directory,

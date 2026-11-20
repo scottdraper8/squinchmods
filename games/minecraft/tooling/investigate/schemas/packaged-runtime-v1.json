@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Generic prepared packaged runtime specification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "source_roots", "loader", "minecraft", "side", "template", "subject", "companions", "java", "arguments", "environment", "results", "timeout"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project": {"$ref": "#/$defs/absolutePath"},
+    "source_roots": {
+      "description": "Explicit production source boundaries in the project's Git worktree, including shared source outside a nested build target. Only these roots are snapshotted; no whole-parent discovery.",
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/absolutePath"}
+    },
+    "loader": {"enum": ["fabric", "forge", "neoforge", "quilt"]},
+    "minecraft": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"},
+    "side": {"enum": ["server", "client"]},
+    "template": {
+      "type": "object", "additionalProperties": false, "required": ["path", "files", "mutable_files"],
+      "properties": {
+        "path": {"$ref": "#/$defs/absolutePath"},
+        "files": {"type": "object", "minProperties": 1, "propertyNames": {"$ref": "#/$defs/relativePath"}, "additionalProperties": {"$ref": "#/$defs/sha256"}},
+        "mutable_files": {
+          "description": "Exact existing configuration files allowed to change only in the runtime copy. No code, archives, libraries or launch inputs. Final SHA-256 identities are recorded.",
+          "type": "array", "uniqueItems": true,
+          "items": {"$ref": "#/$defs/relativePath"}
+        }
+      }
+    },
+    "subject": {"$ref": "#/$defs/artifact"},
+    "companions": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "java": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256", "version"],
+      "properties": {"path": {"$ref": "#/$defs/absolutePath"}, "sha256": {"$ref": "#/$defs/sha256"}, "version": {"type": "string", "minLength": 1}}
+    },
+    "arguments": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1, "pattern": "^[^\u0000\r\n]+$"}},
+    "environment": {"type": "object", "propertyNames": {"$ref": "#/$defs/environment"}, "additionalProperties": {"type": "string", "pattern": "^[^\u0000\r\n]*$"}},
+    "results": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["environment", "name", "cases"],
+        "properties": {
+          "environment": {"$ref": "#/$defs/environment"},
+          "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*\\.json$"},
+          "cases": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/caseId"}}
+        }
+      }
+    },
+    "timeout": {"type": "number", "exclusiveMinimum": 0, "maximum": 86400}
+  },
+  "$defs": {
+    "absolutePath": {"type": "string", "pattern": "^/[^\u0000\r\n]+$"},
+    "relativePath": {"type": "string", "pattern": "^[A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "environment": {"type": "string", "pattern": "^SQUINCH_[A-Z0-9_]+$"},
+    "caseId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256", "name"],
+      "properties": {"path": {"$ref": "#/$defs/absolutePath"}, "sha256": {"$ref": "#/$defs/sha256"}, "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*\\.jar$"}}
+    }
+  }
+}

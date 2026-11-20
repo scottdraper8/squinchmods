@@ -3,21 +3,23 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import uuid
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from .cleanup import _replace
+from .cleanup import _pointer, _replace
 from .codec import decode_file, serialize_json
 from .errors import SaveToolError
 from .inventory import _text
-from .jsonops import apply_patch
+from .jsonops import apply_patch, resolve
 from .mapping import SaveMapping
 from .meta import inspect_meta_file
 from .paths import list_saves
 from .policy import SavePolicy
-from .stage import sha256_file
+from .stage import create_stage, sha256_file
 from .sync import _slot_pairs, _workspace_output
 
 LOCATION_FIELDS = {
@@ -25,6 +27,86 @@ LOCATION_FIELDS = {
     "previous": "PreviousUniverseAddress",
     "freighter": "FreighterUniverseAddress",
 }
+
+
+def _signed_voxel(value: int, bits: int) -> int:
+    return value - (1 << bits) if value >= 1 << (bits - 1) else value
+
+
+def _system_address(galaxy: int, *, glyphs: str | None, coordinates: str | None) -> dict:
+    if not 1 <= galaxy <= 256:
+        raise SaveToolError("galaxy must be 1 through 256 (Euclid is 1)")
+    if (glyphs is None) == (coordinates is None):
+        raise SaveToolError("provide exactly one of --glyphs or --coordinates")
+    if glyphs is not None:
+        if not re.fullmatch(r"[0-9A-Fa-f]{12}", glyphs):
+            raise SaveToolError("portal glyphs must be 12 hex digits in PSSSYYZZZXXX order")
+        system = int(glyphs[1:4], 16)
+        y = _signed_voxel(int(glyphs[4:6], 16), 8)
+        z = _signed_voxel(int(glyphs[6:9], 16), 12)
+        x = _signed_voxel(int(glyphs[9:], 16), 12)
+    else:
+        if not coordinates or not re.fullmatch(
+            r"(?:[0-9A-Fa-f]{4}:){3}[0-9A-Fa-f]{4}", coordinates
+        ):
+            raise SaveToolError("galactic coordinates must be four hex groups XXXX:YYYY:ZZZZ:SSSS")
+        x, y, z, system = (int(part, 16) for part in coordinates.split(":"))
+        x, y, z = x - 0x7FF, y - 0x7F, z - 0x7FF
+    if not (-2047 <= x <= 2047 and -127 <= y <= 127 and -2047 <= z <= 2047 and system <= 4095):
+        raise SaveToolError("destination is outside the supported galactic coordinate bounds")
+    return {
+        "RealityIndex": galaxy - 1,
+        "GalacticAddress": {
+            "VoxelX": x,
+            "VoxelY": y,
+            "VoxelZ": z,
+            "SolarSystemIndex": system,
+            "PlanetIndex": 0,
+        },
+    }
+
+
+def _transport_patch(raw: dict, *, mapping: SaveMapping, destination: dict) -> list[dict]:
+    active_path = _pointer(mapping, "ActiveContext")
+    active = resolve(raw, active_path)
+    if active not in ("Main", "Season"):
+        raise SaveToolError(f"unsupported active save context: {active!r}")
+    context = "BaseContext" if active == "Main" else "ExpeditionContext"
+    address_path = (context, "PlayerStateData", "UniverseAddress")
+    state_path = (context, "SpawnStateData", "LastKnownPlayerState")
+    address = mapping.deobfuscate(resolve(raw, _pointer(mapping, *address_path)))
+    state = resolve(raw, _pointer(mapping, *state_path))
+    galactic = address.get("GalacticAddress") if isinstance(address, dict) else None
+    if (
+        not isinstance(state, str)
+        or not isinstance(galactic, dict)
+        or type(address.get("RealityIndex")) is not int
+        or any(type(galactic.get(field)) is not int for field in destination["GalacticAddress"])
+    ):
+        raise SaveToolError("active save context has malformed player address or spawn state")
+    operations = [{"op": "test", "path": active_path, "value": active}]
+    new_address = {
+        **address,
+        "RealityIndex": destination["RealityIndex"],
+        "GalacticAddress": {**galactic, **destination["GalacticAddress"]},
+    }
+    _replace(operations, mapping, address_path, address, new_address)
+    _replace(operations, mapping, state_path, state, "InShip")
+    return operations
+
+
+def stage_transport(
+    save: Path, mapping_path: Path, galaxy: int, *, glyphs: str | None, coordinates: str | None
+) -> dict[str, Any]:
+    destination = _system_address(galaxy, glyphs=glyphs, coordinates=coordinates)
+    mapping = SaveMapping.load(mapping_path.expanduser())
+    result = create_stage(save, partial(_transport_patch, mapping=mapping, destination=destination))
+    return {
+        **result,
+        "galaxy": galaxy,
+        "destination": destination,
+        "arrival": "InShip",
+    }
 
 
 def _write_new(path: Path, data: bytes) -> None:

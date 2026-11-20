@@ -6,11 +6,12 @@ import os
 import shutil
 import tempfile
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .codec import RawNumber, decode_bytes, decode_file, encode_document
+from .codec import RawNumber, decode_bytes, decode_file, encode_document, serialize_json
 from .errors import SaveToolError
 from .jsonops import apply_patch, json_equal
 from .meta import inspect_meta_bytes, rename_meta, update_meta
@@ -111,7 +112,7 @@ def _write_new(path: Path, data: bytes) -> None:
 
 def create_stage(
     source_path: Path,
-    patch_path: Path,
+    patch_path: Path | Callable[[dict[str, Any]], list[dict[str, Any]]],
     *,
     output_directory: Path | None = None,
     timestamp: int | None = None,
@@ -119,7 +120,6 @@ def create_stage(
 ) -> dict[str, Any]:
     source = identity(source_path)
     require_pair(source)
-    patch_path = _workspace_path(patch_path, "patch")
     try:
         original_data = source.path.read_bytes()
         original_meta = source.meta_path.read_bytes()
@@ -139,7 +139,13 @@ def create_stage(
             "source metadata compressed size does not match the source save; refusing to stage"
         )
 
-    operations, patch_bytes = _read_patch(patch_path)
+    if callable(patch_path):
+        operations = patch_path(decoded.document)
+        patch_bytes = (serialize_json(operations) + "\n").encode()
+        patch_file = None
+    else:
+        patch_file = _workspace_path(patch_path, "patch")
+        operations, patch_bytes = _read_patch(patch_file)
     edited = apply_patch(decoded.document, operations)
     staged_data, decompressed_size = encode_document(edited)
     staged_meta, staged_meta_info = update_meta(
@@ -186,6 +192,9 @@ def create_stage(
 
     data_name = source.path.name
     meta_name = source.meta_path.name
+    if patch_file is None:
+        patch_file = stage_dir / "patch.json"
+        _write_new(patch_file, patch_bytes)
     _write_new(stage_dir / data_name, staged_data)
     _write_new(stage_dir / meta_name, staged_meta)
     manifest: dict[str, Any] = {
@@ -198,7 +207,7 @@ def create_stage(
             "meta_sha256": sha256_bytes(original_meta),
         },
         "patch": {
-            "path": str(patch_path.expanduser().resolve()),
+            "path": str(patch_file),
             "sha256": sha256_bytes(patch_bytes),
             "operations": [
                 {key: operation[key] for key in ("op", "path", "from") if key in operation}
