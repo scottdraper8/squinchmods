@@ -26,9 +26,6 @@ own terminal session; feeding its source through stdin prevents subsequent inter
 `--screenshot PATH` retains the startup checkpoint; a failure screenshot defaults to
 `/tmp/squinch-nms-launch-failure.png`.
 
-Search Probes session rules and backend commands:
-[product README](../../mods/search-probes/README.md).
-
 The route fails closed when NMS is already running, the save profile is ambiguous, or the NMS window
 is not 3840×2160. It never uses the right-stick click bound to save deletion. After the save menu is
 ready, use `control-running.py` to reconnect a fresh controller if NMS stops accepting the original
